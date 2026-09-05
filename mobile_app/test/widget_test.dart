@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_app/main.dart';
 
 void main() {
-  testWidgets('placeholder navigation flow reaches customer home', (
+  testWidgets('customer navigation reaches the redesigned home', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyApp());
@@ -17,14 +17,15 @@ void main() {
     await tester.tap(find.text('Login'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Customer Home'), findsOneWidget);
-    expect(find.text('Navigation 2'), findsOneWidget);
-    expect(find.text('Navigation 3'), findsOneWidget);
-    expect(find.text('Navigation 4'), findsOneWidget);
+    expect(find.text('Bhagya'), findsOneWidget);
+    expect(find.text('Fair matching for household work'), findsOneWidget);
+    expect(find.text('My jobs'), findsOneWidget);
+    expect(find.text('Alerts'), findsOneWidget);
+    expect(find.text('Profile'), findsOneWidget);
 
-    await tester.tap(find.text('Navigation 4'));
+    await tester.tap(find.text('Profile'));
     await tester.pump();
-    expect(find.text('Customer Navigation 4'), findsOneWidget);
+    expect(find.text('Your profile'), findsOneWidget);
   });
 
   testWidgets('customer registration returns to login', (
@@ -44,7 +45,7 @@ void main() {
     expect(find.text('Customer Login'), findsOneWidget);
   });
 
-  testWidgets('worker flow reaches all placeholder destinations', (
+  testWidgets('worker flow reaches all redesigned destinations', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyApp());
@@ -61,16 +62,13 @@ void main() {
 
     await tester.tap(find.text('Login'));
     await tester.pumpAndSettle();
-    expect(find.text('Worker Home'), findsOneWidget);
+    expect(find.text('Namaste, Ravi'), findsOneWidget);
+    expect(find.text('New opportunities'), findsWidgets);
 
-    for (final destination in [
-      'Navigation 2',
-      'Navigation 3',
-      'Navigation 4',
-    ]) {
+    for (final destination in ['Opportunities', 'My jobs', 'Profile']) {
       await tester.tap(find.text(destination));
       await tester.pump();
-      expect(find.text('Worker $destination'), findsOneWidget);
     }
+    expect(find.text('Worker profile'), findsOneWidget);
   });
 }

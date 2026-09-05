@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'screens/common/splash_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const MyApp());
@@ -12,10 +13,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Cooperative Gig Services Platform',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
+      title: 'Sahakaar Seva',
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
       home: const SplashScreen(),
     );
   }
