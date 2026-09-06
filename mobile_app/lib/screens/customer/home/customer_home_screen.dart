@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/customer_gig_workflow.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../customer_account_screens.dart';
+import '../customer_main_screen.dart';
+import '../create_gig_screen.dart';
 
 class CustomerHomeScreen extends StatelessWidget {
   const CustomerHomeScreen({super.key});
@@ -67,22 +71,18 @@ class CustomerHomeScreen extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     FilledButton.icon(
-                      onPressed: () {},
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const CreateGigScreen(),
+                        ),
+                      ),
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('Create a gig'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primary,
-                      ),
                     ),
                     OutlinedButton.icon(
                       onPressed: () {},
                       icon: const Icon(Icons.warning_amber_rounded, size: 18),
                       label: const Text('Emergency'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.accent,
-                        side: const BorderSide(color: AppColors.accent),
-                      ),
                     ),
                   ],
                 ),
@@ -114,25 +114,26 @@ class CustomerHomeScreen extends StatelessWidget {
           const SizedBox(height: 22),
           const SectionTitle('Active and upcoming', action: 'View all'),
           const SizedBox(height: 4),
-          const _GigCard(
+          _GigCard(
+            gig: demoGigs[0],
             title: 'Kitchen sink leak repair',
             category: 'Plumbing repair',
-            description:
-                'Water is leaking below the sink and needs same-day repair.',
+            description: 'Leak under sink. Same-day repair required.',
             when: 'Today · 5:00 PM',
             location: 'Indiranagar, Bengaluru',
-            duration: 'Around 2 hours',
-            status: 'Accepted candidates',
+            duration: '2 hrs',
+            status: '3 workers interested',
           ),
           const SizedBox(height: 12),
-          const _GigCard(
+          _GigCard(
+            gig: demoGigs[1],
             title: 'Emergency bathroom clog',
             category: 'Emergency plumbing',
-            description: 'Urgent clog issue, needs faster nearby matching.',
+            description: 'Urgent clog. Nearby worker matching enabled.',
             when: 'Today · Immediate',
             location: 'Ulsoor, Bengaluru',
-            duration: '60–90 minutes',
-            status: 'Emergency',
+            duration: '60–90 min',
+            status: 'Emergency · Immediate',
             warning: true,
           ),
           const SizedBox(height: 22),
@@ -142,12 +143,16 @@ class CustomerHomeScreen extends StatelessWidget {
             name: 'Amit Sharma',
             skill: 'Plumber',
             initials: 'AS',
+            rating: '4.8',
+            completedJobs: '23 jobs',
           ),
           const SizedBox(height: 10),
           const _PreviousWorker(
             name: 'Rekha Patel',
             skill: 'Electrician',
             initials: 'RP',
+            rating: '4.9',
+            completedJobs: '18 jobs',
           ),
         ],
       ),
@@ -157,6 +162,7 @@ class CustomerHomeScreen extends StatelessWidget {
 
 class _GigCard extends StatelessWidget {
   const _GigCard({
+    required this.gig,
     required this.title,
     required this.category,
     required this.description,
@@ -166,6 +172,7 @@ class _GigCard extends StatelessWidget {
     required this.status,
     this.warning = false,
   });
+  final CustomerGig gig;
   final String title, category, description, when, location, duration, status;
   final bool warning;
 
@@ -198,7 +205,9 @@ class _GigCard extends StatelessWidget {
                 ],
               ),
             ),
-            StatusPill(status, warning: warning),
+            warning
+                ? _EmergencyBadge(status)
+                : StatusPill(status, warning: false),
           ],
         ),
         const SizedBox(height: 12),
@@ -207,28 +216,46 @@ class _GigCard extends StatelessWidget {
           style: const TextStyle(color: AppColors.muted, height: 1.35),
         ),
         const SizedBox(height: 13),
-        Wrap(
-          spacing: 8,
-          runSpacing: 7,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _MetaChip(icon: Icons.calendar_today_outlined, text: when),
+            const SizedBox(height: 7),
             _MetaChip(icon: Icons.location_on_outlined, text: location),
-            _MetaChip(icon: Icons.schedule_outlined, text: duration),
+            const SizedBox(height: 7),
+            _MetaChip(
+              icon: Icons.schedule_outlined,
+              text: 'Estimated · $duration',
+            ),
           ],
         ),
         const SizedBox(height: 13),
         Row(
           children: [
-            OutlinedButton.icon(
-              onPressed: null,
-              icon: Icon(Icons.timeline_rounded, size: 16),
-              label: Text('View lifecycle'),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        CustomerMainScreen(initialIndex: 1, initialGig: gig),
+                  ),
+                ),
+                icon: const Icon(Icons.timeline_rounded, size: 16),
+                label: const Text('Track job'),
+              ),
             ),
-            SizedBox(width: 8),
-            FilledButton.icon(
-              onPressed: null,
-              icon: Icon(Icons.chat_bubble_outline_rounded, size: 16),
-              label: Text('Job chat'),
+            const SizedBox(width: 8),
+            TextButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const CustomerChatThreadScreen(
+                    workerName: 'Amit Sharma',
+                    jobTitle: 'Kitchen sink leak repair',
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+              label: const Text('Chat'),
             ),
           ],
         ),
@@ -242,8 +269,11 @@ class _PreviousWorker extends StatelessWidget {
     required this.name,
     required this.skill,
     required this.initials,
+    required this.rating,
+    required this.completedJobs,
   });
   final String name, skill, initials;
+  final String rating, completedJobs;
 
   @override
   Widget build(BuildContext context) => SurfaceCard(
@@ -267,11 +297,45 @@ class _PreviousWorker extends StatelessWidget {
                 'Available now · $skill',
                 style: const TextStyle(color: AppColors.muted, fontSize: 12),
               ),
+              const SizedBox(height: 4),
+              Text(
+                '★ $rating · $completedJobs',
+                style: const TextStyle(color: AppColors.muted, fontSize: 12),
+              ),
             ],
           ),
         ),
-        OutlinedButton(onPressed: null, child: const Text('Request')),
+        OutlinedButton(
+          onPressed: () => ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Request sent to $name.'))),
+          child: const Text('Request'),
+        ),
       ],
+    ),
+  );
+}
+
+class _EmergencyBadge extends StatelessWidget {
+  const _EmergencyBadge(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: AppColors.danger.withValues(alpha: 0.12),
+      border: Border.all(color: AppColors.danger.withValues(alpha: 0.45)),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: AppColors.danger,
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+      ),
     ),
   );
 }

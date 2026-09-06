@@ -34,7 +34,6 @@ class RoleSelectionScreen extends StatelessWidget {
               _RoleCard(
                 icon: Icons.home_repair_service_rounded,
                 title: 'Customer',
-                subtitle: 'Post a job and choose the right worker',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const CustomerLoginScreen(),
@@ -45,7 +44,6 @@ class RoleSelectionScreen extends StatelessWidget {
               _RoleCard(
                 icon: Icons.handyman_rounded,
                 title: 'Worker',
-                subtitle: 'Find fair opportunities and manage your work',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const WorkerLoginScreen(),
@@ -69,57 +67,53 @@ class _RoleCard extends StatelessWidget {
   const _RoleCard({
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: SurfaceCard(
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-              foregroundColor: AppColors.primary,
-              child: Icon(icon),
+    return Semantics(
+      button: true,
+      label: title,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Ink(
+            height: 84,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.black, width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black,
+                  offset: Offset(7, 7),
+                  blurRadius: 0,
+                ),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Row(
                 children: [
+                  Icon(icon, color: Colors.black, size: 30),
+                  const SizedBox(width: 24),
                   Text(
                     title,
                     style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 13,
+                      color: Colors.black,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 16,
-              color: AppColors.muted,
-            ),
-          ],
+          ),
         ),
       ),
     );

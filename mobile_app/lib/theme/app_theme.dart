@@ -39,6 +39,9 @@ ThemeData buildAppTheme() {
       elevation: 0,
       centerTitle: false,
     ),
+    elevatedButtonTheme: ElevatedButtonThemeData(style: _appButtonStyle()),
+    filledButtonTheme: FilledButtonThemeData(style: _appButtonStyle()),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: _appButtonStyle()),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.surface,
@@ -74,3 +77,20 @@ ThemeData buildAppTheme() {
     ),
   );
 }
+
+ButtonStyle _appButtonStyle() => ButtonStyle(
+  backgroundColor: const WidgetStatePropertyAll(AppColors.surface),
+  foregroundColor: const WidgetStatePropertyAll(Colors.black),
+  overlayColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: 0.08)),
+  elevation: const WidgetStatePropertyAll(3),
+  shadowColor: const WidgetStatePropertyAll(Colors.black),
+  padding: const WidgetStatePropertyAll(
+    EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+  ),
+  shape: const WidgetStatePropertyAll(
+    RoundedRectangleBorder(
+      borderRadius: BorderRadius.zero,
+      side: BorderSide(color: Colors.black, width: 1),
+    ),
+  ),
+);

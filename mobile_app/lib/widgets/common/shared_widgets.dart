@@ -157,11 +157,293 @@ class PrimaryAction extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon ?? Icons.arrow_forward_rounded, size: 18),
       label: Text(label),
-      style: FilledButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    );
+  }
+}
+
+class AuthLoginLayout extends StatelessWidget {
+  const AuthLoginLayout({
+    super.key,
+    required this.role,
+    required this.roleIcon,
+    required this.description,
+    required this.onLogin,
+    required this.onRegister,
+  });
+
+  final String role;
+  final IconData roleIcon;
+  final String description;
+  final VoidCallback onLogin;
+  final VoidCallback onRegister;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        tooltip: 'Back',
+                      ),
+                      const Spacer(),
+                      const BrandMark(compact: true),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(roleIcon, color: AppColors.primary, size: 25),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    '$role Login',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SurfaceCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$role account',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const TextField(
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Email or mobile number',
+                            prefixIcon: Icon(Icons.person_outline_rounded),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const TextField(
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: Icon(Icons.lock_outline_rounded),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {},
+                            child: const Text('Forgot password?'),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: PrimaryAction(
+                            label: 'Login',
+                            icon: Icons.login_rounded,
+                            onPressed: onLogin,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: onRegister,
+                            icon: const Icon(Icons.person_add_alt_1_rounded),
+                            label: const Text('Register'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: Text(
+                      'Your details stay private and secure.',
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AuthRegisterLayout extends StatelessWidget {
+  const AuthRegisterLayout({
+    super.key,
+    required this.role,
+    required this.roleIcon,
+    required this.description,
+    required this.onComplete,
+    required this.onLogin,
+  });
+
+  final String role;
+  final IconData roleIcon;
+  final String description;
+  final VoidCallback onComplete;
+  final VoidCallback onLogin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        tooltip: 'Back',
+                      ),
+                      const Spacer(),
+                      const BrandMark(compact: true),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(roleIcon, color: AppColors.primary, size: 25),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    '$role Register',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SurfaceCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Your details',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const TextField(
+                          textCapitalization: TextCapitalization.words,
+                          decoration: InputDecoration(
+                            labelText: 'Full name',
+                            prefixIcon: Icon(Icons.badge_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const TextField(
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Email or mobile number',
+                            prefixIcon: Icon(Icons.person_outline_rounded),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const TextField(
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'Create password',
+                            prefixIcon: Icon(Icons.lock_outline_rounded),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const TextField(
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'Confirm password',
+                            prefixIcon: Icon(Icons.verified_user_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: PrimaryAction(
+                            label: 'Complete Registration',
+                            icon: Icons.check_rounded,
+                            onPressed: onComplete,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: onLogin,
+                      icon: const Icon(Icons.login_rounded, size: 18),
+                      label: const Text('Already have an account? Login'),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Center(
+                    child: Text(
+                      'Your details stay private and secure.',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

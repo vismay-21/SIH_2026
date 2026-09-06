@@ -1,31 +1,35 @@
 import 'package:flutter/material.dart';
 
+import '../../models/customer_gig_workflow.dart';
 import 'home/customer_home_screen.dart';
 import 'navigation_2/customer_navigation_2_screen.dart';
 import 'navigation_3/customer_navigation_3_screen.dart';
 import 'navigation_4/customer_navigation_4_screen.dart';
 
 class CustomerMainScreen extends StatefulWidget {
-  const CustomerMainScreen({super.key});
+  const CustomerMainScreen({super.key, this.initialIndex = 0, this.initialGig});
+
+  final int initialIndex;
+  final CustomerGig? initialGig;
 
   @override
   State<CustomerMainScreen> createState() => _CustomerMainScreenState();
 }
 
 class _CustomerMainScreenState extends State<CustomerMainScreen> {
-  int _selectedIndex = 0;
-
-  static const _destinations = [
-    CustomerHomeScreen(),
-    CustomerNavigation2Screen(),
-    CustomerNavigation3Screen(),
-    CustomerNavigation4Screen(),
-  ];
+  late int _selectedIndex = widget.initialIndex;
 
   @override
   Widget build(BuildContext context) {
+    final destinations = [
+      const CustomerHomeScreen(),
+      CustomerNavigation2Screen(initialGig: widget.initialGig),
+      const CustomerNavigation3Screen(),
+      const CustomerNavigation4Screen(),
+    ];
+
     return Scaffold(
-      body: _destinations[_selectedIndex],
+      body: destinations[_selectedIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) =>
