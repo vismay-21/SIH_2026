@@ -249,9 +249,6 @@ class IncomingJoinRequestScreen extends StatelessWidget {
                 onPressed: () => _handleDecline(context),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
                 child: const Text('Decline'),
               ),
@@ -267,11 +264,7 @@ class IncomingJoinRequestScreen extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
               ),
             ),

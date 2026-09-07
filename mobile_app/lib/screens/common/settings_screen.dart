@@ -16,7 +16,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _darkMode = false;
+  bool get _darkMode => appThemeMode.value == ThemeMode.dark;
   String _selectedLanguage = 'English';
   bool _pushNotifications = true;
   bool _soundChimes = true;
@@ -76,7 +76,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: _darkMode,
               activeThumbColor: AppColors.primary,
               onChanged: (val) {
-                setState(() => _darkMode = val);
+                appThemeMode.value = val ? ThemeMode.dark : ThemeMode.light;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(

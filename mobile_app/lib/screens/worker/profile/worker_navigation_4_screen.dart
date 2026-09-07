@@ -27,7 +27,6 @@ class WorkerNavigation4Screen extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () {
               Navigator.of(ctx).pop();
               Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(

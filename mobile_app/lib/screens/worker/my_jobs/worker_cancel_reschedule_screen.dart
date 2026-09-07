@@ -321,14 +321,6 @@ class _WorkerCancelRescheduleScreenState
                   : 'Confirm Cancellation',
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
             ),
-            style: FilledButton.styleFrom(
-              backgroundColor: _isReschedule
-                  ? AppColors.primary
-                  : AppColors.danger,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
         ),
       ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+final appThemeMode = ValueNotifier<ThemeMode>(ThemeMode.light);
+
 class AppColors {
   static const primary = Color(0xFF245B52);
   static const primaryDark = Color(0xFF173B36);
@@ -13,29 +15,33 @@ class AppColors {
   static const danger = Color(0xFFC85C5C);
 }
 
-ThemeData buildAppTheme() {
+ThemeData buildAppTheme({bool darkMode = false}) {
   final scheme =
       ColorScheme.fromSeed(
         seedColor: AppColors.primary,
-        brightness: Brightness.light,
+        brightness: darkMode ? Brightness.dark : Brightness.light,
       ).copyWith(
         primary: AppColors.primary,
         onPrimary: Colors.white,
         secondary: AppColors.accent,
-        onSecondary: AppColors.text,
-        surface: AppColors.surface,
-        onSurface: AppColors.text,
+        onSecondary: darkMode ? Colors.black : AppColors.text,
+        surface: darkMode ? const Color(0xFF202A27) : AppColors.surface,
+        onSurface: darkMode ? const Color(0xFFF1F5F2) : AppColors.text,
         error: AppColors.danger,
       );
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: AppColors.background,
+    scaffoldBackgroundColor: darkMode
+        ? const Color(0xFF121815)
+        : AppColors.background,
     fontFamily: 'Avenir Next',
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.background,
-      foregroundColor: AppColors.text,
+    appBarTheme: AppBarTheme(
+      backgroundColor: darkMode
+          ? const Color(0xFF121815)
+          : AppColors.background,
+      foregroundColor: darkMode ? const Color(0xFFF1F5F2) : AppColors.text,
       elevation: 0,
       centerTitle: false,
     ),
@@ -44,15 +50,19 @@ ThemeData buildAppTheme() {
     outlinedButtonTheme: OutlinedButtonThemeData(style: _appButtonStyle()),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.surface,
+      fillColor: darkMode ? const Color(0xFF202A27) : AppColors.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border),
+        borderSide: BorderSide(
+          color: darkMode ? const Color(0xFF52605B) : AppColors.border,
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border),
+        borderSide: BorderSide(
+          color: darkMode ? const Color(0xFF52605B) : AppColors.border,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -60,19 +70,21 @@ ThemeData buildAppTheme() {
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: AppColors.surface,
+      backgroundColor: darkMode ? const Color(0xFF202A27) : AppColors.surface,
       indicatorColor: AppColors.primary.withValues(alpha: 0.12),
       labelTextStyle: WidgetStatePropertyAll(
         const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
       ),
     ),
     cardTheme: CardThemeData(
-      color: AppColors.surface,
+      color: darkMode ? const Color(0xFF202A27) : AppColors.surface,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide(
+          color: darkMode ? const Color(0xFF52605B) : AppColors.border,
+        ),
       ),
     ),
   );

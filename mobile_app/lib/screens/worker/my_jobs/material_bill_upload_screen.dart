@@ -336,12 +336,6 @@ class _MaterialBillUploadScreenState extends State<MaterialBillUploadScreen> {
               'Submit Material Bill (₹$_totalCost)',
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
             ),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
         ),
       ),

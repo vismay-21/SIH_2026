@@ -59,10 +59,12 @@ class CustomerChatThreadScreen extends StatefulWidget {
     super.key,
     required this.workerName,
     required this.jobTitle,
+    this.enabled = true,
   });
 
   final String workerName;
   final String jobTitle;
+  final bool enabled;
 
   @override
   State<CustomerChatThreadScreen> createState() =>
@@ -154,18 +156,21 @@ class _CustomerChatThreadScreenState extends State<CustomerChatThreadScreen> {
               children: [
                 Expanded(
                   child: TextField(
+                    enabled: widget.enabled,
                     controller: _messageController,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _sendMessage(),
-                    decoration: const InputDecoration(
-                      hintText: 'Write a message',
+                    decoration: InputDecoration(
+                      hintText: widget.enabled
+                          ? 'Write a message'
+                          : 'Chat history · messaging closed',
                       prefixIcon: Icon(Icons.chat_bubble_outline_rounded),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton.filled(
-                  onPressed: _sendMessage,
+                  onPressed: widget.enabled ? _sendMessage : null,
                   icon: const Icon(Icons.send_rounded),
                   tooltip: 'Send message',
                 ),

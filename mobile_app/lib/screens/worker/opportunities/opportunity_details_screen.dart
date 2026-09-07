@@ -412,9 +412,6 @@ class OpportunityDetailsScreen extends StatelessWidget {
                 onPressed: () => Navigator.of(context).pop(),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
                 child: const Text('Decline'),
               ),
@@ -430,11 +427,7 @@ class OpportunityDetailsScreen extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
                 ),
               ),
             ),

@@ -302,57 +302,64 @@ class FinalWorkerSelectedScreen extends StatelessWidget {
   final CustomerGig gig;
 
   @override
-  Widget build(BuildContext context) => _WorkflowScaffold(
-    title: 'Worker selected',
-    subtitle: 'You have made the final choice for this gig.',
-    child: Column(
-      children: [
-        SurfaceCard(
-          child: Column(
-            children: [
-              const Icon(
-                Icons.verified_rounded,
-                color: AppColors.primary,
-                size: 44,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                candidate.name,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) {
+    final selectedGig = gig.copyWith(
+      stage: GigStage.selected,
+      selectedWorker: candidate,
+    );
+
+    return _WorkflowScaffold(
+      title: 'Worker selected',
+      subtitle: 'You have made the final choice for this gig.',
+      child: Column(
+        children: [
+          SurfaceCard(
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.verified_rounded,
+                  color: AppColors.primary,
+                  size: 44,
                 ),
-              ),
-              Text(
-                '${candidate.skill} · ${candidate.wage} labour',
-                style: const TextStyle(color: AppColors.muted),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Job chat is now available after worker selection.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.muted),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        SizedBox(
-          width: double.infinity,
-          child: PrimaryAction(
-            label: 'Open active job',
-            icon: Icons.work_history_outlined,
-            onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute<void>(
-                builder: (_) => ActiveJobScreen(gig: gig),
-              ),
-              (route) => route.isFirst,
+                const SizedBox(height: 10),
+                Text(
+                  candidate.name,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  '${candidate.skill} · ${candidate.wage} labour',
+                  style: const TextStyle(color: AppColors.muted),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Job chat is now available after worker selection.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted),
+                ),
+              ],
             ),
           ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: PrimaryAction(
+              label: 'Open active job',
+              icon: Icons.work_history_outlined,
+              onPressed: () => Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute<void>(
+                  builder: (_) => ActiveJobScreen(gig: selectedGig),
+                ),
+                (route) => route.isFirst,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class PreviousWorkerRequestScreen extends StatelessWidget {
@@ -450,11 +457,14 @@ class ActiveJobScreen extends StatelessWidget {
                     builder: (_) => CustomerChatThreadScreen(
                       workerName: gig.selectedWorker?.name ?? 'Amit Sharma',
                       jobTitle: gig.title,
+                      enabled: gig.chatEnabled,
                     ),
                   ),
                 ),
                 icon: const Icon(Icons.chat_bubble_outline_rounded),
-                label: const Text('Open chat'),
+                label: Text(
+                  gig.chatEnabled ? 'Open chat' : 'View chat history',
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -462,7 +472,7 @@ class ActiveJobScreen extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => const CompletionEvidenceReviewScreen(),
+                    builder: (_) => CompletionEvidenceReviewScreen(gig: gig),
                   ),
                 ),
                 icon: const Icon(Icons.fact_check_outlined),
@@ -479,7 +489,9 @@ class ActiveJobScreen extends StatelessWidget {
 }
 
 class CompletionEvidenceReviewScreen extends StatelessWidget {
-  const CompletionEvidenceReviewScreen({super.key});
+  const CompletionEvidenceReviewScreen({super.key, required this.gig});
+
+  final CustomerGig gig;
 
   @override
   Widget build(BuildContext context) => _WorkflowScaffold(
@@ -525,7 +537,7 @@ class CompletionEvidenceReviewScreen extends StatelessWidget {
             icon: Icons.check_circle_outline_rounded,
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => const CompletionConfirmationScreen(),
+                builder: (_) => CompletionConfirmationScreen(gig: gig),
               ),
             ),
           ),
@@ -544,7 +556,9 @@ class CompletionEvidenceReviewScreen extends StatelessWidget {
 }
 
 class CompletionConfirmationScreen extends StatelessWidget {
-  const CompletionConfirmationScreen({super.key});
+  const CompletionConfirmationScreen({super.key, required this.gig});
+
+  final CustomerGig gig;
 
   @override
   Widget build(BuildContext context) => _WorkflowScaffold(
@@ -581,7 +595,7 @@ class CompletionConfirmationScreen extends StatelessWidget {
             label: 'Yes, confirm completion',
             icon: Icons.check_rounded,
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const PaymentScreen()),
+              MaterialPageRoute<void>(builder: (_) => PaymentScreen(gig: gig)),
             ),
           ),
         ),
@@ -595,7 +609,9 @@ class CompletionConfirmationScreen extends StatelessWidget {
 }
 
 class PaymentScreen extends StatefulWidget {
-  const PaymentScreen({super.key});
+  const PaymentScreen({super.key, required this.gig});
+
+  final CustomerGig gig;
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
 }
@@ -677,9 +693,28 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
         ),
         if (_paid)
-          const Padding(
-            padding: EdgeInsets.only(top: 14),
-            child: StatusPill('Payment pending worker confirmation'),
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Column(
+              children: [
+                const StatusPill('Payment complete · Chat closed'),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).pushReplacement(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ActiveJobScreen(
+                          gig: widget.gig.copyWith(stage: GigStage.completed),
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.work_outline_rounded),
+                    label: const Text('View completed job'),
+                  ),
+                ),
+              ],
+            ),
           ),
       ],
     ),

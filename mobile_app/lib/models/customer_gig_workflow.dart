@@ -78,6 +78,24 @@ class CustomerGig {
   final List<GigCandidate> candidates;
   final bool isEmergency;
   final GigCandidate? selectedWorker;
+
+  bool get chatEnabled => selectedWorker != null && stage != GigStage.completed;
+
+  CustomerGig copyWith({GigStage? stage, GigCandidate? selectedWorker}) =>
+      CustomerGig(
+        title: title,
+        category: category,
+        description: description,
+        when: when,
+        location: location,
+        duration: duration,
+        stage: stage ?? this.stage,
+        materials: materials,
+        instructions: instructions,
+        candidates: candidates,
+        isEmergency: isEmergency,
+        selectedWorker: selectedWorker ?? this.selectedWorker,
+      );
 }
 
 const demoCandidates = [

@@ -176,7 +176,8 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
               padding: const EdgeInsets.only(bottom: 12),
               child: InkWell(
                 onTap: () {
-                  Navigator.of(context).push(
+                  widget.onSelectTab?.call(1);
+                  Navigator.of(context, rootNavigator: true).push(
                     MaterialPageRoute<void>(
                       builder: (_) =>
                           OpportunityDetailsScreen(opportunity: opp),

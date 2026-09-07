@@ -12,11 +12,16 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Sahakaar Seva',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
-      home: const SplashScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: appThemeMode,
+      builder: (context, themeMode, _) => MaterialApp(
+        title: 'Sahakaar Seva',
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(),
+        darkTheme: buildAppTheme(darkMode: true),
+        themeMode: themeMode,
+        home: const SplashScreen(),
+      ),
     );
   }
 }

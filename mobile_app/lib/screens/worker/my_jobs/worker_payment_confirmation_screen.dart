@@ -292,12 +292,6 @@ class _WorkerPaymentConfirmationScreenState
               'Confirm & Rate Customer',
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
             ),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
         ),
       ),

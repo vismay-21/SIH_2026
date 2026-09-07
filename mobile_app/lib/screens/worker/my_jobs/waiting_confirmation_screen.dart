@@ -209,12 +209,6 @@ class WaitingConfirmationScreen extends StatelessWidget {
               'Customer Approved · Confirm Payment',
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
             ),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
         ),
       ),

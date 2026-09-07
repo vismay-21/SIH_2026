@@ -465,12 +465,6 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
             'Arrived & Start Work',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
           ),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
         ),
       );
     } else if (_status == WorkerJobStatus.active) {
@@ -489,12 +483,6 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
           label: const Text(
             'Complete Work & Submit Evidence',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-          ),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
           ),
         ),
       );
@@ -515,11 +503,6 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
             'Waiting for Customer Approval',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
           ),
-          style: OutlinedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
         ),
       );
     } else if (_status == WorkerJobStatus.paymentPending) {
@@ -539,12 +522,6 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
           label: const Text(
             'Confirm Payment Received',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-          ),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
           ),
         ),
       );

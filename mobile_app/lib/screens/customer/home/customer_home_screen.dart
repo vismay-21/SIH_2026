@@ -34,7 +34,13 @@ class CustomerHomeScreen extends StatelessWidget {
                 ],
               ),
               IconButton(
-                onPressed: () {},
+                onPressed: () =>
+                    Navigator.of(context, rootNavigator: true).pushReplacement(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            const CustomerMainScreen(initialIndex: 2),
+                      ),
+                    ),
                 icon: const Badge(
                   label: Text('2'),
                   child: Icon(Icons.notifications_none_rounded, size: 27),
@@ -236,28 +242,34 @@ class _GigCard extends StatelessWidget {
           children: [
             Expanded(
               child: FilledButton.icon(
-                onPressed: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute<void>(
-                    builder: (_) =>
-                        CustomerMainScreen(initialIndex: 1, initialGig: gig),
-                  ),
-                ),
+                onPressed: () =>
+                    Navigator.of(context, rootNavigator: true).pushReplacement(
+                      MaterialPageRoute<void>(
+                        builder: (_) => CustomerMainScreen(
+                          initialIndex: 1,
+                          initialGig: gig,
+                        ),
+                      ),
+                    ),
                 icon: const Icon(Icons.timeline_rounded, size: 16),
                 label: const Text('Track job'),
               ),
             ),
             const SizedBox(width: 8),
             TextButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const CustomerChatThreadScreen(
-                    workerName: 'Amit Sharma',
-                    jobTitle: 'Kitchen sink leak repair',
-                  ),
-                ),
-              ),
+              onPressed: gig.chatEnabled
+                  ? () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => CustomerChatThreadScreen(
+                          workerName: gig.selectedWorker?.name ?? 'Amit Sharma',
+                          jobTitle: gig.title,
+                          enabled: gig.chatEnabled,
+                        ),
+                      ),
+                    )
+                  : null,
               icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
-              label: const Text('Chat'),
+              label: Text(gig.chatEnabled ? 'Chat' : 'Chat after selection'),
             ),
           ],
         ),

@@ -87,7 +87,6 @@ Future<bool?> showConflictWarningDialog(
           child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
           onPressed: () => Navigator.of(ctx).pop(true),
           child: const Text('Accept Anyway'),
         ),
