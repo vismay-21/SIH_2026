@@ -43,7 +43,9 @@ Customer Home
      -> Customer Home
 ```
 
-The form supports category, work description, location, required date/time, duration, emergency status, photo-count placeholder, additional instructions, and materials. The material choice is Customer purchases materials or Worker purchases materials. Labour is shown separately from materials. The current mock cooperative example range is `₹550 – ₹800`.
+The form supports category, work description, location, required date/time, duration, emergency status toggle, photo-count placeholder, additional instructions, and materials. The material choice is Customer purchases materials or Worker purchases materials. Labour is shown separately from materials. The current mock cooperative example range is `₹550 – ₹800`. Emergency status is toggled during gig creation. If no worker accepts a posted gig, opening `GigDetailsScreen` displays a fallback banner allowing the customer to add a voluntary tip incentive (100% direct worker payout) and re-notify nearby workers.
+
+The Customer shell (`customer_main_screen.dart`) implements persistent bottom navigation using per-tab nested `Navigator`s inside an `IndexedStack`. Sub-screens (Gig Details, Accepted Candidates, Active Job Workspace, Chat, Payment, Cancel, Reschedule, Emergency Tip, Review) push within the active tab's viewport, leaving the bottom `NavigationBar` permanently visible at all times.
 
 ### Customer gig management
 
@@ -134,35 +136,44 @@ SIH_2026/
     │       │   ├── customer_login_screen.dart
     │       │   ├── customer_register_screen.dart
     │       │   ├── customer_main_screen.dart
-    │       │   ├── customer_account_screens.dart
-    │       │   ├── customer_workflow_screens.dart
-    │       │   ├── create_gig_screen.dart
-    │       │   ├── material_procurement_screen.dart
-    │       │   ├── labour_price_preview_screen.dart
-    │       │   ├── gig_details_screen.dart
-    │       │   ├── accepted_candidates_screen.dart
-    │       │   ├── worker_comparison_screen.dart
-    │       │   ├── worker_profile_screen.dart
-    │       │   ├── final_worker_selected_screen.dart
-    │       │   ├── previous_worker_request_screen.dart
-    │       │   ├── active_job_screen.dart
-    │       │   ├── completion_evidence_review_screen.dart
-    │       │   ├── completion_confirmation_screen.dart
-    │       │   ├── payment_screen.dart
-    │       │   ├── material_bill_viewer_screen.dart
-    │       │   ├── home/customer_home_screen.dart
-    │       │   ├── navigation_2/customer_navigation_2_screen.dart
-    │       │   ├── navigation_3/customer_navigation_3_screen.dart
-    │       │   └── navigation_4/customer_navigation_4_screen.dart
+    │       │   ├── home/
+    │       │   │   ├── customer_home_screen.dart
+    │       │   │   ├── create_gig_screen.dart
+    │       │   │   ├── material_procurement_screen.dart
+    │       │   │   ├── labour_price_preview_screen.dart
+    │       │   │   └── emergency_tip_screen.dart
+    │       │   ├── my_jobs/
+    │       │   │   ├── customer_navigation_2_screen.dart
+    │       │   │   ├── gig_details_screen.dart
+    │       │   │   ├── waiting_for_candidates_screen.dart
+    │       │   │   ├── review_worker_screen.dart
+    │       │   │   ├── cancel_gig_screen.dart
+    │       │   │   ├── reschedule_gig_screen.dart
+    │       │   │   ├── customer_workflow_screens.dart
+    │       │   │   ├── accepted_candidates_screen.dart
+    │       │   │   ├── worker_comparison_screen.dart
+    │       │   │   ├── worker_profile_screen.dart
+    │       │   │   ├── final_worker_selected_screen.dart
+    │       │   │   ├── previous_worker_request_screen.dart
+    │       │   │   ├── active_job_screen.dart
+    │       │   │   ├── completion_evidence_review_screen.dart
+    │       │   │   ├── completion_confirmation_screen.dart
+    │       │   │   ├── payment_screen.dart
+    │       │   │   └── material_bill_viewer_screen.dart
+    │       │   ├── alerts/
+    │       │   │   └── customer_navigation_3_screen.dart
+    │       │   └── profile/
+    │       │       ├── customer_navigation_4_screen.dart
+    │       │       └── customer_account_screens.dart
     │       └── worker/
     │           ├── .gitkeep
     │           ├── worker_login_screen.dart
     │           ├── worker_register_screen.dart
     │           ├── worker_main_screen.dart
     │           ├── home/worker_home_screen.dart
-    │           ├── navigation_2/worker_navigation_2_screen.dart
-    │           ├── navigation_3/worker_navigation_3_screen.dart
-    │           └── navigation_4/worker_navigation_4_screen.dart
+    │           ├── opportunities/worker_navigation_2_screen.dart
+    │           ├── my_jobs/worker_navigation_3_screen.dart
+    │           └── profile/worker_navigation_4_screen.dart
     ├── test/widget_test.dart
     ├── android/              # Android Gradle/project files and generated plugin wiring
     ├── ios/                  # iOS Runner/Xcode files and generated Flutter wiring
@@ -180,10 +191,10 @@ SIH_2026/
 - `lib/models/gig_draft.dart`: draft data passed through gig creation steps.
 - `lib/models/customer_gig_workflow.dart`: gig lifecycle enum, candidate model, customer gig model, and demo gig/candidate data.
 - `lib/screens/customer/customer_main_screen.dart`: Customer bottom navigation and initial-tab/initial-gig routing.
-- `lib/screens/customer/customer_workflow_screens.dart`: connected candidate, comparison, profile, selection, previous-worker, active-job, evidence, confirmation, payment, and material-proof UI implementations.
-- `lib/screens/customer/customer_account_screens.dart`: chat inbox/thread, job history, settings, help/support, and sign-out dialog.
-- `lib/screens/customer/navigation_2/customer_navigation_2_screen.dart`: tabbed My Gigs list and selected-gig opening behavior.
-- `lib/screens/customer/gig_details_screen.dart`: gig summary, lifecycle line tracker, and downstream actions.
+- `lib/screens/customer/home/`: customer home dashboard (`customer_home_screen.dart`) and gig creation forms (`create_gig_screen.dart`, `material_procurement_screen.dart`, `labour_price_preview_screen.dart`).
+- `lib/screens/customer/my_jobs/`: tabbed My Gigs list (`customer_navigation_2_screen.dart`), gig details (`gig_details_screen.dart`), and connected candidate/workflow screens (`customer_workflow_screens.dart`).
+- `lib/screens/customer/alerts/`: customer notification & event alerts (`customer_navigation_3_screen.dart`).
+- `lib/screens/customer/profile/`: main customer profile UI (`customer_navigation_4_screen.dart`) and account surfaces (`customer_account_screens.dart`: chat, history, settings, help/support).
 - Individual customer workflow route files re-export their implementation from `customer_workflow_screens.dart` for clear feature-level imports.
 - Worker files provide the existing styled Worker role surfaces and navigation shell.
 - `test/widget_test.dart`: three widget flows covering Customer navigation, Customer registration return, and Worker registration/destination navigation.
