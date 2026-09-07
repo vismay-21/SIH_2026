@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../screens/common/forgot_password_screen.dart';
 import '../../theme/app_theme.dart';
 
 class BrandMark extends StatelessWidget {
@@ -169,6 +170,7 @@ class AuthLoginLayout extends StatelessWidget {
     required this.description,
     required this.onLogin,
     required this.onRegister,
+    this.onForgotPassword,
   });
 
   final String role;
@@ -176,6 +178,7 @@ class AuthLoginLayout extends StatelessWidget {
   final String description;
   final VoidCallback onLogin;
   final VoidCallback onRegister;
+  final VoidCallback? onForgotPassword;
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +261,16 @@ class AuthLoginLayout extends StatelessWidget {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: () {},
+                            onPressed:
+                                onForgotPassword ??
+                                () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          const ForgotPasswordScreen(),
+                                    ),
+                                  );
+                                },
                             child: const Text('Forgot password?'),
                           ),
                         ),
