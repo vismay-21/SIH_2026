@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../models/customer_gig_workflow.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/common/shared_widgets.dart';
-import 'customer_account_screens.dart';
+import '../../../models/customer_gig_workflow.dart';
+import '../../../theme/app_theme.dart';
+import '../../../widgets/common/shared_widgets.dart';
+import '../profile/customer_account_screens.dart';
 
 class AcceptedCandidatesScreen extends StatelessWidget {
   const AcceptedCandidatesScreen({super.key, required this.gig});

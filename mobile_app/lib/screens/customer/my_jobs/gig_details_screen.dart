@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../models/customer_gig_workflow.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/common/shared_widgets.dart';
+import '../../../models/customer_gig_workflow.dart';
+import '../../../theme/app_theme.dart';
+import '../../../widgets/common/shared_widgets.dart';
+import '../home/emergency_tip_screen.dart';
 import 'accepted_candidates_screen.dart';
 import 'active_job_screen.dart';
+import 'cancel_gig_screen.dart';
 import 'material_bill_viewer_screen.dart';
+import 'reschedule_gig_screen.dart';
+import 'review_worker_screen.dart';
+import 'waiting_for_candidates_screen.dart';
 
 class GigDetailsScreen extends StatelessWidget {
   const GigDetailsScreen({super.key, required this.gig});
@@ -74,6 +79,67 @@ class GigDetailsScreen extends StatelessWidget {
           const SizedBox(height: 18),
           const SectionTitle('Next actions'),
           const SizedBox(height: 8),
+          if (gig.stage == GigStage.seeking || gig.candidates.isEmpty) ...[
+            SurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.hourglass_empty_rounded,
+                        color: AppColors.primary,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'No workers accepted yet',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'No worker has responded to this gig request so far. You can add a voluntary tip incentive to increase acceptance speed and re-notify nearby workers.',
+                    style: TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => EmergencyTipScreen(gig: gig),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.volunteer_activism_rounded,
+                        size: 18,
+                      ),
+                      label: const Text('Add tip incentive & re-notify'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            _ActionRow(
+              icon: Icons.radar_rounded,
+              title: 'Waiting for candidates',
+              subtitle: 'Track worker broadcast & response window',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => WaitingForCandidatesScreen(gig: gig),
+                ),
+              ),
+            ),
+          ],
           if (gig.stage == GigStage.accepted ||
               gig.stage == GigStage.responding)
             _ActionRow(
@@ -104,6 +170,42 @@ class GigDetailsScreen extends StatelessWidget {
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => const MaterialBillViewerScreen(),
+                ),
+              ),
+            ),
+          ],
+          if (gig.stage == GigStage.completed)
+            _ActionRow(
+              icon: Icons.rate_review_outlined,
+              title: 'Review worker',
+              subtitle: 'Provide structured 3-4 MCQ feedback',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ReviewWorkerScreen(
+                    workerName: gig.selectedWorker?.name ?? 'Worker',
+                    gigTitle: gig.title,
+                  ),
+                ),
+              ),
+            ),
+          if (gig.stage != GigStage.completed) ...[
+            _ActionRow(
+              icon: Icons.edit_calendar_rounded,
+              title: 'Request rescheduling',
+              subtitle: 'Select new date or time for this gig',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => RescheduleGigScreen(gig: gig),
+                ),
+              ),
+            ),
+            _ActionRow(
+              icon: Icons.cancel_outlined,
+              title: 'Cancel gig',
+              subtitle: 'View cancellation policy & cancel request',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CancelGigScreen(gig: gig),
                 ),
               ),
             ),

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../models/customer_gig_workflow.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
-import '../gig_details_screen.dart';
+import 'gig_details_screen.dart';
 
 class CustomerNavigation2Screen extends StatefulWidget {
   const CustomerNavigation2Screen({super.key, this.initialGig});

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'home/worker_home_screen.dart';
-import 'navigation_2/worker_navigation_2_screen.dart';
-import 'navigation_3/worker_navigation_3_screen.dart';
-import 'navigation_4/worker_navigation_4_screen.dart';
+import 'opportunities/worker_navigation_2_screen.dart';
+import 'my_jobs/worker_navigation_3_screen.dart';
+import 'profile/worker_navigation_4_screen.dart';
 
 class WorkerMainScreen extends StatefulWidget {
   const WorkerMainScreen({super.key});

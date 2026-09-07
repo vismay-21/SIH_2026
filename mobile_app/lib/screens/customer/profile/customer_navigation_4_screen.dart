@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
-import '../customer_account_screens.dart';
+import 'customer_account_screens.dart';
 
 class CustomerNavigation4Screen extends StatelessWidget {
   const CustomerNavigation4Screen({super.key});

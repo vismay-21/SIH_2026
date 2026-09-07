@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../models/gig_draft.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/common/shared_widgets.dart';
-import 'customer_main_screen.dart';
+import '../../../models/gig_draft.dart';
+import '../../../theme/app_theme.dart';
+import '../../../widgets/common/shared_widgets.dart';
+import '../customer_main_screen.dart';
 
 class LabourPricePreviewScreen extends StatelessWidget {
   const LabourPricePreviewScreen({super.key, required this.draft});

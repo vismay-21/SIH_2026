@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../models/customer_gig_workflow.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/common/shared_widgets.dart';
-import '../common/splash_screen.dart';
-import 'gig_details_screen.dart';
+import '../../../models/customer_gig_workflow.dart';
+import '../../../theme/app_theme.dart';
+import '../../../widgets/common/shared_widgets.dart';
+import '../../common/splash_screen.dart';
+import '../my_jobs/gig_details_screen.dart';
 
 class CustomerChatScreen extends StatelessWidget {
   const CustomerChatScreen({super.key});
@@ -436,7 +436,7 @@ Future<void> showCustomerSignOutDialog(BuildContext context) async {
     ),
   );
   if (shouldSignOut == true && context.mounted) {
-    Navigator.of(context).pushAndRemoveUntil(
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
       MaterialPageRoute<void>(builder: (_) => const SplashScreen()),
       (route) => false,
     );

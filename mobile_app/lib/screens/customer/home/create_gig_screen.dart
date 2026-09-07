@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../models/gig_draft.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/common/shared_widgets.dart';
+import '../../../models/gig_draft.dart';
+import '../../../theme/app_theme.dart';
+import '../../../widgets/common/shared_widgets.dart';
 import 'material_procurement_screen.dart';
 
 class CreateGigScreen extends StatefulWidget {

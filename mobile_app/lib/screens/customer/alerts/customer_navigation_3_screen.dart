@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../models/customer_gig_workflow.dart';
 import '../../../theme/app_theme.dart';
-import '../gig_details_screen.dart';
+import '../my_jobs/gig_details_screen.dart';
+import '../my_jobs/review_worker_screen.dart';
 
 class CustomerNavigation3Screen extends StatelessWidget {
   const CustomerNavigation3Screen({super.key});
@@ -39,7 +40,10 @@ class CustomerNavigation3Screen extends StatelessWidget {
             time: 'Yesterday',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => GigDetailsScreen(gig: demoGigs[3]),
+                builder: (_) => const ReviewWorkerScreen(
+                  workerName: 'Amit Sharma',
+                  gigTitle: 'Living room deep clean',
+                ),
               ),
             ),
           ),

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../models/customer_gig_workflow.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
-import '../customer_account_screens.dart';
+import '../profile/customer_account_screens.dart';
 import '../customer_main_screen.dart';
-import '../create_gig_screen.dart';
+import 'create_gig_screen.dart';
 
 class CustomerHomeScreen extends StatelessWidget {
   const CustomerHomeScreen({super.key});
@@ -66,25 +66,14 @@ class CustomerHomeScreen extends StatelessWidget {
                   style: TextStyle(color: Colors.white70, height: 1.35),
                 ),
                 const SizedBox(height: 16),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 8,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const CreateGigScreen(),
-                        ),
-                      ),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Create a gig'),
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const CreateGigScreen(),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.warning_amber_rounded, size: 18),
-                      label: const Text('Emergency'),
-                    ),
-                  ],
+                  ),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Create a gig'),
                 ),
               ],
             ),
@@ -134,6 +123,19 @@ class CustomerHomeScreen extends StatelessWidget {
             location: 'Ulsoor, Bengaluru',
             duration: '60–90 min',
             status: 'Emergency · Immediate',
+            warning: true,
+          ),
+          const SizedBox(height: 12),
+          _GigCard(
+            gig: demoGigs[5],
+            title: 'Main power fuse tripping',
+            category: 'Emergency Electrical · Tip Fallback Demo',
+            description:
+                'Frequent tripping of breaker box. No worker accepted yet.',
+            when: 'Today · Immediate',
+            location: 'HSR Layout, Bengaluru',
+            duration: '45 min',
+            status: 'Emergency · 0 workers accepted',
             warning: true,
           ),
           const SizedBox(height: 22),
