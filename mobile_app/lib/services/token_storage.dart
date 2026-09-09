@@ -21,6 +21,10 @@ class TokenStorage {
   /// - Android emulator uses 10.0.2.2 to reach host machine's localhost:8000
   /// - iOS simulator, desktop (Windows/macOS/Linux), and Web use localhost:8000
   String get defaultBaseUrl {
+    const envUrl = String.fromEnvironment('API_BASE_URL');
+    if (envUrl.isNotEmpty) {
+      return envUrl.trim().replaceAll(RegExp(r'/+$'), '');
+    }
     if (kIsWeb) {
       return 'http://localhost:8000/api/v1';
     }
