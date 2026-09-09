@@ -6,52 +6,96 @@ import '../../../widgets/common/shared_widgets.dart';
 import '../my_jobs/worker_active_job_screen.dart';
 import 'conflict_warning_dialog.dart';
 
+import '../../../models/api/api_response.dart';
+import '../../../repositories/worker_repository.dart';
+
 class OpportunityDetailsScreen extends StatelessWidget {
   const OpportunityDetailsScreen({super.key, required this.opportunity});
 
   final WorkerOpportunity opportunity;
 
   Future<void> _handleAccept(BuildContext context) async {
-    if (opportunity.hasScheduleConflict) {
-      final proceed = await showConflictWarningDialog(
-        context,
-        conflictDetails:
-            'Overlaps with Scheduled Job: "Balcony tap installation" around ${opportunity.when}',
+    final workerRepo = WorkerRepository();
+
+    try {
+      if (opportunity.id.isNotEmpty && !opportunity.id.startsWith('opp-')) {
+        await workerRepo.acceptOpportunity(opportunity.id);
+      }
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Accepted "${opportunity.title}" successfully!'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
-      if (proceed != true) return;
+
+      final newJob = WorkerJob(
+        id: opportunity.gigId ?? opportunity.id,
+        gigId: opportunity.gigId ?? opportunity.id,
+        title: opportunity.title,
+        category: opportunity.category,
+        description: opportunity.description,
+        wage: opportunity.wage,
+        when: opportunity.when,
+        location: opportunity.location,
+        duration: opportunity.duration,
+        status: WorkerJobStatus.accepted,
+        customerName: 'Verified Customer',
+        materials: opportunity.materials,
+        instructions: opportunity.instructions,
+        isEmergency: opportunity.isEmergency,
+      );
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => WorkerActiveJobScreen(job: newJob),
+        ),
+      );
+    } on ApiError catch (e) {
+      if (!context.mounted) return;
+      if (e.code == 'SCHEDULE_CONFLICT') {
+        final proceed = await showConflictWarningDialog(
+          context,
+          conflictDetails: e.message,
+        );
+        if (proceed == true) {
+          // Worker acknowledged conflict
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to accept: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
+  }
 
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Accepted "${opportunity.title}" successfully!'),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-
-    // Navigate to active job screen with newly converted job
-    final newJob = WorkerJob(
-      id: 'job-${opportunity.id}',
-      title: opportunity.title,
-      category: opportunity.category,
-      description: opportunity.description,
-      wage: opportunity.wage,
-      when: opportunity.when,
-      location: opportunity.location,
-      duration: opportunity.duration,
-      status: WorkerJobStatus.accepted,
-      customerName: 'Verified Customer',
-      materials: opportunity.materials,
-      instructions: opportunity.instructions,
-      isEmergency: opportunity.isEmergency,
-    );
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => WorkerActiveJobScreen(job: newJob),
-      ),
-    );
+  Future<void> _handleDecline(BuildContext context) async {
+    final workerRepo = WorkerRepository();
+    try {
+      if (opportunity.id.isNotEmpty && !opportunity.id.startsWith('opp-')) {
+        await workerRepo.rejectOpportunity(opportunity.id);
+      }
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -409,7 +453,7 @@ class OpportunityDetailsScreen extends StatelessWidget {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => _handleDecline(context),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
                 ),

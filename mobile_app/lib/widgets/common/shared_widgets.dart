@@ -171,6 +171,11 @@ class AuthLoginLayout extends StatelessWidget {
     required this.onLogin,
     required this.onRegister,
     this.onForgotPassword,
+    this.emailController,
+    this.passwordController,
+    this.isLoading = false,
+    this.errorMessage,
+    this.extraContent,
   });
 
   final String role;
@@ -179,6 +184,11 @@ class AuthLoginLayout extends StatelessWidget {
   final VoidCallback onLogin;
   final VoidCallback onRegister;
   final VoidCallback? onForgotPassword;
+  final TextEditingController? emailController;
+  final TextEditingController? passwordController;
+  final bool isLoading;
+  final String? errorMessage;
+  final Widget? extraContent;
 
   @override
   Widget build(BuildContext context) {
@@ -229,6 +239,29 @@ class AuthLoginLayout extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              errorMessage!,
+                              style: const TextStyle(color: Colors.red, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   SurfaceCard(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -242,17 +275,19 @@ class AuthLoginLayout extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const TextField(
+                        TextField(
+                          controller: emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             labelText: 'Email or mobile number',
                             prefixIcon: Icon(Icons.person_outline_rounded),
                           ),
                         ),
                         const SizedBox(height: 10),
-                        const TextField(
+                        TextField(
+                          controller: passwordController,
                           obscureText: true,
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             labelText: 'Password',
                             prefixIcon: Icon(Icons.lock_outline_rounded),
                           ),
@@ -277,11 +312,18 @@ class AuthLoginLayout extends StatelessWidget {
                         const SizedBox(height: 10),
                         SizedBox(
                           width: double.infinity,
-                          child: PrimaryAction(
-                            label: 'Login',
-                            icon: Icons.login_rounded,
-                            onPressed: onLogin,
-                          ),
+                          child: isLoading
+                              ? const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              : PrimaryAction(
+                                  label: 'Login',
+                                  icon: Icons.login_rounded,
+                                  onPressed: onLogin,
+                                ),
                         ),
                         const SizedBox(height: 10),
                         SizedBox(
@@ -292,6 +334,10 @@ class AuthLoginLayout extends StatelessWidget {
                             label: const Text('Register'),
                           ),
                         ),
+                        if (extraContent != null) ...[
+                          const SizedBox(height: 16),
+                          extraContent!,
+                        ],
                       ],
                     ),
                   ),

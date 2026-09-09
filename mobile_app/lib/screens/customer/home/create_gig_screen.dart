@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/api/api_models.dart';
 import '../../../models/gig_draft.dart';
+import '../../../repositories/catalogue_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import 'material_procurement_screen.dart';
@@ -13,10 +15,17 @@ class CreateGigScreen extends StatefulWidget {
 }
 
 class _CreateGigScreenState extends State<CreateGigScreen> {
+  final _catalogueRepo = CatalogueRepository();
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
   final _instructionsController = TextEditingController();
-  String? _category;
+
+  List<ServiceCategoryDto> _categories = [];
+  ServiceCategoryDto? _selectedCategory;
+  List<ServiceTaskDto> _tasks = [];
+  final Set<String> _selectedTaskIds = {};
+
+  bool _isLoadingCategories = true;
   DateTime? _date;
   TimeOfDay? _time;
   String _duration = 'Around 2 hours';
@@ -24,11 +33,54 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
   int _photoCount = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  @override
   void dispose() {
     _descriptionController.dispose();
     _locationController.dispose();
     _instructionsController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final categories = await _catalogueRepo.getCategories();
+      if (!mounted) return;
+      setState(() {
+        _categories = categories;
+        _isLoadingCategories = false;
+        if (categories.isNotEmpty) {
+          _selectCategory(categories.first);
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingCategories = false);
+    }
+  }
+
+  Future<void> _selectCategory(ServiceCategoryDto category) async {
+    setState(() {
+      _selectedCategory = category;
+      _selectedTaskIds.clear();
+      _tasks = [];
+    });
+    try {
+      final tasks = await _catalogueRepo.getTasks(category.id);
+      if (!mounted) return;
+      setState(() {
+        _tasks = tasks;
+        if (tasks.isNotEmpty) {
+          _selectedTaskIds.add(tasks.first.id);
+        }
+      });
+    } catch (_) {
+      // Fallback
+    }
   }
 
   Future<void> _selectDate() async {
@@ -50,7 +102,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
   }
 
   void _continue() {
-    if (_category == null ||
+    if (_selectedCategory == null ||
         _descriptionController.text.trim().isEmpty ||
         _locationController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -61,11 +113,22 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
       return;
     }
 
+    if (_selectedTaskIds.isEmpty && _tasks.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one task for this category.'),
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => MaterialProcurementScreen(
           draft: GigDraft(
-            category: _category!,
+            category: _selectedCategory!.name,
+            categoryId: _selectedCategory!.id,
+            taskIds: _selectedTaskIds.toList(),
             description: _descriptionController.text.trim(),
             location: _locationController.text.trim(),
             date: _date,
@@ -92,30 +155,65 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
           children: [
             const _StepHeader(step: '1 of 3', title: 'Tell us about the work'),
             const SizedBox(height: 18),
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              decoration: const InputDecoration(
-                labelText: 'Service category',
-                prefixIcon: Icon(Icons.category_outlined),
+            if (_isLoadingCategories)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_categories.isNotEmpty) ...[
+              DropdownButtonFormField<ServiceCategoryDto>(
+                initialValue: _selectedCategory,
+                decoration: const InputDecoration(
+                  labelText: 'Service category',
+                  prefixIcon: Icon(Icons.category_outlined),
+                ),
+                items: _categories.map((cat) {
+                  return DropdownMenuItem<ServiceCategoryDto>(
+                    value: cat,
+                    child: Text(cat.name),
+                  );
+                }).toList(),
+                onChanged: (cat) {
+                  if (cat != null) _selectCategory(cat);
+                },
               ),
-              items: const [
-                DropdownMenuItem(
-                  value: 'Plumbing repair',
-                  child: Text('Plumbing repair'),
+              if (_tasks.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                const Text(
+                  'Select tasks to include:',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                 ),
-                DropdownMenuItem(
-                  value: 'Electrical work',
-                  child: Text('Electrical work'),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: _tasks.map((task) {
+                    final isSelected = _selectedTaskIds.contains(task.id);
+                    return FilterChip(
+                      label: Text('${task.name} (₹${task.basePrice.toInt()})'),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedTaskIds.add(task.id);
+                          } else {
+                            if (_selectedTaskIds.length > 1) {
+                              _selectedTaskIds.remove(task.id);
+                            }
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
                 ),
-                DropdownMenuItem(value: 'Cleaning', child: Text('Cleaning')),
-                DropdownMenuItem(
-                  value: 'Appliance repair',
-                  child: Text('Appliance repair'),
-                ),
-                DropdownMenuItem(value: 'Painting', child: Text('Painting')),
               ],
-              onChanged: (value) => setState(() => _category = value),
-            ),
+            ] else
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text('No active service categories available.'),
+              ),
             const SizedBox(height: 14),
             TextField(
               controller: _descriptionController,

@@ -188,16 +188,26 @@ SIH_2026/
     │   ├── localization/
     │   │   └── .gitkeep
     │   ├── models/
-    │   │   ├── .gitkeep
+    │   │   ├── api/
+    │   │   │   ├── api_response.dart
+    │   │   │   └── api_models.dart
     │   │   ├── gig_draft.dart
     │   │   ├── customer_gig_workflow.dart
     │   │   └── worker_job_workflow.dart
     │   ├── providers/
     │   │   └── .gitkeep
     │   ├── repositories/
-    │   │   └── .gitkeep
+    │   │   ├── auth_repository.dart
+    │   │   ├── catalogue_repository.dart
+    │   │   ├── gig_repository.dart
+    │   │   ├── worker_repository.dart
+    │   │   ├── payment_repository.dart
+    │   │   ├── review_repository.dart
+    │   │   ├── chat_repository.dart
+    │   │   └── notification_repository.dart
     │   ├── services/
-    │   │   └── .gitkeep
+    │   │   ├── api_client.dart
+    │   │   └── token_storage.dart
     │   ├── theme/
     │   │   ├── .gitkeep
     │   │   └── app_theme.dart
@@ -278,6 +288,7 @@ SIH_2026/
     │               ├── worker_availability_screen.dart
     │               └── worker_verification_screen.dart
     └── test/
+        ├── integration_hardening_test.dart
         └── widget_test.dart
 ```
 
@@ -293,6 +304,7 @@ SIH_2026/
 - `lib/screens/worker/my_jobs/`: active job workspace, multi-worker invite, incoming join request, rookie progression, material bills, completion evidence, payment confirmation, customer rating, and cancellation/reschedule.
 - `lib/screens/worker/profile/`: worker profile hub, weekly recurring availability editor, multi-tier verification status, and worker earnings/patronage dividend breakdown.
 - `lib/screens/common/`: shared `ForgotPasswordScreen`, `SettingsScreen`, `AboutHelpScreen`, `NoInternetScreen`, `ChatScreen`, and `NotificationsScreen`.
+- `test/integration_hardening_test.dart`: 21 comprehensive integration hardening tests covering API envelopes, error serialization, DTO deserialization, Decimal/null parsing, repository requests, token storage, chat, reviews, payments, opportunities, and workflow adapters.
 - `test/widget_test.dart`: 7 comprehensive widget test flows covering Customer navigation, registration, Worker destination navigation, Worker profile & availability, Worker opportunity details & workspace acceptance, Login layout & Forgot Password reset flow, and Worker profile navigation into Earnings, Settings, and Help screens.
 
 ### Backend (`backend/`)
@@ -406,8 +418,9 @@ POST /api/v1/notifications/read-all -> 200 OK (Marks all user's unread notificat
 ## Pending Backend/Product Work
 
 - Sprint 14: Mutual In-App Chat & Notifications (COMPLETE - 193/193 tests passing).
-- Sprint 15: Flutter-to-FastAPI End-to-End Integration.
+- Sprint 15: Flutter-to-FastAPI Integration Hardening (COMPLETE & VERIFIED - 198 backend tests passing, Flutter analyze 0 issues, 30 Flutter tests passing).
 - Sprint 16: End-to-End Testing & Live Deployment.
+
 
 
 

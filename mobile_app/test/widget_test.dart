@@ -1,9 +1,144 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile_app/main.dart';
+import 'package:mobile_app/services/api_client.dart';
 
 void main() {
+  setUp(() {
+    ApiClient.mockHandler = (RequestOptions options) async {
+      final path = options.path;
+
+      if (path.contains('/auth/demo-users')) {
+        return Response<dynamic>(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'status': 'success',
+            'data': [
+              {
+                'id': 'demo-customer-1',
+                'email': 'customer1@example.com',
+                'role': 'customer',
+                'full_name': 'Bhagya Patel',
+                'is_active': true,
+              },
+              {
+                'id': 'demo-worker-1',
+                'email': 'worker1@example.com',
+                'role': 'worker',
+                'full_name': 'Ravi Kumar',
+                'is_active': true,
+              },
+            ],
+          },
+        );
+      }
+
+      if (path.contains('/auth/login')) {
+        final data = options.data as Map<String, dynamic>?;
+        final role = (data?['role'] as String?)?.toLowerCase() ?? 'customer';
+        final name = role == 'customer' ? 'Bhagya' : 'Ravi';
+        return Response<dynamic>(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'status': 'success',
+            'data': {
+              'token': 'mock-access-token-123',
+              'token_type': 'bearer',
+              'user': {
+                'id': 'user-123',
+                'email': data?['email'] ?? 'test@example.com',
+                'role': role,
+                'full_name': name,
+                'phone_number': '+919876543210',
+                'is_active': true,
+              },
+            },
+          },
+        );
+      }
+
+      if (path.contains('/worker/opportunities')) {
+        return Response<dynamic>(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'status': 'success',
+            'data': {
+              'items': [
+                {
+                  'id': 'opp-sink-repair',
+                  'gig_id': 'gig-123',
+                  'worker_id': 'worker-1',
+                  'status': 'OFFERED',
+                  'base_price': 600.0,
+                  'base_price_snapshot': 600.0,
+                  'final_score_snapshot': 0.95,
+                  'premium_percentage': 0.08,
+                  'exact_wage': 650.0,
+                  'offered_at': '2026-09-10T10:00:00Z',
+                  'gig': {
+                    'id': 'gig-123',
+                    'category_id': 'cat-plumbing',
+                    'category_name': 'Plumbing',
+                    'gig_type': 'STANDARD',
+                    'description': 'Kitchen sink pipe leaking under sink',
+                    'instructions': 'Please bring pipe wrench',
+                    'address': 'Indiranagar, Bangalore',
+                    'scheduled_date': 'Today',
+                    'scheduled_start_time': '4:00 PM',
+                    'expected_duration_minutes': 120,
+                    'material_procurement_mode': 'CUSTOMER_PURCHASES',
+                    'tasks': [
+                      {
+                        'id': 'item-1',
+                        'task_id': 'task-1',
+                        'task_name': 'Kitchen sink leak repair',
+                        'quantity': 1,
+                        'base_rate': 600.0,
+                        'estimated_duration_minutes': 120,
+                      },
+                    ],
+                  },
+                },
+              ],
+              'total': 1,
+              'page': 1,
+              'page_size': 20,
+              'pages': 1,
+            },
+          },
+        );
+      }
+
+      if (path.contains('/customer/gigs') || path.contains('/worker/gigs')) {
+        return Response<dynamic>(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'status': 'success',
+            'data': {
+              'items': [],
+              'total': 0,
+              'page': 1,
+              'page_size': 20,
+              'pages': 0,
+            },
+          },
+        );
+      }
+
+      return null;
+    };
+  });
+
+  tearDown(() {
+    ApiClient.mockHandler = null;
+  });
+
   testWidgets('customer navigation reaches the redesigned home', (
     WidgetTester tester,
   ) async {

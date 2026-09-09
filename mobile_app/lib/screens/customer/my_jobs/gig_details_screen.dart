@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../models/customer_gig_workflow.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
-import '../home/emergency_tip_screen.dart';
 import 'accepted_candidates_screen.dart';
 import 'active_job_screen.dart';
 import 'cancel_gig_screen.dart';
@@ -110,19 +109,17 @@ class GigDetailsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  // Note: Emergency Fallback Tipping trigger is temporarily paused pending
+                  // backend contract support (no MVP tipping API). Preserved for future sprints.
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => EmergencyTipScreen(gig: gig),
-                        ),
-                      ),
+                      onPressed: null, // Disabled: No MVP tipping endpoint
                       icon: const Icon(
                         Icons.volunteer_activism_rounded,
                         size: 18,
                       ),
-                      label: const Text('Add tip incentive & re-notify'),
+                      label: const Text('Add tip incentive (Paused in MVP)'),
                     ),
                   ),
                 ],

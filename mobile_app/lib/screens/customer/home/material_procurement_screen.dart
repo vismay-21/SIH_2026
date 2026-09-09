@@ -85,6 +85,8 @@ class _MaterialProcurementScreenState extends State<MaterialProcurementScreen> {
                     builder: (_) => LabourPricePreviewScreen(
                       draft: GigDraft(
                         category: widget.draft.category,
+                        categoryId: widget.draft.categoryId,
+                        taskIds: widget.draft.taskIds,
                         description: widget.draft.description,
                         location: widget.draft.location,
                         date: widget.draft.date,

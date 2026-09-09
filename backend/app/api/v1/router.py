@@ -12,12 +12,16 @@ from app.api.v1.endpoints import (
     reviews,
     chat,
     notifications,
+    auth,
 )
 
 api_router = APIRouter()
 
 # Health & System Status
 api_router.include_router(health.router, tags=["Health"])
+
+# Development Auth
+api_router.include_router(auth.router)
 
 # Sprint 2: User & Identity
 api_router.include_router(me.router, tags=["Current User & Auth"])

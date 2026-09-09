@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/api/api_models.dart';
 import '../../../models/worker_job_workflow.dart';
+import '../../../repositories/worker_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import 'waiting_confirmation_screen.dart';
@@ -19,6 +21,7 @@ class _CompletionEvidenceUploadScreenState
     extends State<CompletionEvidenceUploadScreen> {
   bool _photo1Uploaded = true;
   bool _photo2Uploaded = true;
+  bool _isSubmitting = false;
   final TextEditingController _notesController = TextEditingController(
     text:
         'Replaced valve seal, reconnected pipeline, tested water pressure for 10 minutes with zero leakage. Cleaned work area.',
@@ -30,7 +33,7 @@ class _CompletionEvidenceUploadScreenState
     super.dispose();
   }
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     if (!_photo1Uploaded && !_photo2Uploaded) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -43,8 +46,39 @@ class _CompletionEvidenceUploadScreenState
       return;
     }
 
+    setState(() => _isSubmitting = true);
+
+    final gigId = widget.job.gigId;
+    if (gigId != null && !gigId.startsWith('job-')) {
+      try {
+        await WorkerRepository().submitCompletion(
+          gigId: gigId,
+          description: _notesController.text.trim(),
+          evidenceItems: const [
+            CompletionEvidenceCreateDto(
+              fileUrl: 'https://storage.sahakaarseva.coop/evidence/completion_1.jpg',
+              fileType: 'image/jpeg',
+            ),
+          ],
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error submitting completion evidence: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
     final updatedJob = WorkerJob(
       id: widget.job.id,
+      gigId: widget.job.gigId,
+      customerId: widget.job.customerId,
       title: widget.job.title,
       category: widget.job.category,
       description: widget.job.description,
@@ -209,11 +243,22 @@ class _CompletionEvidenceUploadScreenState
           width: double.infinity,
           height: 50,
           child: FilledButton.icon(
-            onPressed: _handleSubmit,
-            icon: const Icon(Icons.send_rounded),
-            label: const Text(
-              'Submit Evidence to Customer',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+            onPressed: _isSubmitting ? null : _handleSubmit,
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.send_rounded),
+            label: Text(
+              _isSubmitting
+                  ? 'Submitting Evidence...'
+                  : 'Submit Evidence to Customer',
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
             ),
           ),
         ),

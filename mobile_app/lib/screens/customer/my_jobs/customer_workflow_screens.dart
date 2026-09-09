@@ -1,13 +1,64 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/api/api_models.dart';
 import '../../../models/customer_gig_workflow.dart';
+import '../../../repositories/gig_repository.dart';
+import '../../../repositories/payment_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../common/chat_screen.dart';
 import '../profile/customer_account_screens.dart';
+import 'review_worker_screen.dart';
 
-class AcceptedCandidatesScreen extends StatelessWidget {
+class AcceptedCandidatesScreen extends StatefulWidget {
   const AcceptedCandidatesScreen({super.key, required this.gig});
   final CustomerGig gig;
+
+  @override
+  State<AcceptedCandidatesScreen> createState() =>
+      _AcceptedCandidatesScreenState();
+}
+
+class _AcceptedCandidatesScreenState extends State<AcceptedCandidatesScreen> {
+  final _gigRepo = GigRepository();
+  bool _isLoading = false;
+  String? _error;
+  List<GigCandidate> _candidates = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _candidates = widget.gig.candidates;
+    _fetchCandidates();
+  }
+
+  Future<void> _fetchCandidates() async {
+    if (widget.gig.id == null) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final dtoList = await _gigRepo.getCandidates(widget.gig.id!);
+      if (mounted) {
+        setState(() {
+          if (dtoList.isNotEmpty) {
+            _candidates = dtoList.map(GigCandidate.fromDto).toList();
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) => _WorkflowScaffold(
@@ -15,22 +66,55 @@ class AcceptedCandidatesScreen extends StatelessWidget {
     subtitle: 'Compare workers who accepted this gig before choosing one.',
     child: Column(
       children: [
-        ...gig.candidates.map(
-          (candidate) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _CandidateTile(candidate: candidate, gig: gig),
-          ),
-        ),
-        const SizedBox(height: 4),
-        _ActionCard(
-          icon: Icons.history_rounded,
-          title: 'Request a previous worker',
-          subtitle: 'A previous worker must accept before they are selected.',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const PreviousWorkerRequestScreen(),
+        if (_isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_error != null && _candidates.isEmpty)
+          SurfaceCard(
+            child: Column(
+              children: [
+                Text(
+                  'Could not load candidates: $_error',
+                  style: const TextStyle(color: Colors.red),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _fetchCandidates,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          )
+        else if (_candidates.isEmpty)
+          const SurfaceCard(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  'No candidates have accepted this gig yet.\nCheck back soon!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted),
+                ),
+              ),
+            ),
+          )
+        else
+          ..._candidates.map(
+            (candidate) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _CandidateTile(candidate: candidate, gig: widget.gig),
             ),
           ),
+        const SizedBox(height: 4),
+        // Note: Previous-worker direct-booking is temporarily paused pending backend contract support (no MVP endpoint).
+        const _ActionCard(
+          icon: Icons.history_rounded,
+          title: 'Request a previous worker (Paused in MVP)',
+          subtitle:
+              'Direct re-booking is paused pending backend support. Please select from candidates who accepted.',
+          onTap: null, // Paused in MVP
         ),
       ],
     ),
@@ -216,7 +300,7 @@ class _ComparisonRow extends StatelessWidget {
   );
 }
 
-class WorkerProfileScreen extends StatelessWidget {
+class WorkerProfileScreen extends StatefulWidget {
   const WorkerProfileScreen({
     super.key,
     required this.candidate,
@@ -224,6 +308,52 @@ class WorkerProfileScreen extends StatelessWidget {
   });
   final GigCandidate candidate;
   final CustomerGig gig;
+
+  @override
+  State<WorkerProfileScreen> createState() => _WorkerProfileScreenState();
+}
+
+class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
+  bool _isSelecting = false;
+
+  Future<void> _handleSelect() async {
+    if (widget.gig.id != null && widget.candidate.workerId != null) {
+      setState(() => _isSelecting = true);
+      try {
+        await GigRepository().selectWorker(
+          gigId: widget.gig.id!,
+          workerId: widget.candidate.workerId!,
+        );
+        if (mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => FinalWorkerSelectedScreen(
+                candidate: widget.candidate,
+                gig: widget.gig,
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to select worker: $e')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isSelecting = false);
+      }
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => FinalWorkerSelectedScreen(
+            candidate: widget.candidate,
+            gig: widget.gig,
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) => _WorkflowScaffold(
@@ -239,25 +369,25 @@ class WorkerProfileScreen extends StatelessWidget {
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 child: Text(
-                  candidate.initials,
+                  widget.candidate.initials,
                   style: const TextStyle(fontSize: 22),
                 ),
               ),
               const SizedBox(height: 10),
               Text(
-                candidate.name,
+                widget.candidate.name,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               Text(
-                candidate.skill,
+                widget.candidate.skill,
                 style: const TextStyle(color: AppColors.muted),
               ),
               const SizedBox(height: 12),
               Text(
-                '★ ${candidate.rating} · ${candidate.jobs}',
+                '★ ${widget.candidate.rating} · ${widget.candidate.jobs}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ],
@@ -266,25 +396,22 @@ class WorkerProfileScreen extends StatelessWidget {
         const SizedBox(height: 14),
         _InfoCard(
           title: 'Experience',
-          body: '${candidate.experience} of comparable household work.',
+          body: '${widget.candidate.experience} of comparable household work.',
         ),
-        _InfoCard(title: 'Review summary', body: candidate.summary),
+        _InfoCard(title: 'Review summary', body: widget.candidate.summary),
         _InfoCard(
           title: 'Relevant factors',
-          body: candidate.factors.join(' · '),
+          body: widget.candidate.factors.join(' · '),
         ),
         const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
           child: PrimaryAction(
-            label: 'Select this worker',
-            icon: Icons.check_rounded,
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) =>
-                    FinalWorkerSelectedScreen(candidate: candidate, gig: gig),
-              ),
-            ),
+            label: _isSelecting ? 'Selecting worker...' : 'Select this worker',
+            icon: _isSelecting
+                ? Icons.hourglass_top_rounded
+                : Icons.check_rounded,
+            onPressed: _isSelecting ? null : _handleSelect,
           ),
         ),
       ],
@@ -445,22 +572,37 @@ class ActiveJobScreen extends StatelessWidget {
         ),
         _InfoCard(
           title: 'Selected worker',
-          body: gig.selectedWorker?.name ?? 'Amit Sharma · Plumber',
+          body: gig.selectedWorker?.name ?? 'Assigned Worker',
         ),
         const SizedBox(height: 4),
         Row(
           children: [
             Expanded(
               child: FilledButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => CustomerChatThreadScreen(
-                      workerName: gig.selectedWorker?.name ?? 'Amit Sharma',
-                      jobTitle: gig.title,
-                      enabled: gig.chatEnabled,
-                    ),
-                  ),
-                ),
+                onPressed: () {
+                  if (gig.id != null) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ChatScreen(
+                          title: gig.selectedWorker?.name ?? 'Assigned Worker',
+                          subtitle: gig.title,
+                          gigId: gig.id,
+                        ),
+                      ),
+                    );
+                  } else {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => CustomerChatThreadScreen(
+                          workerName:
+                              gig.selectedWorker?.name ?? 'Amit Sharma',
+                          jobTitle: gig.title,
+                          enabled: gig.chatEnabled,
+                        ),
+                      ),
+                    );
+                  }
+                },
                 icon: const Icon(Icons.chat_bubble_outline_rounded),
                 label: Text(
                   gig.chatEnabled ? 'Open chat' : 'View chat history',
@@ -488,77 +630,150 @@ class ActiveJobScreen extends StatelessWidget {
   );
 }
 
-class CompletionEvidenceReviewScreen extends StatelessWidget {
+class CompletionEvidenceReviewScreen extends StatefulWidget {
   const CompletionEvidenceReviewScreen({super.key, required this.gig});
 
   final CustomerGig gig;
 
   @override
-  Widget build(BuildContext context) => _WorkflowScaffold(
-    title: 'Completion evidence',
-    subtitle: 'Review the worker evidence before confirming the work.',
-    child: Column(
-      children: [
-        SurfaceCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.photo_library_outlined,
-                color: AppColors.primary,
-                size: 38,
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                '2 completion photos uploaded',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Before and after photos from the selected worker are ready to review.',
-                style: TextStyle(color: AppColors.muted, height: 1.3),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Evidence viewer opened.')),
-                ),
-                icon: const Icon(Icons.open_in_new_rounded),
-                label: const Text('View evidence'),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        SizedBox(
-          width: double.infinity,
-          child: PrimaryAction(
-            label: 'Confirm completion',
-            icon: Icons.check_circle_outline_rounded,
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => CompletionConfirmationScreen(gig: gig),
-              ),
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You can contact the worker before confirming.'),
-            ),
-          ),
-          child: const Text('Contact worker about the work'),
-        ),
-      ],
-    ),
-  );
+  State<CompletionEvidenceReviewScreen> createState() =>
+      _CompletionEvidenceReviewScreenState();
 }
 
-class CompletionConfirmationScreen extends StatelessWidget {
+class _CompletionEvidenceReviewScreenState
+    extends State<CompletionEvidenceReviewScreen> {
+  GigCompletionDetailDto? _completion;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchEvidence();
+  }
+
+  Future<void> _fetchEvidence() async {
+    if (widget.gig.id == null) return;
+    try {
+      final comp = await GigRepository().getCompletion(widget.gig.id!);
+      if (mounted) setState(() => _completion = comp);
+    } catch (_) {
+      // Keep existing default display
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final photoCount = _completion?.submission?.evidenceFiles.length ?? 2;
+    final notes = _completion?.submission?.description ??
+        'Before and after photos from the selected worker are ready to review.';
+
+    return _WorkflowScaffold(
+      title: 'Completion evidence',
+      subtitle: 'Review the worker evidence before confirming the work.',
+      child: Column(
+        children: [
+          SurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.photo_library_outlined,
+                  color: AppColors.primary,
+                  size: 38,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '$photoCount completion photo(s) uploaded',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  notes,
+                  style: const TextStyle(color: AppColors.muted, height: 1.3),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Evidence viewer opened.')),
+                  ),
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: const Text('View evidence'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: PrimaryAction(
+              label: 'Confirm completion',
+              icon: Icons.check_circle_outline_rounded,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CompletionConfirmationScreen(gig: widget.gig),
+                ),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('You can contact the worker before confirming.'),
+              ),
+            ),
+            child: const Text('Contact worker about the work'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CompletionConfirmationScreen extends StatefulWidget {
   const CompletionConfirmationScreen({super.key, required this.gig});
 
   final CustomerGig gig;
+
+  @override
+  State<CompletionConfirmationScreen> createState() =>
+      _CompletionConfirmationScreenState();
+}
+
+class _CompletionConfirmationScreenState
+    extends State<CompletionConfirmationScreen> {
+  bool _isLoading = false;
+
+  Future<void> _handleConfirm() async {
+    if (widget.gig.id != null) {
+      setState(() => _isLoading = true);
+      try {
+        await GigRepository().confirmCompletion(
+          gigId: widget.gig.id!,
+          confirmed: true,
+        );
+        if (mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => PaymentScreen(gig: widget.gig),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to confirm completion: $e')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => PaymentScreen(gig: widget.gig),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) => _WorkflowScaffold(
@@ -592,11 +807,11 @@ class CompletionConfirmationScreen extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           child: PrimaryAction(
-            label: 'Yes, confirm completion',
-            icon: Icons.check_rounded,
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => PaymentScreen(gig: gig)),
-            ),
+            label: _isLoading ? 'Confirming...' : 'Yes, confirm completion',
+            icon: _isLoading
+                ? Icons.hourglass_top_rounded
+                : Icons.check_rounded,
+            onPressed: _isLoading ? null : _handleConfirm,
           ),
         ),
         TextButton(
@@ -617,8 +832,75 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
+  final _paymentRepo = PaymentRepository();
   String _method = 'UPI';
+  bool _isProcessing = false;
   bool _paid = false;
+  String? _displayAmount;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPayment();
+  }
+
+  Future<void> _fetchPayment() async {
+    if (widget.gig.id == null) return;
+    try {
+      final payment = await _paymentRepo.getGigPayment(widget.gig.id!);
+      if (mounted) {
+        setState(() {
+          _displayAmount = '₹${payment.amount.toStringAsFixed(0)}';
+          if (payment.status == 'COMPLETED' || payment.status == 'SUCCESS') {
+            _paid = true;
+          }
+        });
+      }
+    } catch (_) {
+      // Payment record may not exist prior to creation, which is normal.
+    }
+  }
+
+  Future<void> _handlePayment() async {
+    if (widget.gig.id != null) {
+      setState(() => _isProcessing = true);
+      try {
+        await _paymentRepo.recordPayment(
+          gigId: widget.gig.id!,
+          paymentMethod: _method,
+        );
+        if (mounted) {
+          setState(() {
+            _paid = true;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Payment recorded. Worker confirmation is pending.',
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Payment recording failed: $e')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isProcessing = false);
+      }
+    } else {
+      setState(() => _paid = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Payment recorded. Worker confirmation is pending.',
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) => _WorkflowScaffold(
@@ -635,9 +917,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 style: TextStyle(color: AppColors.muted),
               ),
               const SizedBox(height: 5),
-              const Text(
-                '₹680',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
+              Text(
+                _displayAmount ?? widget.gig.selectedWorker?.wage ?? '₹680',
+                style:
+                    const TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 5),
               const Text(
@@ -676,20 +959,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
         SizedBox(
           width: double.infinity,
           child: PrimaryAction(
-            label: _paid ? 'Payment marked' : 'Pay with $_method',
+            label: _isProcessing
+                ? 'Processing...'
+                : _paid
+                    ? 'Payment marked'
+                    : 'Pay with $_method',
             icon: _paid ? Icons.check_rounded : Icons.lock_outline_rounded,
-            onPressed: _paid
-                ? null
-                : () {
-                    setState(() => _paid = true);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Payment recorded. Worker confirmation is pending.',
-                        ),
-                      ),
-                    );
-                  },
+            onPressed: (_paid || _isProcessing) ? null : _handlePayment,
           ),
         ),
         if (_paid)
@@ -697,8 +973,31 @@ class _PaymentScreenState extends State<PaymentScreen> {
             padding: const EdgeInsets.only(top: 14),
             child: Column(
               children: [
-                const StatusPill('Payment complete · Chat closed'),
+                const StatusPill(
+                  'Payment complete · Awaiting receipt confirmation',
+                ),
                 const SizedBox(height: 12),
+                if (widget.gig.id != null) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => ReviewWorkerScreen(
+                            gigId: widget.gig.id!,
+                            workerId: widget.gig.selectedWorker?.workerId,
+                            workerName: widget.gig.selectedWorker?.name ??
+                                'Assigned Worker',
+                            gigTitle: widget.gig.title,
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.star_outline_rounded),
+                      label: const Text('Leave a review'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -825,39 +1124,43 @@ class _ActionCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.onTap,
+    this.onTap,
   });
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
-    child: SurfaceCard(
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
-                ),
-              ],
+    child: Opacity(
+      opacity: onTap != null ? 1.0 : 0.6,
+      child: SurfaceCard(
+        child: Row(
+          children: [
+            Icon(icon, color: onTap != null ? AppColors.primary : AppColors.muted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-        ],
+            if (onTap != null)
+              const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+          ],
+        ),
       ),
     ),
   );

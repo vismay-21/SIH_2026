@@ -1,6 +1,8 @@
 class GigDraft {
   GigDraft({
     required this.category,
+    this.categoryId,
+    this.taskIds = const [],
     required this.description,
     required this.location,
     required this.date,
@@ -13,6 +15,8 @@ class GigDraft {
   });
 
   final String category;
+  final String? categoryId;
+  final List<String> taskIds;
   final String description;
   final String location;
   final DateTime? date;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/worker_job_workflow.dart';
+import '../../../repositories/payment_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import 'review_customer_screen.dart';
@@ -19,6 +20,34 @@ class _WorkerPaymentConfirmationScreenState
     extends State<WorkerPaymentConfirmationScreen> {
   String _paymentMethod = 'UPI Direct';
   bool _confirmedReceipt = true;
+  bool _isConfirming = false;
+
+  Future<void> _confirmAndProceed() async {
+    final gigId = widget.job.gigId;
+    if (gigId != null && !gigId.startsWith('job-')) {
+      setState(() => _isConfirming = true);
+      try {
+        await PaymentRepository().confirmPaymentReceipt(gigId);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isConfirming = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Receipt confirmation error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => ReviewCustomerScreen(job: widget.job),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -277,22 +306,16 @@ class _WorkerPaymentConfirmationScreenState
         child: SizedBox(
           width: double.infinity,
           height: 50,
-          child: FilledButton.icon(
-            onPressed: _confirmedReceipt
-                ? () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute<void>(
-                        builder: (_) => ReviewCustomerScreen(job: widget.job),
-                      ),
-                    );
-                  }
-                : null,
-            icon: const Icon(Icons.star_rounded),
-            label: const Text(
-              'Confirm & Rate Customer',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-            ),
-          ),
+          child: _isConfirming
+              ? const Center(child: CircularProgressIndicator())
+              : FilledButton.icon(
+                  onPressed: _confirmedReceipt ? _confirmAndProceed : null,
+                  icon: const Icon(Icons.star_rounded),
+                  label: const Text(
+                    'Confirm & Rate Customer',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                  ),
+                ),
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../models/worker_job_workflow.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../../repositories/worker_repository.dart';
 import '../../common/chat_screen.dart';
 import 'completion_evidence_upload_screen.dart';
 import 'material_bill_upload_screen.dart';
@@ -32,7 +33,23 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
     _invitedCoWorker = widget.job.additionalWorkerName;
   }
 
-  void _advanceProgress() {
+  Future<void> _advanceProgress() async {
+    final gigId = widget.job.gigId;
+    if (gigId != null && !gigId.startsWith('job-')) {
+      try {
+        await WorkerRepository().startWork(gigId);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error starting work: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() {
       if (_status == WorkerJobStatus.accepted ||
           _status == WorkerJobStatus.scheduled) {
@@ -57,6 +74,21 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.chat_outlined),
+            tooltip: 'Job Chat',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ChatScreen(
+                    title: 'Chat with ${widget.job.customerName}',
+                    subtitle: widget.job.title,
+                    gigId: widget.job.gigId,
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.more_vert_rounded),
             onPressed: () {

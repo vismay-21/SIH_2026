@@ -1,3 +1,5 @@
+import 'api/api_models.dart';
+
 enum GigStage {
   seeking,
   responding,
@@ -26,6 +28,7 @@ extension GigStageLabel on GigStage {
 
 class GigCandidate {
   const GigCandidate({
+    this.workerId,
     required this.name,
     required this.initials,
     required this.skill,
@@ -38,6 +41,7 @@ class GigCandidate {
     this.isRecommended = false,
   });
 
+  final String? workerId;
   final String name;
   final String initials;
   final String skill;
@@ -48,10 +52,30 @@ class GigCandidate {
   final String summary;
   final List<String> factors;
   final bool isRecommended;
+
+  factory GigCandidate.fromDto(GigCandidateDto dto) {
+    return GigCandidate(
+      workerId: dto.workerId,
+      name: dto.name,
+      initials: dto.name.isNotEmpty ? dto.name[0].toUpperCase() : 'W',
+      skill: 'Verified Specialist',
+      wage: '₹${dto.exactWage.toInt()}',
+      experience: '${dto.completedJobsCount} completed jobs',
+      rating: dto.ratingAverage > 0 ? dto.ratingAverage.toStringAsFixed(1) : 'New',
+      jobs: '${dto.completedJobsCount} gigs',
+      summary: 'Reliability: ${(dto.finalScore * 100).toInt()}%',
+      factors: [
+        'Guaranteed wage: ₹${dto.exactWage.toInt()}',
+        'Rating: ${dto.ratingAverage.toStringAsFixed(1)} (${dto.ratingCount} reviews)',
+      ],
+      isRecommended: dto.finalScore >= 0.7,
+    );
+  }
 }
 
 class CustomerGig {
   const CustomerGig({
+    this.id,
     required this.title,
     required this.category,
     required this.description,
@@ -66,6 +90,7 @@ class CustomerGig {
     this.selectedWorker,
   });
 
+  final String? id;
   final String title;
   final String category;
   final String description;
@@ -81,8 +106,54 @@ class CustomerGig {
 
   bool get chatEnabled => selectedWorker != null && stage != GigStage.completed;
 
-  CustomerGig copyWith({GigStage? stage, GigCandidate? selectedWorker}) =>
+  factory CustomerGig.fromDto(
+    GigDto dto, {
+    List<GigCandidate> candidates = const [],
+    GigCandidate? selectedWorker,
+  }) {
+    final status = dto.status.toUpperCase();
+    final stage = switch (status) {
+      'DRAFT' || 'POSTED' || 'BROADCASTING' => GigStage.seeking,
+      'RESPONDING' => GigStage.responding,
+      'WORKER_SELECTED' => GigStage.selected,
+      'SCHEDULED' => GigStage.scheduled,
+      'IN_PROGRESS' => GigStage.active,
+      'WORKER_COMPLETED' => GigStage.completionRequested,
+      'CUSTOMER_CONFIRMED' => GigStage.payment,
+      'COMPLETED' => GigStage.completed,
+      _ => GigStage.active,
+    };
+
+    final title = dto.tasks.isNotEmpty ? dto.tasks.first.taskName : dto.categoryName;
+    return CustomerGig(
+      id: dto.id,
+      title: title,
+      category: dto.categoryName,
+      description: dto.description ?? '',
+      when: dto.scheduledDate ?? 'As arranged',
+      location: dto.address ?? 'Customer address',
+      duration: dto.expectedDurationMinutes != null
+          ? '${dto.expectedDurationMinutes} min'
+          : 'Flexible',
+      stage: stage,
+      materials: dto.materialProcurementMode == 'CUSTOMER_PURCHASES'
+          ? 'Customer purchases'
+          : 'Worker purchases',
+      instructions: dto.instructions ?? '',
+      candidates: candidates,
+      isEmergency: dto.isEmergency,
+      selectedWorker: selectedWorker,
+    );
+  }
+
+  CustomerGig copyWith({
+    String? id,
+    GigStage? stage,
+    GigCandidate? selectedWorker,
+    List<GigCandidate>? candidates,
+  }) =>
       CustomerGig(
+        id: id ?? this.id,
         title: title,
         category: category,
         description: description,
@@ -92,7 +163,7 @@ class CustomerGig {
         stage: stage ?? this.stage,
         materials: materials,
         instructions: instructions,
-        candidates: candidates,
+        candidates: candidates ?? this.candidates,
         isEmergency: isEmergency,
         selectedWorker: selectedWorker ?? this.selectedWorker,
       );

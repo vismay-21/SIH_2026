@@ -1,3 +1,5 @@
+import 'api/api_models.dart';
+
 enum WorkerJobStatus {
   accepted,
   scheduled,
@@ -30,6 +32,7 @@ extension JoinRoleTypeLabel on JoinRoleType {
 class WorkerOpportunity {
   const WorkerOpportunity({
     required this.id,
+    this.gigId,
     required this.title,
     required this.category,
     required this.description,
@@ -45,6 +48,7 @@ class WorkerOpportunity {
   });
 
   final String id;
+  final String? gigId;
   final String title;
   final String category;
   final String description;
@@ -57,11 +61,39 @@ class WorkerOpportunity {
   final String instructions;
   final bool isEmergency;
   final bool hasScheduleConflict;
+
+  factory WorkerOpportunity.fromDto(OpportunityDto dto) {
+    final gig = dto.gig;
+    final taskName =
+        gig.tasks.isNotEmpty ? gig.tasks.first.taskName : gig.categoryName;
+    return WorkerOpportunity(
+      id: dto.id,
+      gigId: dto.gigId,
+      title: taskName,
+      category: gig.categoryName,
+      description: gig.description ?? '',
+      wage: '₹${dto.exactWage.toInt()}',
+      when: gig.scheduledDate ?? 'Today',
+      distance: '2.5 km away',
+      location: gig.address ?? 'Customer location',
+      duration: gig.expectedDurationMinutes != null
+          ? '${gig.expectedDurationMinutes} min'
+          : '2 hours',
+      materials: gig.materialProcurementMode == 'CUSTOMER_PURCHASES'
+          ? 'Customer purchases'
+          : 'Worker purchases',
+      instructions: gig.instructions ?? '',
+      isEmergency: gig.isEmergency,
+      hasScheduleConflict: false,
+    );
+  }
 }
 
 class WorkerJob {
   const WorkerJob({
     required this.id,
+    this.gigId,
+    this.customerId,
     required this.title,
     required this.category,
     required this.description,
@@ -79,6 +111,8 @@ class WorkerJob {
   });
 
   final String id;
+  final String? gigId;
+  final String? customerId;
   final String title;
   final String category;
   final String description;
@@ -93,6 +127,37 @@ class WorkerJob {
   final bool isEmergency;
   final bool isRookieParticipation;
   final String? additionalWorkerName;
+
+  factory WorkerJob.fromDto(WorkerGigListItemDto dto) {
+    final status = switch (dto.status.toUpperCase()) {
+      'SCHEDULED' => WorkerJobStatus.scheduled,
+      'IN_PROGRESS' => WorkerJobStatus.active,
+      'WORKER_COMPLETED' => WorkerJobStatus.evidenceSubmitted,
+      'CUSTOMER_CONFIRMED' => WorkerJobStatus.paymentPending,
+      'COMPLETED' => WorkerJobStatus.completed,
+      _ => WorkerJobStatus.accepted,
+    };
+
+    return WorkerJob(
+      id: dto.id,
+      gigId: dto.id,
+      customerId: dto.customerId,
+      title: dto.categoryName,
+      category: dto.categoryName,
+      description: 'Cooperative service gig',
+      wage: '₹${dto.exactWage.toInt()}',
+      when: dto.scheduledDate ?? 'Today',
+      location: dto.address ?? 'Assigned location',
+      duration: dto.expectedDurationMinutes != null
+          ? '${dto.expectedDurationMinutes} min'
+          : '2 hours',
+      status: status,
+      customerName: 'Customer',
+      materials: 'Cooperative verified',
+      instructions: '',
+      isEmergency: dto.isEmergency,
+    );
+  }
 }
 
 class WorkerJoinRequest {
