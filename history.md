@@ -711,6 +711,56 @@ Completed Sprint 13 (Structured Reviews + Metrics & Bayesian Rating Updates) per
     - Atomic rollback verification on failed review transactions.
   - Full regression test suite: 182/182 tests passing across all backend modules (Sprints 0 through 13) in 12.59s with 100% pass rate.
 
+## 2026-09-10 01:15:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed **Sprint 14 — Chat + Notifications** per `docs/06_BACKEND_SPRINTS.md` (Section 37), `docs/05_API_DESIGN.md` (Sections 29–30), `docs/04_DATABASE_DESIGN.md` (Sections 48–49), `docs/SRS_Final.md` (Section 26), and `docs/FRONTEND_DEVELOPMENT_ROADMAP.md` (Section 15.10):
+- Chat Architecture & Gating:
+  - Reused existing `Conversation` and `Message` models in `app/db/models/communication.py`.
+  - Enforced single job-scoped conversation per gig (`Conversation.gig_id` unique); no public or community channels.
+  - Chat gating: Strictly available only once a worker is selected (`gig.selected_worker_id is not None`); returns `409 CHAT_NOT_AVAILABLE` prior to selection.
+  - Authorization: Strict role-based isolation permitting only customer, selected primary worker, and accepted collaborators (`WorkerParticipationStatus.ACCEPTED` on `additional_worker_id`); returns `403 NOT_GIG_PARTICIPANT` for outsiders.
+  - Lazy initialization: Conversation record is generated lazily on first participant access if not already created.
+  - Message validation: Trimmed whitespace, length 1–2000 characters, authenticated sender binding (`sender_id = current_user.id`).
+  - Read receipts: When a recipient retrieves messages via `GET /api/v1/gigs/{gig_id}/conversation/messages`, counterparty unread messages retrieved in that window are atomically marked `is_read = True`.
+  - Emits in-app `Notification` (`type="CHAT_MESSAGE"`) to relevant counterparties (including accepted collaborators) and audit event `GigEvent` (`event_type="CHAT_MESSAGE_SENT"`).
+- Notifications System:
+  - Reused existing `Notification` model and service architecture; no parallel notification mechanisms introduced.
+  - Filtering: Supports filtering by `is_read` (boolean) and `type` (string).
+  - Ordering & Pagination: Orders newest first (`created_at DESC`) with `limit` and `offset`, returning total and `unread_count`.
+  - Read actions: `POST /api/v1/notifications/{id}/read` sets `is_read = True` and records `read_at = now_utc`.
+  - Read-all: `POST /api/v1/notifications/read-all` updates all unread notifications belonging exclusively to the authenticated user and returns `marked_read_count`.
+  - Ownership isolation: Users can only inspect and mark their own notifications (returns `403 FORBIDDEN` on unauthorized attempts).
+- Lifecycle Notifications Integration:
+  - `NEW_OPPORTUNITY`: Emitted to matched workers upon gig posting or sync in `app/services/opportunity_service.py`.
+  - `WORKER_ACCEPTED`: Emitted to customer when a worker accepts the opportunity in `app/services/opportunity_service.py`.
+  - `REVIEW_AVAILABLE`: Emitted idempotently to both customer and selected worker upon gig reaching `COMPLETED` status in `app/services/payment_service.py`.
+- Endpoints Added in `app/api/v1/router.py`:
+  - `GET  /api/v1/gigs/{gig_id}/conversation` (`app/api/v1/endpoints/chat.py`)
+  - `POST /api/v1/gigs/{gig_id}/conversation/messages` (`app/api/v1/endpoints/chat.py`)
+  - `GET  /api/v1/gigs/{gig_id}/conversation/messages` (`app/api/v1/endpoints/chat.py`)
+  - `GET  /api/v1/notifications` (`app/api/v1/endpoints/notifications.py`)
+  - `POST /api/v1/notifications/{notification_id}/read` (`app/api/v1/endpoints/notifications.py`)
+  - `POST /api/v1/notifications/read-all` (`app/api/v1/endpoints/notifications.py`)
+- Automated Testing & Regression:
+  - Created `app/tests/test_sprint14_chat_notifications.py` (11 comprehensive tests) covering:
+    - Lazy conversation initialization.
+    - Chat availability gating prior to worker selection (`409 CHAT_NOT_AVAILABLE`).
+    - Participant authorization and isolation (`403 NOT_GIG_PARTICIPANT`).
+    - Customer <-> worker bidirectional messaging, notification generation, and audit logging.
+    - Accepted collaborator chat participation and notification broadcasting.
+    - Empty, whitespace, and oversized (>2000 chars) message validation (`422 Unprocessable Content`).
+    - Message pagination, chronological ordering (ASC), and dynamic unread counter calculation.
+    - Read receipt auto-marking for retrieved counterparty messages.
+    - Notification listing with `is_read` and `type` filters and `unread_count`.
+    - Single notification mark as read with `read_at` timestamp.
+    - Read-all bulk notification updates with count.
+    - Notification ownership security isolation (`403 FORBIDDEN`).
+    - Lifecycle notification emissions (`NEW_OPPORTUNITY`, `WORKER_ACCEPTED`, `REVIEW_AVAILABLE`).
+    - Duplicate/idempotency protection for `REVIEW_AVAILABLE` on repeated payment confirmations.
+  - Health & OpenAPI verification: 53 registered paths, health check 200 OK.
+  - Full regression test suite: **193/193 tests passing** across all backend modules (Sprints 0 through 14) in 13.56s with 100% pass rate.
+
+
 
 
 

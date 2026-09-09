@@ -395,13 +395,20 @@ GET /api/v1/review-questions -> 200 OK (Filtered list of active standard questio
 POST /api/v1/gigs/{gig_id}/reviews -> 201 Created (Participant submits completed gig review, recalculates Bayesian & final scores)
 GET /api/v1/gigs/{gig_id}/reviews -> 200 OK (Participant views submitted gig reviews and answers)
 GET /api/v1/workers/{worker_id}/metrics -> 200 OK (Public worker rating average, rating count, and final score)
+GET /api/v1/gigs/{gig_id}/conversation -> 200 OK (Job-scoped conversation overview, lazy initialization, unread count, 409 before worker selection)
+POST /api/v1/gigs/{gig_id}/conversation/messages -> 201 Created (Send message, 1–2000 chars, emits CHAT_MESSAGE notification and CHAT_MESSAGE_SENT event)
+GET /api/v1/gigs/{gig_id}/conversation/messages -> 200 OK (Chronological message pagination, auto marks retrieved counterparty messages as read)
+GET /api/v1/notifications -> 200 OK (User notifications with is_read and type filtering, pagination, newest-first, unread_count)
+POST /api/v1/notifications/{notification_id}/read -> 200 OK (Marks single notification as read, sets read_at, ownership enforced)
+POST /api/v1/notifications/read-all -> 200 OK (Marks all user's unread notifications as read, returns marked_read_count)
 ```
 
 ## Pending Backend/Product Work
 
-- Sprint 14: Mutual In-App Chat & Notifications.
+- Sprint 14: Mutual In-App Chat & Notifications (COMPLETE - 193/193 tests passing).
 - Sprint 15: Flutter-to-FastAPI End-to-End Integration.
 - Sprint 16: End-to-End Testing & Live Deployment.
+
 
 
 

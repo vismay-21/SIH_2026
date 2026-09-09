@@ -492,6 +492,38 @@ class PaymentService:
                 )
             )
 
+            # Idempotent REVIEW_AVAILABLE notifications for customer and worker
+            existing_review_notif = (
+                db.query(Notification)
+                .filter(
+                    Notification.gig_id == gig.id,
+                    Notification.type == "REVIEW_AVAILABLE",
+                )
+                .first()
+            )
+            if not existing_review_notif:
+                db.add(
+                    Notification(
+                        recipient_id=gig.customer_id,
+                        gig_id=gig.id,
+                        type="REVIEW_AVAILABLE",
+                        title="Leave a Review",
+                        body=f"Gig #{gig.id} is complete! Please review your worker.",
+                        action_url=f"/gigs/{gig.id}/reviews",
+                    )
+                )
+                if gig.selected_worker_id:
+                    db.add(
+                        Notification(
+                            recipient_id=gig.selected_worker_id,
+                            gig_id=gig.id,
+                            type="REVIEW_AVAILABLE",
+                            title="Leave a Review",
+                            body=f"Gig #{gig.id} is complete! Please review your customer.",
+                            action_url=f"/gigs/{gig.id}/reviews",
+                        )
+                    )
+
             db.commit()
             db.refresh(payment)
 

@@ -384,7 +384,11 @@ def test_worker_reviews_customer_success(client: TestClient, db_session: Session
     # Customer notification
     notif = (
         db_session.query(Notification)
-        .filter(Notification.gig_id == uuid.UUID(gig_id), Notification.recipient_id == uuid.UUID(cust["id"]))
+        .filter(
+            Notification.gig_id == uuid.UUID(gig_id),
+            Notification.recipient_id == uuid.UUID(cust["id"]),
+            Notification.type == "REVIEW_RECEIVED",
+        )
         .first()
     )
     assert notif is not None

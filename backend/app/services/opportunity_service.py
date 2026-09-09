@@ -13,7 +13,7 @@ from app.core.exceptions import (
 from app.db.models.user import User, WorkerProfile, WorkerMetric
 from app.db.models.service import ServiceCategory, ServiceTask, WorkerCategory, WorkerAvailability
 from app.db.models.gig import Gig, GigTask, GigWorkerOpportunity
-from app.db.models.communication import GigEvent
+from app.db.models.communication import GigEvent, Notification
 from app.db.models.enums import GigStatus, OpportunityStatus, UserRole
 from app.schemas.opportunity import OpportunityResponse, OpportunityGigResponse
 from app.schemas.gig import GigTaskItemResponse
@@ -289,6 +289,18 @@ class OpportunityService:
                 },
             )
             db.add(audit_event)
+
+            # Notification to worker for new opportunity
+            db.add(
+                Notification(
+                    recipient_id=worker.id,
+                    gig_id=gig.id,
+                    type="NEW_OPPORTUNITY",
+                    title="New Job Opportunity",
+                    body=f"A new gig #{gig.id} matching your trade is available.",
+                    action_url=f"/worker/opportunities/{opp.id}",
+                )
+            )
             created_opportunities.append(opp)
 
         if created_opportunities:
@@ -377,6 +389,18 @@ class OpportunityService:
                 },
             )
             db.add(audit_event)
+
+            # Notification to worker for synced new opportunity
+            db.add(
+                Notification(
+                    recipient_id=worker_user.id,
+                    gig_id=gig.id,
+                    type="NEW_OPPORTUNITY",
+                    title="New Job Opportunity",
+                    body=f"A new gig #{gig.id} matching your trade is available.",
+                    action_url=f"/worker/opportunities/{opp.id}",
+                )
+            )
 
         db.commit()
 
@@ -560,6 +584,19 @@ class OpportunityService:
                 },
             )
             db.add(audit_event)
+
+            # Notification to customer that a worker accepted the opportunity
+            worker_display = worker_user.full_name or "A worker"
+            db.add(
+                Notification(
+                    recipient_id=gig.customer_id,
+                    gig_id=gig.id,
+                    type="WORKER_ACCEPTED",
+                    title="Worker Accepted Opportunity",
+                    body=f"{worker_display} has accepted the opportunity for gig #{gig.id}.",
+                    action_url=f"/gigs/{gig.id}/candidates",
+                )
+            )
 
             db.commit()
             db.refresh(opp)
