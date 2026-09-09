@@ -105,7 +105,7 @@ Delivered the final screen batch completing 100% of the full ~52 screen frontend
 
 - Frontend status synchronization and code formatting.
 
-## 2026-09-09 18:15:00 +05:30 — Antigravity (Backend AI)
+## 2026-09-09 18:15:00 +05:30 — Vismay & Antigravity (Backend AI)
 
 Completed **Sprint 0 — Backend Foundation** for the Sahakaar Seva Cooperative platform per `docs/06_BACKEND_SPRINTS.md`:
 - Established the modular FastAPI backend architecture in `backend/app/` (`main.py`, `core/`, `db/`, `api/`, `schemas/`, `repositories/`, `services/`, `tests/`).
@@ -120,7 +120,7 @@ Completed **Sprint 0 — Backend Foundation** for the Sahakaar Seva Cooperative 
 - Configured pytest test suite (`app/tests/conftest.py`, `app/tests/test_health.py`) testing health endpoint, root discovery, database session, error formatting, and CORS headers.
 - Verified: `pytest -v` (5/5 passed), `alembic current` (head), and direct test client call `GET /api/v1/health` (200 OK).
 
-## 2026-09-09 18:35:00 +05:30 — Antigravity (Backend AI)
+## 2026-09-09 18:35:00 +05:30 — Vismay & Antigravity (Backend AI)
 
 Completed **Sprint 1 — Database Schema + Models** for the Sahakaar Seva Cooperative platform per `docs/06_BACKEND_SPRINTS.md`:
 - Implemented all 31 tables from `docs/04_DATABASE_DESIGN.md` across modular model files in `backend/app/db/models/`:
@@ -142,7 +142,7 @@ Completed **Sprint 1 — Database Schema + Models** for the Sahakaar Seva Cooper
 - Generated and applied complete database migration: `e29d3f46feb9_sprint_1_mvp_schema.py` (`alembic upgrade head`). Verified 32 tables live in the database (31 domain tables + `alembic_version`).
 - Created comprehensive model test suite in `app/tests/test_models.py` validating table registration, foreign keys, 1-to-1 profiles/metrics, service tasks, gig opportunity snapshots, completion submissions, payments, and notifications.
 - Validation: `pytest -v` (13/13 tests passed), `alembic current` (e29d3f46feb9 head), and `flutter test` (7/7 passed).
-## 2026-09-09 19:55:00 +05:30 — Antigravity (Backend AI)
+## 2026-09-09 19:55:00 +05:30 — Vismay & Antigravity (Backend AI)
 
 Completed comprehensive verification of Sprint 1 and successfully deployed the schema to Supabase:
 - Performed thorough verification across 5 strict categories:
@@ -157,7 +157,7 @@ Completed comprehensive verification of Sprint 1 and successfully deployed the s
   - Updated `alembic/env.py` with `configparser` `%` interpolation escaping.
   - Successfully executed `alembic upgrade head` against Supabase PostgreSQL, creating all 32 tables live in the cloud database.
   - Verified live FastAPI `GET /api/v1/health` returning 200 OK with `database: connected`.
-  ## 2026-09-09 20:05:00 +05:30 — Antigravity (Backend AI)
+  ## 2026-09-09 20:05:00 +05:30 — Vismay & Antigravity (Backend AI)
 
 Completed **Sprint 2 — Authentication + Profiles** for the Sahakaar Seva Cooperative platform per `docs/06_BACKEND_SPRINTS.md` and `docs/05_API_DESIGN.md`:
 - Implemented cryptographic Supabase Auth JWT validation and security dependencies in `app/core/security.py`:
@@ -202,7 +202,7 @@ Completed **Sprint 2 — Authentication + Profiles** for the Sahakaar Seva Coope
   - Pytest: 31/31 passed across entire test suite.
   - Live server: tested live endpoints against running uvicorn instance on port 8000 connected to Supabase PostgreSQL (`/api/v1/health` -> 200, `/api/v1/me` -> 401 without auth, `/api/v1/me/initialize` -> 201, `/api/v1/me` -> 200, `/api/v1/customer/profile` -> 200).
 
-## 2026-09-09 20:25:00 +05:30 — Antigravity (Backend AI)
+## 2026-09-09 20:25:00 +05:30 — Vismay & Antigravity (Backend AI)
 
 Completed focused security, architecture, and isolation verification for Sprint 2:
 - Centralized rookie score defaults and algorithmic calculations:
@@ -218,7 +218,7 @@ Completed focused security, architecture, and isolation verification for Sprint 
   - Verified rejection of invalid/inactive `cooperative_id` on user initialization.
   - Confirmed profile endpoints strictly isolate data by `current_user.id`, preventing cross-user or cross-cooperative data leakage.
 - Created dedicated verification suite (`app/tests/test_sprint2_verification.py`, 10 tests). Full test suite: 41/41 tests passing.
-## 2026-09-09 21:05:00 +05:30 — Antigravity (Backend AI)
+## 2026-09-09 21:05:00 +05:30 — Vismay & Antigravity (Backend AI)
 
 Completed Sprint 3 (Catalogue + Wage Engine) per docs/06_BACKEND_SPRINTS.md (Section 26), docs/WAGES.md, docs/05_API_DESIGN.md, and docs/04_DATABASE_DESIGN.md:
 - Implemented Catalogue & Pricing core datasets and schemas:
@@ -239,4 +239,356 @@ Completed Sprint 3 (Catalogue + Wage Engine) per docs/06_BACKEND_SPRINTS.md (Sec
   - Created comprehensive test suite in `app/tests/test_sprint3_pricing_and_wages.py` (20 tests) covering category fetching, category tasks, 404 handling, 45-min minimum enforcement (15 min -> 45 min, 20+25 min -> 45 min, 75 min -> 75 min), cross-category task rejection, empty task list validation, wage calculation at 0.0, 1.0, 0.5, rookie baseline 0.35, boundary clamping, 2-decimal rounding, logarithmic complexity bounds, rolling experience window, Bayesian rating aggregation, boundary tests for buckets (0.0, 0.33, 0.34, 0.66, 0.67, 1.0), rookie 0.5x contribution without decay, and dynamic `WAGE_PREMIUM_MAX_FACTOR` configurability verification.
   - Pytest: 61/61 passed across entire backend test suite.
   - Verified live endpoints against running Uvicorn server on port 8000 connected to remote Supabase PostgreSQL.
+
+## 2026-09-09 21:42:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 4 Focused Verification against `docs/04_DATABASE_DESIGN.md`, `docs/05_API_DESIGN.md`, and `docs/06_BACKEND_SPRINTS.md`:
+1. Schedule validation:
+   - Audited schedule validation in `app/services/gig_service.py`.
+   - Removed undocumented emergency past-date bypass (`and not payload.is_emergency`).
+   - Verified that all gigs (both normal and emergency) strictly reject past scheduled dates with `400 INVALID_SCHEDULE_DATE`, while allowing scheduled dates >= today and strictly enforcing `scheduled_end_time > scheduled_start_time`.
+2. Non-authoritative `expected_duration_minutes`:
+   - Verified that `expected_duration_minutes` is purely a non-authoritative customer estimate and has zero influence on pricing or billable duration.
+   - Authoritative duration and base price strictly derive from selected catalogue tasks (`total_standard_duration = sum(standard_duration_minutes)`), category minimum billable rule (`max(total, 45)`), and base rate per minute snapshot (`base_rate_per_minute * billable_duration`).
+3. Transaction Atomicity & Audit Events:
+   - Wrapped `create_gig` and `post_gig` within explicit `try ... except ... db.rollback(); raise` blocks.
+   - Verified that if `GigEvent` logging fails (or if any part of the transaction fails), `db.rollback()` is executed atomically, ensuring that neither an orphaned gig nor an unlinked audit event can ever be committed to the database.
+4. Client-supplied `base_price` Immunity:
+   - Configured `ConfigDict(extra="ignore")` explicitly on `GigCreateRequest` in `app/schemas/gig.py`.
+   - Verified that client-supplied `base_price` or snapshot tampering parameters in request payloads are completely ignored and cannot override backend pricing or database snapshots.
+5. Testing & Validation:
+   - Added 5 new targeted audit tests to `app/tests/test_sprint4_gig_creation.py` (totaling 15 tests in this module).
+   - Full test suite: 76/76 tests passing across all sprints (Sprint 0, 1, 2, 3, 4).
+   - Sprint 4 is verified, compliant with all design documents, and fully complete.
+
+## 2026-09-09 21:49:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 5 (Worker Opportunity Engine) per `docs/06_BACKEND_SPRINTS.md` (Section 28), `docs/05_API_DESIGN.md` (Section 15), and `docs/04_DATABASE_DESIGN.md` (Sections 18–21):
+- Implemented Schemas in `app/schemas/opportunity.py`:
+  - `OpportunityGigResponse`: Nested gig details including category, scheduled date/time, expected duration, emergency flag, material mode, and tasks.
+  - `OpportunityResponse`: Complete opportunity model containing immutable offer snapshots: `base_price_snapshot`, `final_score_snapshot`, `premium_percentage`, `exact_wage`, `offered_at`, `responded_at`, and nested `gig`.
+- Implemented Business Logic in `app/services/opportunity_service.py`:
+  - `generate_opportunities_for_gig`: Generates personalized opportunities for all eligible cooperative workers matching category, active status, availability, and non-conflicting schedule upon gig posting.
+  - `check_schedule_conflict`: Enforces the MVP rule that any partial or full overlap with an existing confirmed gig (`WORKER_SELECTED`, `SCHEDULED`, `IN_PROGRESS`) blocks acceptance.
+  - `check_worker_availability`: Validates worker weekly recurring availability slots against scheduled date and times.
+  - `get_worker_opportunities`: Fetches and synchronizes available opportunities for the authenticated worker with filtering by `category_id`, `scheduled_date`, `is_emergency`, and `status`, plus pagination metadata.
+  - `get_opportunity_by_id`: Retrieves detailed opportunity data with strict worker ownership verification (`403 FORBIDDEN` for other workers).
+  - `accept_opportunity`: Atomically verifies opportunity is `PENDING`, worker ownership, active status, category eligibility, same cooperative, unexpired acceptance deadline, and absence of schedule conflicts before transitioning status to `ACCEPTED` and logging `OPPORTUNITY_ACCEPTED` audit event with atomic rollback guarantee.
+  - `reject_opportunity`: Atomically verifies worker ownership and `PENDING` status before transitioning to `REJECTED`, logging `OPPORTUNITY_REJECTED` audit event, and ensuring the same opportunity can never be accepted later.
+- Integrated Opportunity Generation into Gig Lifecycle:
+  - Updated `GigService.post_gig` in `app/services/gig_service.py` to trigger `OpportunityService.generate_opportunities_for_gig` atomically within the post-gig transaction.
+- Mounted Worker Opportunity Endpoints in `app/api/v1/endpoints/worker.py`:
+  - `GET /api/v1/worker/opportunities`
+  - `GET /api/v1/worker/opportunities/{opportunity_id}`
+  - `POST /api/v1/worker/opportunities/{opportunity_id}/accept`
+  - `POST /api/v1/worker/opportunities/{opportunity_id}/reject`
+- Automated Testing:
+  - Created dedicated test suite `app/tests/test_sprint5_opportunity_engine.py` (8 tests) covering:
+    - Multiple workers receiving the same gig with personalized wage calculations (e.g., rookie 0.35 -> ₹248.62 vs expert 0.80 -> ₹279.00 on ₹225.00 base price).
+    - Independent accept/reject actions without interference.
+    - Rejection of re-accepting an already rejected opportunity (`400 ALREADY_REJECTED`).
+    - Rejection of duplicate acceptance (`400 ALREADY_ACCEPTED`).
+    - Cross-worker authorization isolation (`403 FORBIDDEN`).
+    - Category mismatch exclusion (carpenters do not receive plumbing opportunities).
+    - Schedule conflict detection blocking acceptance of overlapping gigs (`400 SCHEDULE_CONFLICT`).
+    - Opportunity filtering and detail lookup.
+  - Full test suite: 84/84 tests passing across all sprints (Sprint 0, 1, 2, 3, 4, 5).
+  - Verified live server health check against running Uvicorn server on port 8000 connected to remote Supabase PostgreSQL.
+
+## 2026-09-09 21:54:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 5 Focused Verification against `docs/04_DATABASE_DESIGN.md`, `docs/05_API_DESIGN.md`, and `docs/06_BACKEND_SPRINTS.md`:
+1. Worker Verification & Eligibility Rule:
+   - Verified that worker active status (`User.is_active` and `WorkerProfile.is_active`), cooperative match, and active category association (`WorkerCategory`) are strictly enforced during both opportunity generation AND opportunity acceptance.
+   - Verified that uploading an Aadhaar document reference (`POST /api/v1/worker/profile/aadhaar`) does NOT mark the worker verified or automatically activate an inactive profile.
+2. Worker Availability Handling:
+   - Implemented `PATCH /api/v1/worker/availability/status` per `05_API_DESIGN.md` Section 10 to manage the simple Available/Unavailable toggle (`worker_profile.is_active`).
+   - Verified that when a worker is set to unavailable (`is_available=False`), opportunity generation excludes them, and opportunity acceptance is blocked (`400 WORKER_UNAVAILABLE`).
+   - Integrated weekly recurring availability checking into `OpportunityService.accept_opportunity` (`400 WORKER_NOT_AVAILABLE`).
+3. Concurrency & Locking:
+   - Added `with_for_update()` locking on both `GigWorkerOpportunity` and `Gig` records during acceptance.
+   - Added concurrency test with near-simultaneous opportunity acceptances: verified that locking serializes execution so exactly one acceptance succeeds (`200 OK`) and the second is rejected (`400 ALREADY_ACCEPTED`).
+   - Added concurrency test with overlapping confirmed gigs: verified that schedule conflict checking prevents conflicting acceptances from both succeeding (`400 SCHEDULE_CONFLICT`).
+4. Transaction Atomicity & Audit Events:
+   - Verified atomic rollback on simulated `GigEvent` failure during acceptance: confirmed that opportunity status reverts cleanly to `PENDING` with no status or timestamp mutation persisted.
+5. Testing & Validation:
+   - Added 5 new audit tests in `app/tests/test_sprint5_opportunity_engine.py` (total 13 module tests).
+   - Full test suite: 89/89 tests passing across all backend modules.
+   - Sprint 5 is verified, fully compliant with documentation, and PASS.
+
+## 2026-09-09 21:58:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 6 (Customer Candidate List + Worker Selection) per `docs/06_BACKEND_SPRINTS.md` (Section 29), `docs/05_API_DESIGN.md` (Sections 16 & 17), and `docs/04_DATABASE_DESIGN.md` (Sections 13 & 19):
+- Implemented Schemas in `app/schemas/candidate.py`:
+  - `GigCandidateResponse`: Candidate payload for customer transparency, including `worker_id`, `name`, `exact_wage`, `completed_jobs_count`, `rating_average`, `rating_count`, `final_score`, `profile_photo_url`, and `recommendation: null` (no fake recommendation ranking in MVP).
+  - `SelectWorkerRequest`: Payload containing `worker_id`.
+  - `SelectWorkerResponse`: Confirmation response with `gig_id`, `selected_worker_id`, `status: "WORKER_SELECTED"`, and success message.
+- Implemented Business Logic in `app/services/gig_service.py`:
+  - `get_candidates`: Retrieves all workers with an `ACCEPTED` opportunity for the customer's gig, populated with worker metrics and exact offered wages. Ensures customer ownership (`403 FORBIDDEN` for other users).
+  - `select_worker`: Executes atomic transaction for customer worker selection:
+    1. Verifies caller owns the gig.
+    2. Verifies gig is in selectable state (`POSTED` or `ACCEPTANCE_OPEN`).
+    3. Verifies gig has not already selected a worker (`selected_worker_id is None`).
+    4. Verifies target worker has accepted the gig opportunity (`status == OpportunityStatus.ACCEPTED`).
+    5. Sets `gig.selected_worker_id = worker_id` and transitions `gig.status = GigStatus.WORKER_SELECTED`.
+    6. Closes all other candidate opportunities for this gig as `OpportunityStatus.NOT_SELECTED`.
+    7. Creates `WORKER_SELECTED` audit event in `GigEvent` table.
+    8. Dispatches in-app `Notification` records to both the selected worker (`type="WORKER_SELECTED"`) and non-selected candidates (`type="NOT_SELECTED"`).
+    9. Guarantees atomic rollback via `try ... except ... db.rollback(); raise`.
+- Mounted Endpoints in `app/api/v1/endpoints/gigs.py`:
+  - `GET /api/v1/gigs/{gig_id}/candidates` (Customer role enforced).
+  - `POST /api/v1/gigs/{gig_id}/select-worker` (Customer role enforced).
+- Automated Testing & Validation:
+  - Created test suite `app/tests/test_sprint6_worker_selection.py` (6 tests) covering:
+    - Customer viewing candidates with metrics and individual exact wages.
+    - Customer selecting one candidate, verifying gig status `WORKER_SELECTED`, selected opportunity remaining `ACCEPTED`, other opportunities transitioning to `NOT_SELECTED`, audit event logged, and notifications generated.
+    - Rejection when attempting to select a worker who did not accept (`400 WORKER_NOT_ACCEPTED`).
+    - Rejection of duplicate selection or selecting from invalid state (`400 INVALID_GIG_STATE`).
+    - Cross-customer and worker role authorization checks (`403 FORBIDDEN`).
+    - Atomic rollback verification on simulated audit event failure.
+  - Full test suite: 95/95 tests passing across all backend modules (Sprint 0 through Sprint 6).
+
+## 2026-09-09 22:04:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 6 Focused Verification against `docs/04_DATABASE_DESIGN.md`, `docs/05_API_DESIGN.md`, and `docs/06_BACKEND_SPRINTS.md`:
+1. Candidate List Integrity & Isolation:
+   - Verified that `GET /api/v1/gigs/{gig_id}/candidates` filters strictly on `OpportunityStatus.ACCEPTED`. No unoffered, pending, rejected, or expired workers are exposed.
+   - Verified that customer ownership is enforced (`gig.customer_id == customer_user.id`), rejecting access by any other customer with `403 FORBIDDEN`.
+2. Worker Selection Transaction & Sequence:
+   - Verified that `POST /api/v1/gigs/{gig_id}/select-worker` only permits selecting a candidate who has already accepted (`OpportunityStatus.ACCEPTED`). Attempting to select a worker with any other status fails with `400 WORKER_NOT_ACCEPTED`.
+   - Verified the atomic sequence:
+     - Target worker is assigned: `gig.selected_worker_id = worker_id`
+     - Gig status is updated to `WORKER_SELECTED`
+     - All other candidates with `ACCEPTED` (or pending) status for this gig transition to `OpportunityStatus.NOT_SELECTED`
+     - Audit record created in `GigEvent` (`event_type = WORKER_SELECTED`)
+     - In-app `Notification` generated for selected worker (`WORKER_SELECTED`) and notifications generated for unselected candidate workers (`NOT_SELECTED`)
+     - Entire unit of work rolls back cleanly on any failure.
+3. No Backend Recommendation / No Distance Ranking:
+   - Verified that candidates are returned without distance ranking or algorithmic ordering (`recommendation: null`).
+   - Verified that selection requires explicit customer submission of `worker_id` without automatic selection or heuristic ranking.
+4. Concurrency & Protection against Duplicate Selection:
+   - `Gig` row is locked with `with_for_update()` in the transaction.
+   - Added concurrency test `test_concurrency_simultaneous_worker_selection` using `ThreadPoolExecutor`: verified that near-simultaneous worker selections for the same gig are serialized and exactly one succeeds (`200 OK`) while the other fails (`400 WORKER_ALREADY_SELECTED` / `INVALID_GIG_STATE`), leaving exactly 1 audit event and 1 selected worker.
+5. Selectable States Validation:
+   - Verified that both `POSTED` and `ACCEPTANCE_OPEN` are approved MVP states in `docs/04_DATABASE_DESIGN.md` (Section 13) and `docs/05_API_DESIGN.md` (Section 32), and are supported as valid selectable states.
+6. Testing & Validation:
+   - Full test suite: 96/96 tests passing across all backend modules (Sprint 0 through Sprint 6).
+   - Sprint 6 is verified, compliant with documentation, and PASS.
+
+## 2026-09-09 22:18:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 7 (Core Job Execution) per `docs/06_BACKEND_SPRINTS.md` (Section 30), `docs/05_API_DESIGN.md` (Sections 13, 22, 32, 33), and `docs/04_DATABASE_DESIGN.md` (Sections 28, 29):
+- Authoritative Documentation Updates:
+  - Documented `POST /api/v1/gigs/{gig_id}/start` in `05_API_DESIGN.md` (Section 22, 33) and `06_BACKEND_SPRINTS.md` (Section 30) for the worker "Arrived & Start Work" action.
+  - Formally documented the active states for completion submission (`WORKER_SELECTED`, `SCHEDULED`, `IN_PROGRESS`) as an intentional MVP decision supporting flexible execution.
+  - Documented the rejection rework loop (`COMPLETION_SUBMITTED` ➔ Customer Rejection ➔ `IN_PROGRESS`) preserving feedback in `completion_confirmations` without creating unapproved lifecycle states.
+- Implemented Schemas in `app/schemas/`:
+  - `app/schemas/worker_gig.py`: `WorkerGigListItem` (summary view with category, exact agreed worker wage, customer info, address, status, schedule).
+  - `app/schemas/completion.py`: `CompletionEvidenceCreate`, `CompletionEvidenceResponse`, `CompletionSubmissionRequest`, `CompletionSubmissionResponse`, `CompletionConfirmationRequest`, `CompletionConfirmationResponse`, `StartWorkResponse`, `GigCompletionDetailResponse`.
+- Implemented Core Services in `app/services/completion_service.py`:
+  - `get_worker_gigs`: Paginated worker gig queries (`selected_worker_id == worker.id`) with tab filtering (`upcoming`, `active`, `completed`, `cancelled`), direct status filtering, and exact wage snapshot lookup.
+  - `start_work`: Assigned worker starts work (`WORKER_SELECTED`/`SCHEDULED` ➔ `IN_PROGRESS`), logging `WORK_STARTED` audit event.
+  - `submit_completion`: Assigned worker submits completion description and photo evidence items (`(WORKER_SELECTED, SCHEDULED, IN_PROGRESS)` ➔ `COMPLETION_SUBMITTED`). Enforces at least 1 photo evidence file, creates `CompletionSubmission` and `CompletionEvidence` records, logs `COMPLETION_SUBMITTED` audit event, and dispatches customer notification.
+  - `get_completion`: Retrieves submission evidence and confirmation details for authorized customer or assigned worker (`403 FORBIDDEN` for third parties).
+  - `confirm_completion`: Customer confirms completion:
+    - On approval (`confirmed: True`): transitions gig to `CUSTOMER_CONFIRMED`, logs `COMPLETION_CONFIRMED` audit event, and notifies worker.
+    - On rejection (`confirmed: False`): returns gig to `IN_PROGRESS` (active rework loop), retains customer's `response_note`, logs `COMPLETION_REJECTED` audit event, and notifies worker of rework instructions.
+    - Full atomic transactional rollback on failure.
+- Mounted Endpoints:
+  - `GET /api/v1/worker/gigs` in `app/api/v1/endpoints/worker.py` (Worker role enforced).
+  - `POST /api/v1/gigs/{gig_id}/start` in `app/api/v1/endpoints/gigs.py` (Worker role enforced).
+  - `POST /api/v1/gigs/{gig_id}/completion` in `app/api/v1/endpoints/gigs.py` (Worker role enforced).
+  - `GET /api/v1/gigs/{gig_id}/completion` in `app/api/v1/endpoints/gigs.py` (Authenticated customer or assigned worker).
+  - `POST /api/v1/gigs/{gig_id}/completion/confirm` in `app/api/v1/endpoints/gigs.py` (Customer role enforced).
+- Automated Testing & Validation:
+  - Created `app/tests/test_sprint7_job_execution.py` (8 comprehensive tests) covering:
+    - Worker gigs listing and tab filtering (`upcoming`, `completed`).
+    - Worker starting work (`WORK_STARTED` audit event).
+    - Completion submission from active states (`WORKER_SELECTED`, `IN_PROGRESS`), photo evidence storage, customer notification.
+    - Mutual inspection of completion details by customer and assigned worker (`403` for third parties).
+    - Customer confirmation of completion (`CUSTOMER_CONFIRMED`).
+    - Explicit end-to-end rework loop: worker submits -> customer rejects -> gig reverts to `IN_PROGRESS` -> worker resubmits -> customer approves.
+    - Strict authorization, role boundaries, and state validations (rejecting premature confirmation, missing evidence, cross-role actions).
+    - Atomic rollback verification on simulated failure.
+  - Full test suite: 104/104 tests passing across all backend modules (Sprints 0 through 7) in 25.60s.
+
+## 2026-09-09 22:25:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 8 (Payment) per `docs/06_BACKEND_SPRINTS.md` (Section 31), `docs/05_API_DESIGN.md` (Sections 24, 32, 33), and `docs/04_DATABASE_DESIGN.md` (Sections 30, 31):
+- Refinements Enforced:
+  - Monetary precision: Authoritative payment amounts utilize Python `Decimal` across all schemas, service logic, and database operations. Audit event metadata serializes amounts precisely as strings without binary floating-point conversions.
+  - Payment-method immutability: Once recorded as `CUSTOMER_PAID`, retries attempting to change `payment_method` (e.g. CASH to UPI or vice-versa) fail with `409 Conflict` (`PAYMENT_METHOD_IMMUTABLE`). Same-method retries are completely idempotent.
+  - Authoritative snapshot amount: Exclusively loads `GigWorkerOpportunity.exact_wage` for `(gig_id, selected_worker_id)` snapshot. Wage calculation engine is never invoked, and client-supplied amounts are never accepted.
+- Implemented Schemas in `app/schemas/payment.py`:
+  - `PaymentCreateRequest`: Client request payload specifying `payment_method` (`CASH` or `UPI`).
+  - `PaymentReceiptConfirmRequest`: Worker request payload confirming receipt (`confirmed: bool = True`).
+  - `PaymentResponse`: Payment detail response with precise `amount: Decimal`, `status: PaymentStatus`, `payment_method`, `upi_deeplink`, timestamps, and server-derived eligibility flags (`can_pay`, `can_confirm`).
+- Implemented Core Services in `app/services/payment_service.py`:
+  - `get_payment_status`: Inspects payment state, computes `can_pay` / `can_confirm` flags, formats standard UPI deep link (`upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...`) without treating it as automatic payment verification.
+  - `record_payment`: Customer records payment action. Enforces legal states (`CUSTOMER_CONFIRMED`, `PAYMENT_PENDING`), acquires row locks, records `Payment(status=CUSTOMER_PAID)`, advances gig to `PAYMENT_CUSTOMER_PAID`, logs `PAYMENT_CUSTOMER_PAID` audit event, and dispatches worker notification.
+  - `confirm_receipt`: Assigned worker acknowledges receipt of payment. Enforces legal state (`PAYMENT_CUSTOMER_PAID`), advances `Payment(status=WORKER_CONFIRMED)` and atomically transitions gig to `COMPLETED`. Writes `PAYMENT_WORKER_CONFIRMED` and `GIG_COMPLETED` audit events, and dispatches customer notification.
+  - Idempotency guarantees: Calling confirm-receipt multiple times safely returns the existing record (`200 OK`) without duplicate audit logs, duplicate notifications, or timestamp changes.
+- Mounted Endpoints in `app/api/v1/endpoints/gigs.py`:
+  - `GET /api/v1/gigs/{gig_id}/payment` (Authenticated customer or assigned worker).
+  - `POST /api/v1/gigs/{gig_id}/payment` (Customer role enforced).
+  - `POST /api/v1/gigs/{gig_id}/payment/confirm-receipt` (Worker role enforced).
+- Automated Testing & Validation:
+  - Created `app/tests/test_sprint8_payment.py` (8 comprehensive tests) covering:
+    - End-to-end CASH payment lifecycle (`CUSTOMER_CONFIRMED` -> `CUSTOMER_PAID` -> `WORKER_CONFIRMED` -> `COMPLETED`).
+    - End-to-end UPI payment lifecycle with deep-link generation and completion.
+    - Payment-method immutability (rejecting CASH -> UPI modification with `409 Conflict`) and idempotent same-method retries.
+    - Worker receipt confirmation idempotency (safe repeated calls with zero duplicate events).
+    - Payment amount integrity and metric immunity (modifying worker rating/metrics post-selection does not alter historical payable wage snapshot).
+    - Legal state boundaries (preventing premature payments before confirmation, preventing premature receipt confirmation before customer payment).
+    - Strict authorization and role boundaries (preventing workers from initiating payment, preventing customers from confirming receipt, blocking unauthorized users).
+    - Atomic rollback verification on simulated database failure.
+  - Full test suite: 112/112 tests passing across all backend modules (Sprints 0 through 8) in 24.86s.
+
+## 2026-09-09 22:40:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 9 (Visitation Diagnostics) per `docs/06_BACKEND_SPRINTS.md` (Sections 13, 32), `docs/05_API_DESIGN.md` (Section 19), and `docs/04_DATABASE_DESIGN.md` (Sections 38, 39, 40, 41, 42, 43):
+- Financial Contract & Authoritative Rules Enforced:
+  - Historical Snapshot Immutability: `GigWorkerOpportunity` snapshots (`exact_wage`, `base_price_snapshot`, `final_score_snapshot`, `premium_percentage`) remain completely immutable and are never overwritten during proposal creation, acceptance, or rejection.
+  - Contextual Authoritative Amount Resolution (`PaymentService.get_authoritative_amount`):
+    - CASE A (Proposal Accepted): Fixed ₹100 visitation charge is waived/absorbed into the accepted work payment (`visitation_proposals.base_price`, e.g. ₹300, not ₹400). `Payment.amount` settles at ₹300.
+    - CASE B (Proposal Rejected / Visit Only): Fixed ₹100 visitation charge (`settings.VISITATION_FEE`) remains strictly payable. No work payment is created. Gig advances to `CUSTOMER_CONFIRMED` and `Payment.amount` settles at ₹100.
+    - Standard NORMAL Gigs: Settles at `GigWorkerOpportunity.exact_wage`.
+  - Monetary Precision: Amounts utilize Python `Decimal` across schemas, services, and queries; audit event metadata formats exact decimal strings with two decimal places (`f"{amount:.2f}"`).
+- Implemented Schemas in `app/schemas/visitation.py`:
+  - `VisitationProposalTaskItem`: Itemized task snapshot inside a proposal (`task_id`, `task_name`, `standard_duration_minutes_snapshot`, `base_price_snapshot`).
+  - `VisitationProposalCreateRequest`: Worker submission payload (`task_ids: List[UUID]` with `min_length=1`).
+  - `VisitationProposalResponse`: Complete proposal details (`id`, `gig_id`, `worker_id`, `base_price`, `status`, timestamps, and itemized task list).
+  - `VisitationResponse`: Visitation state overview with `visitation_fee` (₹100.00), active proposal, proposal history, and caller capability flags (`can_propose`, `can_respond`).
+- Implemented Core Services in `app/services/visitation_service.py`:
+  - `request_visitation`: Customer requests visitation inspection, converting gig to `VISITATION` with fixed ₹100 fee, logging `VISITATION_REQUESTED` audit event and notifying worker.
+  - `get_visitation_details`: Returns status and action permissions (`can_propose` for assigned worker in active gig without pending proposals; `can_respond` for customer when proposal is pending).
+  - `submit_proposal`: Assigned worker submits catalogue tasks following inspection. Acquires `with_for_update()` lock on `Gig` row to serialize concurrent requests and prevents duplicate `PENDING` proposals. Validates category boundaries and computes server-authoritative catalogue pricing (`max(sum(durations), min_billable) * rate`). Stores proposal and snapshot tasks, logs `VISITATION_PROPOSED` audit event, and notifies customer.
+  - `accept_proposal`: Customer accepts proposal with row-level locking. Updates proposal status to `ACCEPTED`, sets `gig.base_price` to proposed work price (absorbing ₹100 fee), replaces `gig_tasks` with proposal tasks, transitions gig to `IN_PROGRESS`, logs `VISITATION_ACCEPTED` audit event, and notifies worker.
+  - `reject_proposal`: Customer rejects proposal with row-level locking. Updates proposal status to `REJECTED`, preserves `gig.base_price` at ₹100.00, transitions gig to `CUSTOMER_CONFIRMED` for inspection payment settlement, logs `VISITATION_REJECTED` audit event, and notifies worker.
+- Refactored `app/services/payment_service.py`:
+  - Integrated `get_authoritative_amount(gig, db)` for unified payment status queries (`GET /gigs/{id}/payment`) and payment execution (`POST /gigs/{id}/payment`).
+- Mounted Endpoints in `app/api/v1/endpoints/gigs.py`:
+  - `POST /api/v1/gigs/{gig_id}/visitation/request` (Customer role).
+  - `GET /api/v1/gigs/{gig_id}/visitation` (Authenticated customer or assigned worker).
+  - `POST /api/v1/gigs/{gig_id}/visitation/proposals` (Worker role).
+  - `POST /api/v1/gigs/{gig_id}/visitation/proposals/{proposal_id}/accept` (Customer role).
+  - `POST /api/v1/gigs/{gig_id}/visitation/proposals/{proposal_id}/reject` (Customer role).
+- Automated Testing & Validation:
+  - Created `app/tests/test_sprint9_visitation.py` (9 comprehensive tests) covering:
+    - Overview and request endpoint (`is_visitation: True`, ₹100 fee).
+    - Case A: Accepted proposal payment flow (₹100 fee absorbed into ₹300 proposal, opportunity snapshots unmutated, completion confirmed, CASH payment settled at ₹300, gig completed).
+    - Case B: Rejected proposal visitation payment flow (₹100 fee payable, opportunity snapshots unmutated, gig advances to `CUSTOMER_CONFIRMED`, UPI payment settled at ₹100, gig completed).
+    - Opportunity snapshot immutability (asserting `exact_wage`, `base_price_snapshot`, `premium_percentage`, `final_score_snapshot` are 100% byte-for-byte immutable across proposal lifecycle).
+    - Concurrency protection against duplicate pending proposals (`409 Conflict`).
+    - Proposal response retries and state protection (`409 Conflict` on already answered proposals).
+    - Category boundary validation (rejecting tasks from different categories with `400 Bad Request`).
+    - Strict role and ownership authorization (cross-role and third-party rejection with `403 Forbidden`).
+    - Transactional rollback on simulated database failure.
+- Automated Testing & Validation:
+  - Created `app/tests/test_sprint9_visitation.py` (9 comprehensive tests) covering:
+    - Overview and request endpoint (`is_visitation: True`, ₹100 fee).
+    - Case A: Accepted proposal payment flow (₹100 fee absorbed into ₹300 proposal, opportunity snapshots unmutated, completion confirmed, CASH payment settled at ₹300, gig completed).
+    - Case B: Rejected proposal visitation payment flow (₹100 fee payable, opportunity snapshots unmutated, gig advances to `CUSTOMER_CONFIRMED`, UPI payment settled at ₹100, gig completed).
+    - Opportunity snapshot immutability (asserting `exact_wage`, `base_price_snapshot`, `premium_percentage`, `final_score_snapshot` are 100% byte-for-byte immutable across proposal lifecycle).
+    - Concurrency protection against duplicate pending proposals (`409 Conflict`).
+    - Proposal response retries and state protection (`409 Conflict` on already answered proposals).
+    - Category boundary validation (rejecting tasks from different categories with `400 Bad Request`).
+    - Strict role and ownership authorization (cross-role and third-party rejection with `403 Forbidden`).
+    - Transactional rollback on simulated database failure.
+  - Full test suite: 121/121 tests passing across all backend modules (Sprints 0 through 9) in 61.75s.
+
+## 2026-09-09 22:55:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 10 (Multi-Worker Collaboration & Rookie Mentorship) per `docs/06_BACKEND_SPRINTS.md` (Section 33: Sprint 10), `docs/05_API_DESIGN.md` (Section 20: Multi-Worker APIs), `docs/04_DATABASE_DESIGN.md` (Sections 34–37: Multi-Worker Participation & Payment), and `docs/WAGES.md` (Sections 2, 3: Task complexity & rookie 0.5x contribution):
+- Business Rules & Architectural Invariants Enforced:
+  - Cooperative Boundary Integrity: Primary worker and additional worker must strictly belong to the same cooperative society (`worker_a.cooperative_id == worker_b.cooperative_id`). Cross-cooperative collaboration is rejected with `400 Bad Request`.
+  - Explicit Consent Workflow: Collaboration invitations are created in `PENDING` status. The invited worker must explicitly accept (`POST /api/v1/participations/{id}/accept`) or reject (`POST /api/v1/participations/{id}/reject`).
+  - Strict Authorization & State Boundaries: Only the assigned primary worker (`gig.selected_worker_id == current_user.id`) on active gigs (`WORKER_SELECTED`, `SCHEDULED`, `IN_PROGRESS`) can invite collaborators. Primary workers cannot invite themselves (`400 Bad Request`). Duplicate invitations while `PENDING` or `ACCEPTED` return `409 Conflict`.
+  - Rookie Mentorship Experience Weighting:
+    - When classification is `ROOKIE`: `experience_contribution = complexity * 0.5`.
+    - When classification is `EQUAL_SHARING`: `experience_contribution = complexity * 1.0`.
+  - Zero Customer Financial Impact (Section 37 of `04_DATABASE_DESIGN.md`): Customer pays the single agreed labour price. The platform does not add a second charge, does not calculate private worker splits, does not enforce financial sharing, and does not record rookie private compensation.
+- Implemented Schemas in `app/schemas/multi_worker.py`:
+  - `WorkerParticipationCreateRequest`: Payload with `additional_worker_id: UUID` and `classification: WorkerParticipationClassification` (`ROOKIE` or `EQUAL_SHARING`).
+  - `WorkerParticipationResponse`: Complete participation details (`id`, `gig_id`, `inviting_worker_id`, `inviting_worker_name`, `additional_worker_id`, `additional_worker_name`, `status`, `classification`, `experience_contribution`, timestamps). Excludes private worker-to-worker compensation.
+- Implemented Core Services in `app/services/multi_worker_service.py`:
+  - `invite_worker`: Validates primary worker assignment, active gig states, cooperative membership equality, active verified worker profile, and absence of duplicate pending/accepted invites. Calculates task complexity and experience contribution using `ExperienceService`. Persists `WorkerParticipation(status=PENDING)`, records `WORKER_PARTICIPATION_INVITED` audit event, and sends actionable in-app `Notification` to the invited co-worker.
+  - `get_gig_participations`: Returns participation list visible to customer, primary worker, or invited co-workers. Third parties receive `403 Forbidden`.
+  - `accept_invitation`: Invited worker accepts invitation (`PENDING` -> `ACCEPTED`), records `responded_at`, logs `WORKER_PARTICIPATION_ACCEPTED` audit event, and notifies the inviting primary worker.
+  - `reject_invitation`: Invited worker declines invitation (`PENDING` -> `REJECTED`), records `responded_at`, logs `WORKER_PARTICIPATION_REJECTED` audit event, and notifies the inviting primary worker.
+- Mounted Endpoints in `app/api/v1/endpoints/participations.py` & Registered in `app/api/v1/router.py`:
+  - `POST /api/v1/gigs/{gig_id}/participations` (Worker role).
+  - `GET  /api/v1/gigs/{gig_id}/participations` (Authenticated participant or customer).
+  - `POST /api/v1/participations/{participation_id}/accept` (Worker role).
+  - `POST /api/v1/participations/{participation_id}/reject` (Worker role).
+- Automated Testing & Validation:
+  - Created `app/tests/test_sprint10_multi_worker.py` (10 comprehensive tests) covering:
+    - Peer collaboration invitation (`EQUAL_SHARING`) and peer acceptance.
+    - Rookie mentorship invitation (`ROOKIE`) and exact `0.5 * complexity` contribution calculation.
+    - Peer invitation rejection (`REJECTED`) and notification/audit flow.
+    - Cross-cooperative invitation isolation (`400 Bad Request`).
+    - Self-invitation prevention (`400 Bad Request`).
+    - Duplicate invitation conflict protection (`409 Conflict`).
+    - Strict RBAC and unauthorized third-party isolation (`403 Forbidden`).
+    - Customer price and payment invariance (confirming zero customer billing alterations).
+    - Invalid gig lifecycle state validation (rejection on draft/completed/cancelled gigs).
+    - Transactional rollback on simulated database commit failure.
+  - Full test suite: 131/131 tests passing across all backend modules (Sprints 0 through 10) in 38.15s with 100% pass rate.
+
+## 2026-09-09 23:45:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 11 (Cancellation & Rescheduling Policies) per `docs/06_BACKEND_SPRINTS.md` (Section 34: Sprint 11), `docs/05_API_DESIGN.md` (Section 25: Cancellation APIs & Section 26: Rescheduling APIs), `docs/04_DATABASE_DESIGN.md` (Sections 44–47: Cancellation & Rescheduling), and `docs/SRS_Final.md`:
+- Business Rules & Architectural Invariants Enforced:
+  - Server-Authoritative Fee Calculation:
+    - Customer cancellation after worker selection (`WORKER_SELECTED` or `SCHEDULED`): ₹50.00 cancellation fee (`CANCELLATION_FEE_AFTER_SELECTION`).
+    - Customer cancellation before worker selection (`DRAFT`, `POSTED`, `ACCEPTANCE_OPEN`): ₹0.00 cancellation fee (`CANCELLATION_FEE_BEFORE_SELECTION`).
+    - Worker cancellation: ₹0.00 fee in MVP.
+  - Financial Architecture & Settlement Invariants:
+    - Customer cancellation after selection creates an active `Payment` obligation: `amount = Decimal("50.00")`, `payment_type = PaymentType.CANCELLATION`, `status = PaymentStatus.PENDING`, `cancellation_id = GigCancellation.id`.
+    - Customer settles via existing payment route `POST /api/v1/gigs/{gig_id}/payment` (`CUSTOMER_PAID`).
+    - Worker acknowledges receipt via `POST /api/v1/gigs/{gig_id}/payment/confirm-receipt` (`WORKER_CONFIRMED`).
+    - Invariant: A cancelled gig strictly REMAINS `GigStatus.CANCELLED` upon payment settlement; it is NEVER transitioned to `COMPLETED` or `PAYMENT_CUSTOMER_PAID`.
+    - Payment method immutability and precise `Decimal` representation preserved.
+  - Customer Financial Integrity Guard (`CustomerFinancialGuard`):
+    - Any customer attempting to create a new gig (`POST /api/v1/gigs`) is blocked with `409 Conflict` (`OUTSTANDING_CANCELLATION_PAYMENT`) if they have ANY unsettled cancellation payment obligation (`status != WORKER_CONFIRMED`).
+  - Gig Reopening Guards:
+    - Customer-cancelled gigs CANNOT be reopened (`400 Bad Request`, `CUSTOMER_CANCELLATION_CANNOT_REOPEN`).
+    - Only worker-cancelled gigs can be reopened by the customer.
+    - Reopening is blocked if an unsettled cancellation fee exists on the gig (`409 Conflict`, `CANCELLATION_PAYMENT_REQUIRED`).
+    - Reopening atomically resets `selected_worker_id = None`, sets `status = GigStatus.POSTED`, and extends `acceptance_deadline` by 15 minutes.
+  - Rescheduling Negotiation Workflow:
+    - Permitted strictly in `WORKER_SELECTED` and `SCHEDULED` states (attempting in other states raises `409 StateConflictException`).
+    - Atomic row-locking (`with_for_update()`) revalidates future date, `start_time < end_time`, weekly recurring availability (`OpportunityService.check_worker_availability_for_slot`), and overlapping confirmed gigs (`OpportunityService.check_schedule_conflict_for_slot`).
+    - Full counterparty negotiation lifecycle supported: `REQUESTED`, `ACCEPTED` (updates gig schedule and sets `SCHEDULED`), `REJECTED`, and `ALTERNATIVE_PROPOSED` (chains counter-proposal).
+- Database Migration:
+  - Generated and applied Alembic migration `76b9636a889b` (`add payment_type and cancellation_id to payments`) live on Supabase PostgreSQL.
+  - Batch alter table enabled for SQLite in-memory test compatibility.
+- Implemented Schemas in `app/schemas/cancellation.py`:
+  - `GigCancelRequest`, `GigCancelResponse`, `GigReopenResponse`, `RescheduleRequestCreate`, `RescheduleAlternativeRequest`, `RescheduleRequestResponse`.
+  - Updated `PaymentResponse` in `app/schemas/payment.py` to include `payment_type`.
+- Implemented Services & Endpoints:
+  - `CustomerFinancialGuard` in `app/services/financial_guard.py`.
+  - `CancellationService` in `app/services/cancellation_service.py`.
+  - Updated `PaymentService` in `app/services/payment_service.py` to support `PaymentType.CANCELLATION`.
+  - Updated `GigService` in `app/services/gig_service.py` to enforce `CustomerFinancialGuard`.
+  - Mounted API endpoints in `app/api/v1/endpoints/cancellation.py` and registered in `app/api/v1/router.py`:
+    - `POST /api/v1/gigs/{gig_id}/cancel`
+    - `POST /api/v1/gigs/{gig_id}/reopen`
+    - `POST /api/v1/gigs/{gig_id}/reschedule`
+    - `GET  /api/v1/gigs/{gig_id}/reschedule`
+    - `POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/accept`
+    - `POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/reject`
+    - `POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/alternative`
+- Automated Testing & Validation:
+  - Created `app/tests/test_sprint11_cancellation_rescheduling.py` (19 comprehensive tests) covering fee calculations across all states, cancellation payment settlement, lifecycle invariants, customer financial guard blocking/unblocking, reopen validations, and full rescheduling negotiations.
+  - Full test suite: 150/150 tests passing across all backend modules (Sprints 0 through 11) in 48.28s with 100% pass rate.
+
+
+
+
+
+
+
+
+
 

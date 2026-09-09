@@ -1002,7 +1002,17 @@ POST /api/v1/previous-worker-requests/{request_id}/reschedule
 
 Worker requests rescheduling.
 
-22. Completion APIs
+22. Completion & Execution APIs
+
+POST /api/v1/gigs/{gig_id}/start
+
+Worker starts work on the job ("Arrived & Start Work" action in Flutter UI).
+
+Rules:
+- Caller must be the assigned worker (`selected_worker_id == caller.id`).
+- Gig must currently be in `WORKER_SELECTED` or `SCHEDULED`.
+- Gig transitions to `IN_PROGRESS`.
+- Audit event `WORK_STARTED` is written.
 
 POST /api/v1/gigs/{gig_id}/completion
 
@@ -1013,24 +1023,24 @@ The request should be multipart/form-data or use previously uploaded file refere
 Example metadata:
 
 {
-  "description": "Repair completed and tested."
+  "description": "Repair completed and tested.",
+  "evidence_items": [
+    {"file_url": "https://storage.sahakaar.org/evidence1.jpg", "file_type": "image/jpeg"}
+  ]
 }
-
-Files:
-
-evidence images
 
 Rules
 
-Caller must be an authorized worker participant.
+Caller must be an authorized worker participant (`selected_worker_id == caller.id`).
 
-Gig must be in an active state.
+Gig must be in an active state (`WORKER_SELECTED`, `SCHEDULED`, or `IN_PROGRESS`).
+*MVP Decision Note*: Retaining the broader `(WORKER_SELECTED, SCHEDULED, IN_PROGRESS)` rule allows flexible execution in mobile environments where workers may submit completion evidence directly or after explicitly starting work.
 
-Evidence must be stored.
+Evidence must be stored and contain at least one evidence item.
 
 Completion submission is created.
 
-Gig moves to completion-request state.
+Gig moves to `COMPLETION_SUBMITTED` state.
 
 Customer is notified.
 
@@ -1038,7 +1048,7 @@ It does not make the gig fully completed.
 
 GET /api/v1/gigs/{gig_id}/completion
 
-Return completion submission/evidence information available to the authenticated parties.
+Return completion submission/evidence information available to the authenticated parties (customer or selected worker).
 
 POST /api/v1/gigs/{gig_id}/completion/confirm
 
@@ -1053,17 +1063,24 @@ Request
 
 Rules
 
-Caller must be the customer.
+Caller must be the gig customer.
 
 Completion evidence must exist.
 
-The gig must be awaiting customer confirmation.
+The gig must be awaiting customer confirmation (`status == COMPLETION_SUBMITTED`).
 
-On confirmation, payment becomes available.
+On confirmation (`confirmed: true`):
+- Gig transitions to `CUSTOMER_CONFIRMED`.
+- Audit event `COMPLETION_CONFIRMED` is written.
+- Worker is notified.
+- Payment becomes available.
 
-On rejection, the backend must retain the response and return the gig to the defined correction/rework state.
-
-If the MVP does not define a separate rework state, the implementation must not invent one silently; document the chosen transition before coding it.
+On rejection (`confirmed: false`):
+- The backend retains the response and feedback notes in `completion_confirmations`.
+- Gig returns to `IN_PROGRESS` (the approved active rework state).
+- Audit event `COMPLETION_REJECTED` is written.
+- Worker is notified of rework request with customer's feedback note.
+- Worker can perform corrective work and resubmit completion evidence.
 
 23. Material APIs
 
@@ -1388,11 +1405,11 @@ WORKER_SELECTED
   ↓
 SCHEDULED
   ↓
-IN_PROGRESS
+IN_PROGRESS  (or directly from WORKER_SELECTED / SCHEDULED)
   ↓
 COMPLETION_SUBMITTED
-  ↓
-CUSTOMER_CONFIRMED
+  ↓ (Customer Rejects / Rework) ➔ returns to IN_PROGRESS
+CUSTOMER_CONFIRMED (Customer Confirms)
   ↓
 PAYMENT_PENDING
   ↓
@@ -1497,6 +1514,12 @@ Invite additional worker
 ✓
 
 Accept join request
+
+—
+
+✓
+
+Start work on gig
 
 —
 

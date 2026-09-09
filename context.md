@@ -308,16 +308,22 @@ SIH_2026/
 - `app/schemas/user.py` & `app/schemas/worker.py`: Authentication, user initialization, and profile request/response schemas.
 - `app/schemas/catalogue.py`: `ServiceCategoryResponse`, `ServiceTaskResponse` (with complexity score and bucket).
 - `app/schemas/pricing.py`: `PricePreviewRequest`, `PricePreviewTaskItem`, `EstimatedWageRange`, and `PricePreviewResponse`.
+- `app/schemas/gig.py`: `GigCreateRequest`, `GigTaskItemResponse`, and `GigResponse`.
 - `app/services/score_service.py`: Centralized final score computation and rookie default metric generation.
 - `app/services/user_service.py` & `app/services/worker_service.py`: User lifecycle, role enforcement, and worker profile management.
 - `app/services/catalogue_service.py`: Database seeding with bulk prefetching and catalogue retrieval.
 - `app/services/pricing_service.py`: Multi-task duration summing, 45-minute minimum billable enforcement, base price calculation, and single-category validation.
 - `app/services/wage_service.py`: Exact wage formula `base_price * (1 + final_score * factor)` with configurable `WAGE_PREMIUM_MAX_FACTOR`, clamping, rounding, and wage range estimation.
 - `app/services/experience_service.py`: Logarithmic task complexity normalization `(ln(t) - ln(t_min)) / (ln(t_max) - ln(t_min))`, exact buckets (`0-0.33 LOW`, `0.34-0.66 MID`, `0.67-1.0 HIGH`), rolling window experience score ($N=50$) with rookie 0.5x contribution and no decay factor, and Bayesian rating aggregation.
+- `app/services/gig_service.py`: Customer gig creation in DRAFT status with pricing snapshots, atomic task association, GIG_CREATED and GIG_POSTED audit events, gig retrieval, customer gig collection filtering/pagination, and automatic trigger of the Opportunity Engine on post.
+- `app/services/opportunity_service.py`: Worker Opportunity Engine, schedule conflict detection, weekly availability checking, exact guaranteed wage snapshots, and atomic accept/reject transaction workflows.
+- `app/services/visitation_service.py`: In-person visitation inspection, task proposals, catalogue pricing calculations, customer accept (₹100 fee absorbed) / reject (₹100 fee payable) workflows, and immutable snapshot preservation.
+- `app/services/multi_worker_service.py`: Multi-worker collaboration and rookie mentorship service, same-cooperative validation, explicit consent, rookie 0.5x complexity contribution, audit event logging, and in-app notifications.
+- `app/schemas/multi_worker.py`: `WorkerParticipationCreateRequest` and `WorkerParticipationResponse` (strictly excluding private worker splits).
 - `app/api/v1/router.py`: API v1 router aggregator.
-- `app/api/v1/endpoints/`: Health, authentication (`/me`), customer, worker, catalogue (`/service-categories`), and gig pricing (`/gigs/price-preview`) endpoints.
+- `app/api/v1/endpoints/`: Health, authentication (`/me`), customer (`/customer/profile`, `/customer/gigs`), worker (`/worker/profile`, `/worker/categories`, `/worker/availability`, `/worker/opportunities`, `/worker/gigs`), catalogue (`/service-categories`), gig operations (`/gigs`, `/gigs/{id}`, `/gigs/{id}/post`, `/gigs/price-preview`, `/gigs/{id}/candidates`, `/gigs/{id}/select-worker`, `/gigs/{id}/start`, `/gigs/{id}/completion`, `/gigs/{id}/completion/confirm`, `/gigs/{id}/payment`, `/gigs/{id}/payment/confirm-receipt`, `/gigs/{id}/visitation/request`, `/gigs/{id}/visitation`, `/gigs/{id}/visitation/proposals`, `/gigs/{id}/visitation/proposals/{proposal_id}/accept`, `/gigs/{id}/visitation/proposals/{proposal_id}/reject`), and multi-worker collaboration (`/gigs/{gig_id}/participations`, `/participations/{id}/accept`, `/participations/{id}/reject`).
 - `alembic/`: Database migration environment managing all 31 models live on Supabase PostgreSQL.
-- `app/tests/`: Comprehensive pytest suite with 61 automated unit and integration tests covering Sprint 0, 1, 2, and 3.
+- `app/tests/`: Comprehensive pytest suite with 131 automated unit and integration tests covering Sprints 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, and 10.
 
 ## Validation
 
@@ -329,10 +335,10 @@ dart format lib test
 flutter analyze (0 issues found)
 flutter test (7/7 tests passed)
 
-# Backend Validation (Sprint 0, Sprint 1, Sprint 2, & Sprint 3 + Supabase PostgreSQL)
+# Backend Validation (Sprint 0 through Sprint 10 + Supabase PostgreSQL)
 cd backend
-pytest -v (61/61 tests passed)
-alembic current (e29d3f46feb9 head, live on Supabase PostgreSQL)
+pytest -v (150/150 tests passed in 48.28s)
+alembic current (76b9636a889b head, live on Supabase PostgreSQL)
 GET /api/v1/health -> 200 OK {"status": "ok", "database": "connected"}
 POST /api/v1/me/initialize -> 201 Created (Customer/Worker initialization)
 GET /api/v1/me -> 200 OK
@@ -341,23 +347,50 @@ GET /api/v1/worker/profile -> 200 OK
 GET /api/v1/service-categories -> 200 OK (5 guild categories)
 GET /api/v1/service-categories/{id}/tasks -> 200 OK (tasks with complexity metrics)
 POST /api/v1/gigs/price-preview -> 200 OK (45-min minimum, single-category check, wage range)
+POST /api/v1/gigs -> 201 Created (Draft gig, pricing snapshots, location, GIG_CREATED event, financial guard)
+POST /api/v1/gigs/{id}/post -> 200 OK (Transition to POSTED, GIG_POSTED event, opportunities generated)
+GET /api/v1/gigs/{id} -> 200 OK (Detailed gig view)
+GET /api/v1/customer/gigs -> 200 OK (Filtered, paginated customer gigs)
+GET /api/v1/worker/opportunities -> 200 OK (Personalized exact wages per worker)
+GET /api/v1/worker/opportunities/{id} -> 200 OK (Detailed opportunity view)
+POST /api/v1/worker/opportunities/{id}/accept -> 200 OK (Conflict check, atomic ACCEPTED transition)
+POST /api/v1/worker/opportunities/{id}/reject -> 200 OK (Permanent REJECTED transition)
+GET /api/v1/gigs/{id}/candidates -> 200 OK (Accepted worker candidates with transparent metrics & wages)
+POST /api/v1/gigs/{id}/select-worker -> 200 OK (WORKER_SELECTED transition, closes other candidates, notifications)
+GET /api/v1/worker/gigs -> 200 OK (Worker assigned gigs with lifecycle tabs & exact agreed wage)
+POST /api/v1/gigs/{id}/start -> 200 OK (Worker 'Arrived & Start Work', moves to IN_PROGRESS, WORK_STARTED event)
+POST /api/v1/gigs/{id}/completion -> 200 OK (Worker submits notes & photo proof, COMPLETION_SUBMITTED)
+GET /api/v1/gigs/{id}/completion -> 200 OK (Customer & worker inspection of completion proof & feedback)
+POST /api/v1/gigs/{id}/completion/confirm -> 200 OK (Customer confirms -> CUSTOMER_CONFIRMED, or rejects -> IN_PROGRESS rework loop)
+GET /api/v1/gigs/{id}/payment -> 200 OK (Authoritative decimal wage/cancellation fee snapshot, status, UPI deep link)
+POST /api/v1/gigs/{id}/payment -> 200 OK (Customer marks CASH/UPI -> PAYMENT_CUSTOMER_PAID or stays CANCELLED, immutable method)
+POST /api/v1/gigs/{id}/payment/confirm-receipt -> 200 OK (Worker confirms -> COMPLETED or stays CANCELLED, fully idempotent)
+POST /api/v1/gigs/{id}/visitation/request -> 200 OK (Customer initiates visitation, fixed ₹100 fee)
+GET /api/v1/gigs/{id}/visitation -> 200 OK (Visitation overview, active proposal, action flags)
+POST /api/v1/gigs/{id}/visitation/proposals -> 201 Created (Worker submits catalogue tasks, backend prices)
+POST /api/v1/gigs/{id}/visitation/proposals/{id}/accept -> 200 OK (Customer accepts, ₹100 fee absorbed, base price updated)
+POST /api/v1/gigs/{id}/visitation/proposals/{id}/reject -> 200 OK (Customer rejects, ₹100 fee payable, moves to CUSTOMER_CONFIRMED)
+POST /api/v1/gigs/{gig_id}/participations -> 201 Created (Primary invites peer/rookie, checks coop & active profile)
+GET /api/v1/gigs/{gig_id}/participations -> 200 OK (Visible to participants/customer, zero private split leakage)
+POST /api/v1/participations/{id}/accept -> 200 OK (Invited co-worker explicitly accepts collaboration)
+POST /api/v1/participations/{id}/reject -> 200 OK (Invited co-worker explicitly rejects collaboration)
+POST /api/v1/gigs/{gig_id}/cancel -> 200 OK (Customer/worker cancels, ₹50 fee after selection, payment created)
+POST /api/v1/gigs/{gig_id}/reopen -> 200 OK (Customer reopens worker-cancelled gig, resets to POSTED)
+POST /api/v1/gigs/{gig_id}/reschedule -> 200 OK (Initiate reschedule negotiation, validates slot & availability)
+GET /api/v1/gigs/{gig_id}/reschedule -> 200 OK (Fetch reschedule negotiation history)
+POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/accept -> 200 OK (Counterparty accepts, updates gig schedule)
+POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/reject -> 200 OK (Counterparty rejects, preserves schedule)
+POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/alternative -> 200 OK (Counterparty counter-proposes slot)
 ```
 
 ## Pending Backend/Product Work
 
-- Sprint 4: Customer: Gig Creation & Labour Price Preview (`POST /api/v1/gigs`, `GET /api/v1/gigs/{gig_id}`, `PATCH /api/v1/gigs/{gig_id}`, cancellation, reschedule).
-- Sprint 5: Worker: Availability & Conflict Detection.
-- Sprint 6: Worker: Opportunities & Exact Wage View (zero worker bidding).
-- Sprint 7: Customer: Worker Selection & Candidate Management.
-- Sprint 8: Active Job Workspace & Mutual Chat.
-- Sprint 9: Multi-Worker Collaboration & Rookie Progression.
-- Sprint 10: Material Procurement & Receipt Audits.
-- Sprint 11: Completion Evidence & Customer Confirmation.
-- Sprint 12: Cash & UPI Direct Payments (0% platform commission).
+- Sprint 12: Material Procurement & Itemized Receipt Uploads.
 - Sprint 13: Structured 3-4 MCQ Reviews & Bayesian Rating Updates.
-- Sprint 14: Visitation Diagnostics (₹100 fixed fee, fee waiver rules).
-- Sprint 15: Cancellation & Rescheduling Policies.
-- Sprint 16: Notifications & Audit Trail.
-- Sprint 17: Flutter-to-FastAPI End-to-End Integration.
+- Sprint 14: Mutual In-App Chat & Notifications.
+- Sprint 15: Flutter-to-FastAPI End-to-End Integration.
+
+
+
 
 

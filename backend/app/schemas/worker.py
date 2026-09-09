@@ -115,3 +115,16 @@ class WorkerAvailabilityResponse(BaseModel):
     is_available: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class WorkerAvailabilityStatusRequest(BaseModel):
+    """Payload for PATCH /api/v1/worker/availability/status conforming to 05_API_DESIGN.md Section 10."""
+
+    is_available: bool = Field(description="True for Available, False for Unavailable")
+
+
+class WorkerAvailabilityStatusResponse(BaseModel):
+    """Response returning current Available/Unavailable state."""
+
+    is_available: bool
+

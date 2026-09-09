@@ -13,11 +13,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import BaseModel
-from app.db.models.enums import PaymentMethod, PaymentStatus
+from app.db.models.enums import PaymentMethod, PaymentStatus, PaymentType
 
 if TYPE_CHECKING:
     from app.db.models.user import User
     from app.db.models.gig import Gig
+    from app.db.models.cancellation import GigCancellation
 
 
 class Payment(BaseModel):
@@ -52,6 +53,18 @@ class Payment(BaseModel):
         SQLEnum(PaymentMethod, native_enum=False, length=20, create_constraint=True),
         nullable=False,
     )
+    payment_type: Mapped[PaymentType] = mapped_column(
+        SQLEnum(PaymentType, native_enum=False, length=30, create_constraint=True),
+        default=PaymentType.LABOUR,
+        nullable=False,
+        index=True,
+    )
+    cancellation_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("gig_cancellations.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
     status: Mapped[PaymentStatus] = mapped_column(
         SQLEnum(PaymentStatus, native_enum=False, length=30, create_constraint=True),
         default=PaymentStatus.PENDING,
@@ -70,6 +83,9 @@ class Payment(BaseModel):
     gig: Mapped["Gig"] = relationship("Gig", back_populates="payments")
     customer: Mapped["User"] = relationship("User", foreign_keys=[customer_id])
     worker: Mapped["User"] = relationship("User", foreign_keys=[worker_id])
+    cancellation: Mapped[Optional["GigCancellation"]] = relationship(
+        "GigCancellation", foreign_keys=[cancellation_id], back_populates="payment"
+    )
 
 
 class MaterialReceipt(BaseModel):

@@ -259,3 +259,30 @@ class WorkerService:
 
         db.commit()
         return WorkerService.get_worker_availability(db, user)
+
+    @staticmethod
+    def set_worker_availability_status(
+        db: Session,
+        user: User,
+        is_available: bool,
+    ) -> bool:
+        """Update the simple Available/Unavailable control.
+
+        Conforms strictly to 05_API_DESIGN.md Section 10 (PATCH /api/v1/worker/availability/status).
+        Toggles worker_profile.is_active.
+        """
+        profile = (
+            db.query(WorkerProfile)
+            .filter(WorkerProfile.user_id == user.id)
+            .first()
+        )
+        if not profile:
+            profile = WorkerProfile(user_id=user.id, is_active=is_available)
+            db.add(profile)
+        else:
+            profile.is_active = is_available
+
+        db.commit()
+        db.refresh(profile)
+        return profile.is_active
+

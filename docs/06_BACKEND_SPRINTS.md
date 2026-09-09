@@ -1079,7 +1079,8 @@ Make the selected worker's job lifecycle functional.
 
 Endpoints
 
-GET /api/v1/worker/gigs
+GET  /api/v1/worker/gigs
+POST /api/v1/gigs/{gig_id}/start
 POST /api/v1/gigs/{gig_id}/completion
 GET  /api/v1/gigs/{gig_id}/completion
 POST /api/v1/gigs/{gig_id}/completion/confirm
@@ -1088,25 +1089,23 @@ Implement
 
 selected worker access
 
-active job state
+active job state (WORKER_SELECTED, SCHEDULED, IN_PROGRESS)
 
-completion evidence
-
-storage references
+completion evidence & storage references
 
 worker completion submission
 
 customer review of evidence
 
-customer confirmation
+customer confirmation (COMPLETION_CONFIRMED) & rejection rework loop (reverts to IN_PROGRESS)
 
 state validation
 
-audit events
+audit events (WORK_STARTED, COMPLETION_SUBMITTED, COMPLETION_CONFIRMED, COMPLETION_REJECTED)
 
 Definition of Done
 
-Worker can upload evidence and customer can confirm completion.
+Worker can start work, upload evidence, and customer can confirm completion or request rework.
 
 31. Sprint 8 — Payment
 

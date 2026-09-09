@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 from typing import List, Union
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -34,6 +35,8 @@ class Settings(BaseSettings):
     # Pricing & Wage Policy Parameters (configurable as required by WAGES.md & sprint roadmap)
     WAGE_PREMIUM_MAX_FACTOR: float = 0.30
     VISITATION_FEE: float = 100.00
+    CANCELLATION_FEE_AFTER_SELECTION: Decimal = Decimal("50.00")
+    CANCELLATION_FEE_BEFORE_SELECTION: Decimal = Decimal("0.00")
     BAYESIAN_PRIOR_MEAN: float = 0.70
     BAYESIAN_CONFIDENCE_C: float = 10.0
     EXPERIENCE_WINDOW_N: int = 50

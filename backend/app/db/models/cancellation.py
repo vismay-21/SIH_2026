@@ -21,6 +21,7 @@ from app.db.models.enums import RescheduleStatus, PreviousWorkerRequestStatus
 if TYPE_CHECKING:
     from app.db.models.user import User
     from app.db.models.gig import Gig
+    from app.db.models.payment import Payment
 
 
 class GigCancellation(BaseModel):
@@ -48,6 +49,9 @@ class GigCancellation(BaseModel):
 
     gig: Mapped["Gig"] = relationship("Gig", back_populates="cancellations")
     user: Mapped["User"] = relationship("User")
+    payment: Mapped[Optional["Payment"]] = relationship(
+        "Payment", back_populates="cancellation", uselist=False
+    )
 
 
 class RescheduleRequest(BaseModel):

@@ -72,6 +72,12 @@ class PaymentStatus(str, enum.Enum):
     WORKER_CONFIRMED = "WORKER_CONFIRMED"
 
 
+class PaymentType(str, enum.Enum):
+    LABOUR = "LABOUR"
+    CANCELLATION = "CANCELLATION"
+
+
+
 class VisitationProposalStatus(str, enum.Enum):
     PENDING = "PENDING"
     ACCEPTED = "ACCEPTED"
