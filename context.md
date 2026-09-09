@@ -319,11 +319,18 @@ SIH_2026/
 - `app/services/opportunity_service.py`: Worker Opportunity Engine, schedule conflict detection, weekly availability checking, exact guaranteed wage snapshots, and atomic accept/reject transaction workflows.
 - `app/services/visitation_service.py`: In-person visitation inspection, task proposals, catalogue pricing calculations, customer accept (₹100 fee absorbed) / reject (₹100 fee payable) workflows, and immutable snapshot preservation.
 - `app/services/multi_worker_service.py`: Multi-worker collaboration and rookie mentorship service, same-cooperative validation, explicit consent, rookie 0.5x complexity contribution, audit event logging, and in-app notifications.
+- `app/services/cancellation_service.py`: Cancellation fee computation, penalty payments, gig reopening, and slot negotiation service.
+- `app/services/financial_guard.py`: Customer financial integrity guard preventing new gig creation with outstanding cancellation debt.
+- `app/services/material_service.py`: Procurement mode enforcement, multipart/json upload, privacy gating, and itemized billing service.
+- `app/services/review_service.py`: Structured question seeding, directional participant authorization, answer validation, 2-decimal overall rating calculation, Bayesian rating aggregation and worker metric updates, audit logging, and notification dispatch.
 - `app/schemas/multi_worker.py`: `WorkerParticipationCreateRequest` and `WorkerParticipationResponse` (strictly excluding private worker splits).
+- `app/schemas/cancellation.py`: `GigCancelRequest`, `GigCancelResponse`, `GigReopenResponse`, `RescheduleRequestCreate`, and negotiation responses.
+- `app/schemas/material.py`: `MaterialReceiptCreateRequest`, `MaterialReceiptResponse`, and `MaterialReceiptListResponse`.
+- `app/schemas/review.py`: `ReviewQuestionResponse`, `ReviewAnswerItem`, `ReviewCreateRequest`, `ReviewAnswerResponse`, `ReviewResponse`, and `WorkerPublicMetricsResponse`.
 - `app/api/v1/router.py`: API v1 router aggregator.
-- `app/api/v1/endpoints/`: Health, authentication (`/me`), customer (`/customer/profile`, `/customer/gigs`), worker (`/worker/profile`, `/worker/categories`, `/worker/availability`, `/worker/opportunities`, `/worker/gigs`), catalogue (`/service-categories`), gig operations (`/gigs`, `/gigs/{id}`, `/gigs/{id}/post`, `/gigs/price-preview`, `/gigs/{id}/candidates`, `/gigs/{id}/select-worker`, `/gigs/{id}/start`, `/gigs/{id}/completion`, `/gigs/{id}/completion/confirm`, `/gigs/{id}/payment`, `/gigs/{id}/payment/confirm-receipt`, `/gigs/{id}/visitation/request`, `/gigs/{id}/visitation`, `/gigs/{id}/visitation/proposals`, `/gigs/{id}/visitation/proposals/{proposal_id}/accept`, `/gigs/{id}/visitation/proposals/{proposal_id}/reject`), and multi-worker collaboration (`/gigs/{gig_id}/participations`, `/participations/{id}/accept`, `/participations/{id}/reject`).
-- `alembic/`: Database migration environment managing all 31 models live on Supabase PostgreSQL.
-- `app/tests/`: Comprehensive pytest suite with 131 automated unit and integration tests covering Sprints 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, and 10.
+- `app/api/v1/endpoints/`: Health, authentication (`/me`), customer (`/customer/profile`, `/customer/gigs`), worker (`/worker/profile`, `/worker/categories`, `/worker/availability`, `/worker/opportunities`, `/worker/gigs`), catalogue (`/service-categories`), gig operations (`/gigs`), multi-worker collaboration (`/participations`), cancellation & reschedule (`/gigs/{id}/cancel`, `/reschedule`), material receipts (`/gigs/{id}/material-receipts`), and reviews & metrics (`/review-questions`, `/gigs/{id}/reviews`, `/workers/{id}/metrics`).
+- `alembic/`: Database migration environment managing all models live on Supabase PostgreSQL.
+- `app/tests/`: Comprehensive pytest suite with 182 automated unit and integration tests covering Sprints 0 through 13.
 
 ## Validation
 
@@ -335,9 +342,9 @@ dart format lib test
 flutter analyze (0 issues found)
 flutter test (7/7 tests passed)
 
-# Backend Validation (Sprint 0 through Sprint 10 + Supabase PostgreSQL)
+# Backend Validation (Sprint 0 through Sprint 13 + Supabase PostgreSQL)
 cd backend
-pytest -v (150/150 tests passed in 48.28s)
+pytest -v (182/182 tests passed in 12.59s)
 alembic current (76b9636a889b head, live on Supabase PostgreSQL)
 GET /api/v1/health -> 200 OK {"status": "ok", "database": "connected"}
 POST /api/v1/me/initialize -> 201 Created (Customer/Worker initialization)
@@ -384,13 +391,18 @@ POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/alternative -> 200 OK (Counte
 POST /api/v1/gigs/{gig_id}/material-receipts -> 201 Created (Worker uploads receipt, dual multipart/json support, strict RBAC)
 GET /api/v1/gigs/{gig_id}/material-receipts -> 200 OK (Itemized receipts and authoritative total material cost, privacy gated)
 DELETE /api/v1/gigs/{gig_id}/material-receipts/{receipt_id} -> 200 OK (Uploader deletes receipt before completion submission)
+GET /api/v1/review-questions -> 200 OK (Filtered list of active standard questions by target_role)
+POST /api/v1/gigs/{gig_id}/reviews -> 201 Created (Participant submits completed gig review, recalculates Bayesian & final scores)
+GET /api/v1/gigs/{gig_id}/reviews -> 200 OK (Participant views submitted gig reviews and answers)
+GET /api/v1/workers/{worker_id}/metrics -> 200 OK (Public worker rating average, rating count, and final score)
 ```
 
 ## Pending Backend/Product Work
 
-- Sprint 13: Structured 3-4 MCQ Reviews & Bayesian Rating Updates.
 - Sprint 14: Mutual In-App Chat & Notifications.
 - Sprint 15: Flutter-to-FastAPI End-to-End Integration.
+- Sprint 16: End-to-End Testing & Live Deployment.
+
 
 
 

@@ -642,6 +642,76 @@ Completed Sprint 12 (Material Procurement & Itemized Receipt Uploads) per `docs/
     - Audit events (`GigEvent`) and in-app notifications (`Notification`) for uploads and deletions.
   - Full regression test suite: 169/169 tests passing across all backend modules (Sprints 0 through 12) in 43.11s with 100% pass rate.
 
+## 2026-09-10 01:00:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 13 (Structured Reviews + Metrics & Bayesian Rating Updates) per `docs/06_BACKEND_SPRINTS.md` (Section 36: Sprint 13), `docs/05_API_DESIGN.md` (Sections 27: Reviews APIs & 28: Public Worker Metrics), `docs/04_DATABASE_DESIGN.md` (Sections 8, 25, 26, 27), `docs/WAGES.md` (Sections 4, 5), and `docs/SRS_Final.md` (Section 20: Rating & Review System):
+- Business Rules & Architectural Invariants Enforced:
+  - Gating by Completion:
+    - Reviews are permitted strictly when `gig.status == GigStatus.COMPLETED`. Attempting reviews in any other state raises `409 Conflict` (`code="GIG_NOT_COMPLETED"`).
+  - Strict Directional Participant RBAC:
+    - Customer can review the selected primary worker or any accepted collaborator (`WorkerParticipation.status == ACCEPTED`).
+    - Primary worker or accepted collaborator can review the customer.
+    - Non-participants attempting to submit or read reviews receive `403 Forbidden` (`code="NOT_GIG_PARTICIPANT"`).
+    - Single Review Invariant: Exactly one review per directional participant pair per gig (`reviewee_id` + `reviewer_id` + `gig_id`). Duplicate submissions return `409 Conflict` (`code="REVIEW_ALREADY_EXISTS"`).
+  - Question Set Architecture & Seeding:
+    - Directional question sets: `WORKER` (4 standard questions evaluating worker matching `WAGES.md` Section 4: Work Quality & Completion, Reliability & Punctuality, Professionalism & Behavior, Communication & Transparency) and `CUSTOMER` (3 standard questions evaluating customer: Work Area Preparation & Safety, Gig Description Accuracy, Customer Communication & Respect).
+    - Automatic seeding via `seed_review_questions_if_empty()` on FastAPI application startup lifespan, with on-demand fallback if table is empty.
+    - Question & Answer Validation: Submitted questions must exist, be active, and match the target role (`WORKER` when reviewing worker, `CUSTOMER` when reviewing customer). Ratings must be integers between 1 and 5. Duplicate question IDs within a single review are rejected with `400 Bad Request` (`code="DUPLICATE_QUESTION_ANSWER"`).
+  - Calculated Overall Rating:
+    - `overall_rating` is optional in request payload. Backend calculates arithmetic mean from submitted question answers rounded to 2 decimal places (`round(sum/count, 2)`).
+    - If client provides `overall_rating`, backend verifies that `round(client_rating, 2) == calculated_overall`; mismatch raises `400 Bad Request` (`code="RATING_MISMATCH"`). The backend never trusts client-provided rating and always stores the calculated value.
+  - Worker Metric & Bayesian Rating Update:
+    - When a customer reviews a worker, `WorkerMetric` is atomically loaded or initialized within the review transaction.
+    - Historical customer reviews for the worker are queried (`reviewer_role == CUSTOMER`) to update `rating_count` and `rating_average`.
+    - Bayesian rating aggregation calculates `bayesian_score = (C * m + sum(normalized_ratings)) / (C + n)` using documented parameters ($m = 0.70, C = 10.0, \text{normalized\_rating} = (\text{rating} - 1.0) / 4.0$).
+    - Final composite score is updated: `final_score = 0.5 * experience_score + 0.5 * bayesian_score`.
+  - Transactional Integrity:
+    - `Review`, `ReviewAnswer` records, `WorkerMetric` updates, and `GigEvent` audit trail are committed in a single atomic database transaction.
+  - Audit Trail & Notification:
+    - Emits `REVIEW_SUBMITTED` audit event in `gig_events`.
+    - Dispatches in-app `Notification` to the reviewee.
+  - Privacy & Public Metrics:
+    - `GET /api/v1/gigs/{gig_id}/reviews` is authorization-gated strictly to actual gig participants (customer, primary worker, accepted collaborators).
+    - `GET /api/v1/workers/{worker_id}/metrics` exposes only documented public fields (`worker_id`, `completed_jobs_count`, `rating_average`, `rating_count`, `final_score`), strictly concealing private financial, experience score, and internal metric fields.
+- Implemented Schemas in `app/schemas/review.py`:
+  - `ReviewQuestionResponse`: Output model for active review questions.
+  - `ReviewAnswerItem`: Input model for structured question answers (`question_id`, `answer_value: 1..5`).
+  - `ReviewCreateRequest`: Input model strictly conforming to `05_API_DESIGN.md` Section 27 (`reviewee_id`, optional `overall_rating`, and `answers: List[ReviewAnswerItem]`; no undocumented text comments).
+  - `ReviewAnswerResponse`: Output model for individual review answers.
+  - `ReviewResponse`: Output model for review record with answers list.
+  - `WorkerPublicMetricsResponse`: Public output model for worker rating and performance metrics.
+- Implemented Service in `app/services/review_service.py`:
+  - `seed_review_questions_if_empty`: Automated database seeding of standard question sets.
+  - `get_review_questions`: Filtered retrieval of active questions by target role.
+  - `submit_review`: End-to-end review validation, rating calculation, record creation, metric update, audit logging, and notification.
+  - `get_gig_reviews`: Privacy-gated review retrieval for gig participants.
+  - `get_worker_metrics`: Public worker metric retrieval.
+- Implemented API Endpoints in `app/api/v1/endpoints/reviews.py` & Registered in `app/api/v1/router.py`:
+  - `GET  /api/v1/review-questions` (Public / Authenticated; query by `target_role`).
+  - `POST /api/v1/gigs/{gig_id}/reviews` (Gig Participant; completed gigs only; 201 Created).
+  - `GET  /api/v1/gigs/{gig_id}/reviews` (Gig Participant only; 200 OK).
+  - `GET  /api/v1/workers/{worker_id}/metrics` (Public / Authenticated; 200 OK).
+- Lifespan Integration in `app/main.py`:
+  - Registered `seed_review_questions_if_empty()` in startup event.
+- Automated Testing & Validation:
+  - Created `app/tests/test_sprint13_reviews.py` (13 comprehensive tests) covering:
+    - Review question seeding and filtering by target role.
+    - Completed customer-to-worker review submission and answer recording.
+    - Worker metric update, Bayesian score calculation, and final score recalculation.
+    - Completed worker-to-customer review submission.
+    - Rejection of reviews on non-completed gigs (409 GIG_NOT_COMPLETED).
+    - Duplicate review prevention for the same participant pair (409 REVIEW_ALREADY_EXISTS).
+    - Participant isolation (403 FORBIDDEN for non-participants).
+    - Invalid / mismatched questions and out-of-range ratings rejection.
+    - Disallowed duplicate question IDs within a single review.
+    - Overall rating calculation and client mismatch validation (400 RATING_MISMATCH).
+    - Gig review retrieval privacy gating.
+    - Public worker metrics field isolation (no private data leakage).
+    - Customer reviewing an accepted collaborator.
+    - Atomic rollback verification on failed review transactions.
+  - Full regression test suite: 182/182 tests passing across all backend modules (Sprints 0 through 13) in 12.59s with 100% pass rate.
+
+
 
 
 

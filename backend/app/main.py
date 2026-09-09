@@ -27,11 +27,13 @@ async def lifespan(app: FastAPI):
     try:
         from app.db.session import SessionLocal
         from app.services.catalogue_service import CatalogueService
+        from app.services.review_service import ReviewService
         with SessionLocal() as db:
             CatalogueService.seed_catalogue_if_empty(db)
-        logger.info("Service categories and tasks catalogue verified/seeded.")
+            ReviewService.seed_review_questions_if_empty(db)
+        logger.info("Service catalogue and review questions verified/seeded.")
     except Exception as e:
-        logger.warning(f"Catalogue seeding deferred or skipped on startup: {e}")
+        logger.warning(f"Catalogue/Review seeding deferred or skipped on startup: {e}")
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
 
