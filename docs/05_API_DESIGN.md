@@ -1088,29 +1088,45 @@ POST /api/v1/gigs/{gig_id}/material-receipts
 
 Worker uploads a material receipt/proof when worker procurement is selected.
 
-Request:
+Supported Request Formats:
 
-multipart/form-data
+Format 1: multipart/form-data (Standard Mobile Upload)
+- `amount`: Numeric/Decimal string (required, > 0)
+- `description`: Optional text note / store description
+- `receipt_file`: Optional binary file upload (image/jpeg, image/png, application/pdf). When provided, the backend persists the file to private storage and generates the canonical reference.
+- `receipt_url`: Optional string storage reference (used when the client pre-uploads directly to private storage).
+*Note: At least one of `receipt_file` or `receipt_url` must be provided.*
 
-Fields:
-
-amount
-description
-receipt file
+Format 2: application/json (Storage-Reference / API Workflow)
+```json
+{
+  "amount": 450.00,
+  "receipt_url": "https://storage.sahakaar.org/material-receipts/gig_123/receipt_1.jpg",
+  "description": "PVC pipes and brass connectors from Metro Hardware"
+}
+```
 
 Rules:
-
-Only allowed when material_procurement_mode = WORKER_PURCHASES.
-
-Worker must be an authorized participant.
-
-Customer can later view the receipt.
+- Only allowed when `material_procurement_mode = WORKER_PURCHASES`.
+- Worker must be an authorized participant (assigned primary worker or accepted co-worker).
+- Customer can later view the receipt.
+- Access to receipt data is strictly authorization-gated (customer, primary worker, accepted co-workers).
+- Material dispute resolution is outside MVP.
 
 GET /api/v1/gigs/{gig_id}/material-receipts
 
 Return material receipts visible to authorized participants.
-
 Material dispute resolution is outside MVP.
+
+DELETE /api/v1/gigs/{gig_id}/material-receipts/{receipt_id}
+
+Worker deletes a previously uploaded receipt.
+
+Rules:
+- Only the specific worker who uploaded the receipt can delete it.
+- Permitted only while gig is in active pre-confirmation states (`WORKER_SELECTED`, `SCHEDULED`, `IN_PROGRESS`).
+- Locked once gig transitions to `COMPLETION_SUBMITTED`, `CUSTOMER_CONFIRMED`, `COMPLETED`, or `CANCELLED` (`409 Conflict`).
+- Emits audit event `MATERIAL_RECEIPT_DELETED` and notifies customer.
 
 24. Payment APIs
 

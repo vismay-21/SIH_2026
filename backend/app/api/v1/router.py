@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     gigs,
     participations,
     cancellation,
+    materials,
 )
 
 api_router = APIRouter()
@@ -33,5 +34,8 @@ api_router.include_router(participations.router, tags=["Multi-Worker Participati
 
 # Sprint 11: Cancellation & Rescheduling
 api_router.include_router(cancellation.router, tags=["Cancellation & Rescheduling"])
+
+# Sprint 12: Material Procurement & Itemized Receipt Uploads
+api_router.include_router(materials.router, tags=["Material Procurement"])
 
 

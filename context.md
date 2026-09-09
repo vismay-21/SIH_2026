@@ -381,11 +381,13 @@ GET /api/v1/gigs/{gig_id}/reschedule -> 200 OK (Fetch reschedule negotiation his
 POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/accept -> 200 OK (Counterparty accepts, updates gig schedule)
 POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/reject -> 200 OK (Counterparty rejects, preserves schedule)
 POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/alternative -> 200 OK (Counterparty counter-proposes slot)
+POST /api/v1/gigs/{gig_id}/material-receipts -> 201 Created (Worker uploads receipt, dual multipart/json support, strict RBAC)
+GET /api/v1/gigs/{gig_id}/material-receipts -> 200 OK (Itemized receipts and authoritative total material cost, privacy gated)
+DELETE /api/v1/gigs/{gig_id}/material-receipts/{receipt_id} -> 200 OK (Uploader deletes receipt before completion submission)
 ```
 
 ## Pending Backend/Product Work
 
-- Sprint 12: Material Procurement & Itemized Receipt Uploads.
 - Sprint 13: Structured 3-4 MCQ Reviews & Bayesian Rating Updates.
 - Sprint 14: Mutual In-App Chat & Notifications.
 - Sprint 15: Flutter-to-FastAPI End-to-End Integration.

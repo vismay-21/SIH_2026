@@ -583,6 +583,65 @@ Completed Sprint 11 (Cancellation & Rescheduling Policies) per `docs/06_BACKEND_
   - Created `app/tests/test_sprint11_cancellation_rescheduling.py` (19 comprehensive tests) covering fee calculations across all states, cancellation payment settlement, lifecycle invariants, customer financial guard blocking/unblocking, reopen validations, and full rescheduling negotiations.
   - Full test suite: 150/150 tests passing across all backend modules (Sprints 0 through 11) in 48.28s with 100% pass rate.
 
+## 2026-09-10 00:20:00 +05:30 — Vismay & Antigravity (Backend AI)
+
+Completed Sprint 12 (Material Procurement & Itemized Receipt Uploads) per `docs/06_BACKEND_SPRINTS.md` (Section 35: Sprint 12), `docs/05_API_DESIGN.md` (Section 23: Material APIs & Section 36: File Storage Strategy), `docs/04_DATABASE_DESIGN.md` (Section 32: Material Procurement & Section 33: Material Evidence), and `docs/SRS_Final.md` (Section 7.1: Labour Only & Section 7.2: Material Procurement):
+- Business Rules & Architectural Invariants Enforced:
+  - Source-of-Truth Separation: Labour price snapshots (`GigWorkerOpportunity.exact_wage`) represent strictly labour only and remain completely immutable. Material procurement is tracked as itemized reimbursement evidence when `material_procurement_mode == WORKER_PURCHASES`.
+  - Customer Purchases Mode Protection: When gig procurement mode is `CUSTOMER_PURCHASES`, worker material receipt uploads are rejected with `400 Bad Request` (`code="MATERIAL_PROCUREMENT_NOT_WORKER"`).
+  - Dual Upload Format Contract Reconciliation: Reconciled `05_API_DESIGN.md` Section 23 to support both:
+    1. `multipart/form-data` (direct mobile upload of JPEG, PNG, or PDF files up to 10MB, auto-generating private storage references, or passing pre-uploaded form references).
+    2. `application/json` (pre-uploaded private storage reference payload).
+  - Role & Participant Authorization Guard:
+    - Only workers with authenticated role `WORKER` can upload material receipts (`403 Forbidden` for customers).
+    - Permitted strictly for the assigned primary worker (`gig.selected_worker_id == current_user.id`) or accepted collaborators (`WorkerParticipation.status == ACCEPTED`).
+    - Collaborators with `PENDING` or `REJECTED` participation status are rejected with `403 Forbidden` (`code="COLLABORATOR_NOT_ACCEPTED"`).
+    - Worker identity is derived exclusively from the JWT session (`current_user.id`); client-supplied IDs are ignored.
+  - Privacy & Access Gating:
+    - Receipt evidence is private and authorization-gated.
+    - `GET /api/v1/gigs/{gig_id}/material-receipts` is accessible only to the customer, primary worker, and accepted collaborators. Third parties and anonymous callers receive `403 Forbidden` / `401 Unauthorized`.
+  - Authoritative Itemized Accounting:
+    - Backend sums all active receipts using exact `Decimal` precision (`sum(receipts.amount)`) and returns `total_material_cost` and itemized breakdown with worker attribution.
+    - Receipt amounts must be strictly greater than zero (`> 0.00`).
+  - Receipt Deletion & Lifecycle Freeze:
+    - Only the specific worker who uploaded a receipt can delete it (`receipt.worker_id == current_user.id`). Co-workers cannot delete each other's receipts (`403 Forbidden`).
+    - Deletion is permitted only during active pre-completion states (`WORKER_SELECTED`, `SCHEDULED`, `IN_PROGRESS`).
+    - Once completion evidence has been submitted (`COMPLETION_SUBMITTED`), confirmed (`CUSTOMER_CONFIRMED`), completed (`COMPLETED`), or cancelled (`CANCELLED`), receipts are permanently locked from deletion (`409 Conflict`, `code="MATERIAL_RECEIPTS_LOCKED"`).
+  - Audit Trail & Preservation:
+    - Uploading a receipt emits `MATERIAL_RECEIPT_UPLOADED` audit event in `gig_events` and sends an in-app `Notification` to the customer.
+    - Deleting a receipt emits `MATERIAL_RECEIPT_DELETED` audit event and sends an in-app `Notification` to the customer.
+    - Cancelling a gig or reopening a worker-cancelled gig permanently preserves historical material receipts in PostgreSQL for audit and accounting reconciliation.
+- Database Schema & Dependencies:
+  - Validated existing `material_receipts` table in Supabase PostgreSQL (`id`, `gig_id`, `worker_id`, `amount`, `receipt_url`, `description`, `created_at`, `updated_at`). No database migration needed.
+  - Added `python-multipart>=0.0.9` to `backend/requirements.txt` to support multipart form parsing.
+- Implemented Schemas in `app/schemas/material.py`:
+  - `MaterialReceiptCreateRequest`: Payload for JSON storage-reference workflow.
+  - `MaterialReceiptResponse`: Output model with receipt metadata and worker display name.
+  - `MaterialReceiptListResponse`: Output model with itemized receipts and calculated `total_material_cost`.
+- Implemented Service in `app/services/material_service.py`:
+  - `upload_material_receipt`: Implements multi-role validation, state validation, procurement mode checks, receipt record insertion, audit logging, and customer notification.
+  - `get_material_receipts`: Implements privacy checks, receipt querying, exact `Decimal` accumulation, and response serialization.
+  - `delete_material_receipt`: Implements ownership verification, lifecycle locking checks, record deletion, audit logging, and customer notification.
+- Implemented API Endpoints in `app/api/v1/endpoints/materials.py` & Registered in `app/api/v1/router.py`:
+  - `POST   /api/v1/gigs/{gig_id}/material-receipts` (Worker role; dual `multipart/form-data` and `application/json` support; 201 Created).
+  - `GET    /api/v1/gigs/{gig_id}/material-receipts` (Customer, Primary Worker, Accepted Collaborators; 200 OK).
+  - `DELETE /api/v1/gigs/{gig_id}/material-receipts/{receipt_id}` (Uploader Worker only; pre-completion only; 200 OK).
+- Automated Testing & Validation:
+  - Created `app/tests/test_sprint12_materials.py` (19 comprehensive tests) covering:
+    - Procurement mode enforcement (`CUSTOMER_PURCHASES` blocks uploads vs `WORKER_PURCHASES` allows).
+    - Dual upload formats: JSON workflow and multipart/form-data binary upload and pre-uploaded URL.
+    - MIME type validation and file size / emptiness guards.
+    - Customer, third-party, and unaccepted collaborator upload rejection.
+    - Accepted collaborator upload permission and attribution.
+    - Privacy gating on receipt views (customer, primary worker, collaborator allowed; third party 403; anon 401).
+    - Itemized accounting and additive total calculations with exact `Decimal` arithmetic.
+    - Receipt deletion by owner in progress and total cost recalculation.
+    - Prevention of deleting another worker's receipt.
+    - Lifecycle freezing of receipts after completion submission.
+    - Audit preservation across gig cancellation and blocked post-cancellation uploads.
+    - Audit events (`GigEvent`) and in-app notifications (`Notification`) for uploads and deletions.
+  - Full regression test suite: 169/169 tests passing across all backend modules (Sprints 0 through 12) in 43.11s with 100% pass rate.
+
 
 
 
