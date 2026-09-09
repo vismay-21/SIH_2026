@@ -101,7 +101,142 @@ Delivered the final screen batch completing 100% of the full ~52 screen frontend
   - Expanded `mobile_app/test/widget_test.dart` to 7 full widget test flows, adding coverage for login layout navigation to `ForgotPasswordScreen` + OTP password reset, and worker profile navigation into `WorkerEarningsScreen`, `SettingsScreen` (dark mode & language selection), and `AboutHelpScreen`.
   - Formatted all files (`dart format lib test`), verified `flutter analyze` (0 errors, 0 warnings), and passed all widget tests (`flutter test` 7/7 passed).
 
-    ## 2026-09-08 2:38:43 +05:30 — Yug
+## 2026-09-08 2:38:43 +05:30 — Yug
 
-    - history update remaning 
+- Frontend status synchronization and code formatting.
+
+## 2026-09-09 18:15:00 +05:30 — Antigravity (Backend AI)
+
+Completed **Sprint 0 — Backend Foundation** for the Sahakaar Seva Cooperative platform per `docs/06_BACKEND_SPRINTS.md`:
+- Established the modular FastAPI backend architecture in `backend/app/` (`main.py`, `core/`, `db/`, `api/`, `schemas/`, `repositories/`, `services/`, `tests/`).
+- Configured application settings (`app/core/config.py`) using Pydantic Settings with support for environment variables, dynamic CORS origin parsing, Supabase parameters, and algorithm configuration defaults (`WAGE_PREMIUM_MAX_FACTOR=0.30`, `VISITATION_FEE=100.00`).
+- Configured SQLAlchemy 2.0 database engine, session factory, `get_db` FastAPI dependency, and live connectivity health probe in `app/db/session.py`.
+- Created declarative `Base` and abstract `BaseModel` (`app/db/base.py`) with UUID primary keys and timezone-aware `created_at` and `updated_at` timestamps per `docs/04_DATABASE_DESIGN.md`.
+- Implemented Alembic database migration environment (`alembic.ini`, `alembic/env.py`, `alembic/script.py.mako`, `alembic/versions/`), wired to application settings and metadata, generating and applying initial baseline migration `7c590bb021a2_initial_foundation`.
+- Implemented centralized exception handling (`app/core/exceptions.py`) conforming to `docs/05_API_DESIGN.md` error contracts with structured `{ "error": { "code": ..., "message": ..., "details": ... } }` payload.
+- Implemented standard response envelopes and health check schemas in `app/schemas/common.py`.
+- Implemented `GET /api/v1/health` endpoint (`app/api/v1/endpoints/health.py`) validating live database connectivity and system status.
+- Configured CORS middleware supporting Flutter mobile development and web clients.
+- Configured pytest test suite (`app/tests/conftest.py`, `app/tests/test_health.py`) testing health endpoint, root discovery, database session, error formatting, and CORS headers.
+- Verified: `pytest -v` (5/5 passed), `alembic current` (head), and direct test client call `GET /api/v1/health` (200 OK).
+
+## 2026-09-09 18:35:00 +05:30 — Antigravity (Backend AI)
+
+Completed **Sprint 1 — Database Schema + Models** for the Sahakaar Seva Cooperative platform per `docs/06_BACKEND_SPRINTS.md`:
+- Implemented all 31 tables from `docs/04_DATABASE_DESIGN.md` across modular model files in `backend/app/db/models/`:
+  - `enums.py`: All 14 database enums (`UserRole`, `GigType`, `GigStatus`, `MaterialProcurementMode`, `OpportunityStatus`, `ParticipationType`, `WorkerParticipationClassification`, `WorkerParticipationStatus`, `ReviewerRole`, `PaymentMethod`, `PaymentStatus`, `VisitationProposalStatus`, `RescheduleStatus`, `PreviousWorkerRequestStatus`).
+  - `cooperative.py`: `Cooperative` model.
+  - `user.py`: `User`, `CustomerProfile`, `WorkerProfile`, `WorkerMetric` with one-to-one cascading relationships and index definitions.
+  - `service.py`: `ServiceCategory`, `ServiceTask`, `WorkerCategory` (with `uq_worker_category`), and `WorkerAvailability` (with day-of-week index).
+  - `gig.py`: `Gig` (with price snapshots, emergency flag, procurement mode), `GigTask` (with `uq_gig_task`), and `GigWorkerOpportunity` (with `uq_gig_worker_opportunity` and immutable wage/final_score snapshots).
+  - `experience.py`: `WorkerExperienceRecord` tracking individual task complexity and rookie contributions.
+  - `review.py`: `Review` (two-way with `uq_review_direction`), `ReviewQuestion` (structured MCQs), and `ReviewAnswer`.
+  - `completion.py`: `CompletionSubmission`, `CompletionEvidence` (photo uploads), and `CompletionConfirmation` (customer approval).
+  - `payment.py`: `Payment` (cash and UPI lifecycle audit) and `MaterialReceipt` (itemized receipts).
+  - `multi_worker.py`: `WorkerParticipation` (co-worker invitation consent and Equal Sharing vs Rookie tracking).
+  - `visitation.py`: `VisitationProposal` and `VisitationProposalTask` (fixed ₹100 diagnostic fee, task proposals, fee waiver rules).
+  - `cancellation.py`: `GigCancellation`, `RescheduleRequest`, and `PreviousWorkerRequest`.
+  - `communication.py`: `Conversation`, `Message`, `Notification`, and `GigEvent` (audit log).
+- Configured model export in `backend/app/db/models/__init__.py` and registered with `Base.metadata`.
+- Updated `alembic/env.py` to automatically register all 31 models.
+- Generated and applied complete database migration: `e29d3f46feb9_sprint_1_mvp_schema.py` (`alembic upgrade head`). Verified 32 tables live in the database (31 domain tables + `alembic_version`).
+- Created comprehensive model test suite in `app/tests/test_models.py` validating table registration, foreign keys, 1-to-1 profiles/metrics, service tasks, gig opportunity snapshots, completion submissions, payments, and notifications.
+- Validation: `pytest -v` (13/13 tests passed), `alembic current` (e29d3f46feb9 head), and `flutter test` (7/7 passed).
+## 2026-09-09 19:55:00 +05:30 — Antigravity (Backend AI)
+
+Completed comprehensive verification of Sprint 1 and successfully deployed the schema to Supabase:
+- Performed thorough verification across 5 strict categories:
+  - Verified 14 enums match `docs/04_DATABASE_DESIGN.md` verbatim.
+  - Verified 4 unique constraints, 27 foreign keys, and 26 required query indexes.
+  - Verified clean database migration recreation via `alembic upgrade head`.
+  - Added `create_constraint=True` to all `SQLEnum` model columns so that `native_enum=False` generates strict PostgreSQL SQL `CHECK (col IN (...))` constraints.
+  - Verified all immutable snapshot fields (`base_price_snapshot`, `standard_duration_minutes_snapshot`, `final_score_snapshot`, `premium_percentage`, `exact_wage`).
+- Integrated live Supabase project (`upkxwtnxfnkjuuwrjutk`):
+  - Configured PostgreSQL URI with URL-encoded password (`%2F` delimiter handling) and Supabase credentials in `backend/.env`.
+  - Updated `app/core/config.py` with `SUPABASE_SERVICE_ROLE_KEY`.
+  - Updated `alembic/env.py` with `configparser` `%` interpolation escaping.
+  - Successfully executed `alembic upgrade head` against Supabase PostgreSQL, creating all 32 tables live in the cloud database.
+  - Verified live FastAPI `GET /api/v1/health` returning 200 OK with `database: connected`.
+  ## 2026-09-09 20:05:00 +05:30 — Antigravity (Backend AI)
+
+Completed **Sprint 2 — Authentication + Profiles** for the Sahakaar Seva Cooperative platform per `docs/06_BACKEND_SPRINTS.md` and `docs/05_API_DESIGN.md`:
+- Implemented cryptographic Supabase Auth JWT validation and security dependencies in `app/core/security.py`:
+  - `decode_supabase_token` verifies token signature against `settings.SUPABASE_JWT_SECRET` (HS256) and extracts subject claim (`sub`).
+  - `get_current_token_payload` validates and supplies raw claims.
+  - `get_current_user` resolves the application user from database.
+  - `get_current_active_user` verifies account active status.
+  - `require_role(UserRole.CUSTOMER)` and `require_role(UserRole.WORKER)` enforce strict role-based access control.
+  - `create_access_token` utility for token generation and test harnesses.
+- Built Pydantic request/response schemas in `app/schemas/user.py` and `app/schemas/worker.py`:
+  - `UserResponse`, `UserInitializeRequest`
+  - `CustomerProfileResponse`, `CustomerProfileUpdateRequest`
+  - `WorkerProfileResponse`, `WorkerProfileUpdateRequest`, `WorkerMetricResponse`
+  - `AadhaarUploadRequest`, `AadhaarUploadResponse`
+  - `WorkerCategoryResponse`, `WorkerCategorySelectionRequest`
+  - `WorkerAvailabilitySlot`, `WorkerAvailabilityUpdateRequest`, `WorkerAvailabilityResponse`
+- Implemented business logic and data manipulation in `app/services/user_service.py` and `app/services/worker_service.py`:
+  - `initialize_user`: initializes `User` and generates corresponding `CustomerProfile` or `WorkerProfile` + initial `WorkerMetric` (rookie defaults: `final_score=0.35`, `bayesian_score=0.70`, `experience_score=0.00`).
+  - Enforced one-role policy: attempts to re-initialize an existing user with a different role are rejected with `409 Conflict` (`ROLE_IMMUTABLE`).
+  - Automatically attaches user to primary active cooperative (`get_or_create_default_cooperative`).
+  - Aadhaar upload reference storage: stores document URL and upload timestamp without automatically marking verification.
+  - Worker category selection and availability schedule replacement.
+- Implemented API v1 endpoints and registered them in `app/api/v1/router.py`:
+  - `GET /api/v1/me` & `POST /api/v1/me/initialize` (`app/api/v1/endpoints/me.py`)
+  - `GET /api/v1/customer/profile` & `PATCH /api/v1/customer/profile` (`app/api/v1/endpoints/customer.py`)
+  - `GET /api/v1/worker/profile` & `PATCH /api/v1/worker/profile` (`app/api/v1/endpoints/worker.py`)
+  - `POST /api/v1/worker/profile/aadhaar`
+  - `GET /api/v1/worker/categories` & `PUT /api/v1/worker/categories`
+  - `GET /api/v1/worker/availability` & `PUT /api/v1/worker/availability`
+- Built dedicated Sprint 2 test suite in `app/tests/test_auth_and_profiles.py` (13 tests) covering:
+  - Valid JWT, invalid JWT format, invalid signature, expired token.
+  - Customer initialization and profile updates.
+  - Customer access rejection on worker endpoints (403).
+  - Worker initialization and profile updates with rookie metrics.
+  - Worker access rejection on customer endpoints (403).
+  - One-role immutability enforcement (409).
+  - Aadhaar upload reference storage without auto-verification.
+  - Worker category selection and retrieval.
+  - Worker availability slot configuration and time order validation.
+  - Profile ownership isolation between distinct users.
+- Validation:
+  - Pytest: 31/31 passed across entire test suite.
+  - Live server: tested live endpoints against running uvicorn instance on port 8000 connected to Supabase PostgreSQL (`/api/v1/health` -> 200, `/api/v1/me` -> 401 without auth, `/api/v1/me/initialize` -> 201, `/api/v1/me` -> 200, `/api/v1/customer/profile` -> 200).
+
+## 2026-09-09 20:25:00 +05:30 — Antigravity (Backend AI)
+
+Completed focused security, architecture, and isolation verification for Sprint 2:
+- Centralized rookie score defaults and algorithmic calculations:
+  - Added `ROOKIE_EXPERIENCE_SCORE` and computed `ROOKIE_FINAL_SCORE` to `app/core/config.py` (`W = 0.5 * B + 0.5 * E`).
+  - Created `app/services/score_service.py` exporting `compute_final_score` and `get_rookie_initial_metrics`.
+  - Refactored `user_service.py` and `worker_service.py` to source rookie defaults exclusively from `score_service`, establishing that these are initialization values only and ensuring future dynamic updates are centralized.
+- Hardened JWT decoding and application-level security:
+  - Enforced strict `sub` claim presence, non-emptiness, and UUID format verification in `app/core/security.py`.
+  - Added active user verification in `user_service.initialize_user` preventing deactivated users from calling `POST /api/v1/me/initialize`.
+  - Confirmed rejection of `alg: none`, invalid signatures, expired tokens, and uninitialized application identities.
+- Verified cooperative isolation and integrity:
+  - Added idempotent lookup by name in `get_or_create_default_cooperative` preventing duplicate creations.
+  - Verified rejection of invalid/inactive `cooperative_id` on user initialization.
+  - Confirmed profile endpoints strictly isolate data by `current_user.id`, preventing cross-user or cross-cooperative data leakage.
+- Created dedicated verification suite (`app/tests/test_sprint2_verification.py`, 10 tests). Full test suite: 41/41 tests passing.
+## 2026-09-09 21:05:00 +05:30 — Antigravity (Backend AI)
+
+Completed Sprint 3 (Catalogue + Wage Engine) per docs/06_BACKEND_SPRINTS.md (Section 26), docs/WAGES.md, docs/05_API_DESIGN.md, and docs/04_DATABASE_DESIGN.md:
+- Implemented Catalogue & Pricing core datasets and schemas:
+  - Created `app/core/catalogue_data.py` containing complete, standardized data for all 5 guild categories (Plumbing, Carpentry, Electrician, Painter, House Help) and ~115 tasks with standard durations and base prices from `WAGES.md`.
+  - Created `app/schemas/catalogue.py` with `ServiceCategoryResponse` and `ServiceTaskResponse` (including dynamic complexity score and complexity bucket).
+  - Created `app/schemas/pricing.py` with `PricePreviewRequest`, `PricePreviewTaskItem`, `EstimatedWageRange` (min, rookie, max wages), and `PricePreviewResponse`.
+- Implemented 4 dedicated services:
+  - `CatalogueService` (`app/services/catalogue_service.py`): Idempotent database seeding (`seed_catalogue_if_empty`) optimized with bulk prefetching, category listing, and task retrieval enriched with logarithmic complexity metrics.
+  - `PricingService` (`app/services/pricing_service.py`): Multi-task duration summing, 45-minute minimum billable time rule enforcement (`billable_duration = max(total_standard_duration, category.minimum_billable_minutes)`), base price calculation (`billable_duration * base_rate_per_minute`), single-category consistency rule validation (rejecting cross-category gigs with `400 CATEGORY_TASK_MISMATCH`).
+  - `WageService` (`app/services/wage_service.py`): Exact wage calculation formula `worker_wage = round(base_price * (1 + final_score * factor), 2)` with boundary clamping (`final_score` clamped strictly to `[0.0, 1.0]`), configurable `WAGE_PREMIUM_MAX_FACTOR` (default 0.30), rookie baseline wage, and dynamic minimum/maximum wage range calculation.
+  - `ExperienceService` (`app/services/experience_service.py`): Logarithmic task complexity normalization `c = (ln(t) - ln(t_min)) / (ln(t_max) - ln(t_min))` bounded between `0.0` and `1.0`, complexity bucketing strictly per `WAGES.md` (`0–0.33 LOW`, `0.34–0.66 MID`, `0.67–1.0 HIGH`), rolling window experience score across $N=50$ completed gigs using strictly `(Σ complexity_i) / N` with rookie contribution at $0.5 \times \text{normal complexity}$ and zero artificial decay factors, and Bayesian rating normalization/aggregation ($C=10$, prior $m=0.70$).
+- Created and mounted API v1 endpoints in `app/api/v1/router.py`:
+  - `GET /api/v1/service-categories` (`app/api/v1/endpoints/catalogue.py`)
+  - `GET /api/v1/service-categories/{category_id}/tasks` (`app/api/v1/endpoints/catalogue.py`)
+  - `POST /api/v1/gigs/price-preview` (`app/api/v1/endpoints/gigs.py`)
+  - Integrated auto-seeding into FastAPI application startup lifespan in `app/main.py`.
+- Automated testing & live endpoint verification:
+  - Created comprehensive test suite in `app/tests/test_sprint3_pricing_and_wages.py` (20 tests) covering category fetching, category tasks, 404 handling, 45-min minimum enforcement (15 min -> 45 min, 20+25 min -> 45 min, 75 min -> 75 min), cross-category task rejection, empty task list validation, wage calculation at 0.0, 1.0, 0.5, rookie baseline 0.35, boundary clamping, 2-decimal rounding, logarithmic complexity bounds, rolling experience window, Bayesian rating aggregation, boundary tests for buckets (0.0, 0.33, 0.34, 0.66, 0.67, 1.0), rookie 0.5x contribution without decay, and dynamic `WAGE_PREMIUM_MAX_FACTOR` configurability verification.
+  - Pytest: 61/61 passed across entire backend test suite.
+  - Verified live endpoints against running Uvicorn server on port 8000 connected to remote Supabase PostgreSQL.
 

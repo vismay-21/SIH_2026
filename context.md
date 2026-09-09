@@ -106,12 +106,77 @@ SIH_2026/
 ├── history.md
 ├── README.md
 ├── backend/
-│   └── .gitkeep
+│   ├── alembic/
+│   │   ├── env.py
+│   │   ├── script.py.mako
+│   │   └── versions/
+│   │       ├── 7c590bb021a2_initial_foundation.py
+│   │       └── e29d3f46feb9_sprint_1_mvp_schema.py
+│   ├── alembic.ini
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── .env
+│   ├── .gitignore
+│   └── app/
+│       ├── __init__.py
+│       ├── main.py
+│       ├── core/
+│       │   ├── config.py
+│       │   ├── logging.py
+│       │   ├── security.py
+│       │   └── exceptions.py
+│       ├── db/
+│       │   ├── base.py
+│       │   ├── session.py
+│       │   └── models/
+│       │       ├── __init__.py
+│       │       ├── enums.py
+│       │       ├── cooperative.py
+│       │       ├── user.py
+│       │       ├── service.py
+│       │       ├── gig.py
+│       │       ├── experience.py
+│       │       ├── review.py
+│       │       ├── completion.py
+│       │       ├── payment.py
+│       │       ├── multi_worker.py
+│       │       ├── visitation.py
+│       │       ├── cancellation.py
+│       │       └── communication.py
+│       ├── api/
+│       │   └── v1/
+│       │       ├── router.py
+│       │       └── endpoints/
+│       │           ├── health.py
+│       │           ├── me.py
+│       │           ├── customer.py
+│       │           └── worker.py
+│       ├── schemas/
+│       │   ├── common.py
+│       │   ├── user.py
+│       │   └── worker.py
+│       ├── repositories/
+│       ├── services/
+│       │   ├── user_service.py
+│       │   ├── worker_service.py
+│       │   └── score_service.py
+│       └── tests/
+│           ├── conftest.py
+│           ├── test_config.py
+│           ├── test_health.py
+│           ├── test_models.py
+│           ├── test_verification.py
+│           ├── test_auth_and_profiles.py
+│           └── test_sprint2_verification.py
 ├── docs/
+│   ├── 04_DATABASE_DESIGN.md
+│   ├── 05_API_DESIGN.md
+│   ├── 06_BACKEND_SPRINTS.md
 │   ├── ALGORITHM_RECOMMENDATION_DEVELOPMENT_ROADMAP.md
 │   ├── FRONTEND_DESIGN_SYSTEM.md
 │   ├── FRONTEND_DEVELOPMENT_ROADMAP.md
 │   ├── SRS_Final.md
+│   ├── WAGES.md
 │   └── .gitkeep
 └── mobile_app/
     ├── pubspec.yaml
@@ -218,6 +283,7 @@ SIH_2026/
 
 ## Important File Responsibilities
 
+### Frontend (`mobile_app/`)
 - `lib/main.dart`: app entry point; starts `SplashScreen` and applies `buildAppTheme()`.
 - `lib/theme/app_theme.dart`: color tokens, Material 3 theme, input/card/navigation themes, and global button style.
 - `lib/widgets/common/shared_widgets.dart`: shared visual primitives and reusable authentication layouts.
@@ -229,26 +295,69 @@ SIH_2026/
 - `lib/screens/common/`: shared `ForgotPasswordScreen`, `SettingsScreen`, `AboutHelpScreen`, `NoInternetScreen`, `ChatScreen`, and `NotificationsScreen`.
 - `test/widget_test.dart`: 7 comprehensive widget test flows covering Customer navigation, registration, Worker destination navigation, Worker profile & availability, Worker opportunity details & workspace acceptance, Login layout & Forgot Password reset flow, and Worker profile navigation into Earnings, Settings, and Help screens.
 
+### Backend (`backend/`)
+- `app/main.py`: FastAPI application entrypoint, CORS middleware, centralized exception handlers, startup catalogue auto-seeding, and `/api/v1` router mount.
+- `app/core/config.py`: Pydantic settings loading environment variables with fallback defaults, CORS origin parsing, Supabase parameters, rookie metric defaults, and wage/visitation policy constants (`WAGE_PREMIUM_MAX_FACTOR=0.30`, `VISITATION_FEE=100.00`).
+- `app/core/catalogue_data.py`: Complete static catalogue dataset for all 5 guild categories (Plumbing, Carpentry, Electrician, Painter, House Help) and ~115 tasks with durations and base prices from `docs/WAGES.md`.
+- `app/core/logging.py`: Centralized logging format and level configuration.
+- `app/core/exceptions.py`: Custom `AppException` hierarchy and standardized JSON error handlers conforming to `docs/05_API_DESIGN.md`.
+- `app/core/security.py`: Supabase Auth HS256 JWT decoding, claim extraction, user resolution, and role-based access control dependencies.
+- `app/db/base.py`: Declarative `Base` and abstract `BaseModel` with UUID primary keys and timezone-aware timestamps.
+- `app/db/session.py`: SQLAlchemy engine, session maker, `get_db` FastAPI dependency, and live connectivity check.
+- `app/schemas/common.py`: Standard response envelopes (`ResponseEnvelope[T]`, `PaginatedResponse[T]`, `ErrorResponse`, `HealthResponse`).
+- `app/schemas/user.py` & `app/schemas/worker.py`: Authentication, user initialization, and profile request/response schemas.
+- `app/schemas/catalogue.py`: `ServiceCategoryResponse`, `ServiceTaskResponse` (with complexity score and bucket).
+- `app/schemas/pricing.py`: `PricePreviewRequest`, `PricePreviewTaskItem`, `EstimatedWageRange`, and `PricePreviewResponse`.
+- `app/services/score_service.py`: Centralized final score computation and rookie default metric generation.
+- `app/services/user_service.py` & `app/services/worker_service.py`: User lifecycle, role enforcement, and worker profile management.
+- `app/services/catalogue_service.py`: Database seeding with bulk prefetching and catalogue retrieval.
+- `app/services/pricing_service.py`: Multi-task duration summing, 45-minute minimum billable enforcement, base price calculation, and single-category validation.
+- `app/services/wage_service.py`: Exact wage formula `base_price * (1 + final_score * factor)` with configurable `WAGE_PREMIUM_MAX_FACTOR`, clamping, rounding, and wage range estimation.
+- `app/services/experience_service.py`: Logarithmic task complexity normalization `(ln(t) - ln(t_min)) / (ln(t_max) - ln(t_min))`, exact buckets (`0-0.33 LOW`, `0.34-0.66 MID`, `0.67-1.0 HIGH`), rolling window experience score ($N=50$) with rookie 0.5x contribution and no decay factor, and Bayesian rating aggregation.
+- `app/api/v1/router.py`: API v1 router aggregator.
+- `app/api/v1/endpoints/`: Health, authentication (`/me`), customer, worker, catalogue (`/service-categories`), and gig pricing (`/gigs/price-preview`) endpoints.
+- `alembic/`: Database migration environment managing all 31 models live on Supabase PostgreSQL.
+- `app/tests/`: Comprehensive pytest suite with 61 automated unit and integration tests covering Sprint 0, 1, 2, and 3.
+
 ## Validation
 
 The latest completed validation passed:
 
 ```text
+# Frontend Validation
 dart format lib test
 flutter analyze (0 issues found)
 flutter test (7/7 tests passed)
-```
 
-The implementation has no additional package dependency beyond the Flutter project defaults.
+# Backend Validation (Sprint 0, Sprint 1, Sprint 2, & Sprint 3 + Supabase PostgreSQL)
+cd backend
+pytest -v (61/61 tests passed)
+alembic current (e29d3f46feb9 head, live on Supabase PostgreSQL)
+GET /api/v1/health -> 200 OK {"status": "ok", "database": "connected"}
+POST /api/v1/me/initialize -> 201 Created (Customer/Worker initialization)
+GET /api/v1/me -> 200 OK
+GET /api/v1/customer/profile -> 200 OK
+GET /api/v1/worker/profile -> 200 OK
+GET /api/v1/service-categories -> 200 OK (5 guild categories)
+GET /api/v1/service-categories/{id}/tasks -> 200 OK (tasks with complexity metrics)
+POST /api/v1/gigs/price-preview -> 200 OK (45-min minimum, single-category check, wage range)
+```
 
 ## Pending Backend/Product Work
 
-- Production authentication and account persistence.
-- API/database/repository/provider architecture.
-- Real gig creation and state persistence.
-- Cooperative pricing configuration and algorithm implementation.
-- Real worker eligibility, acceptance, recommendation, and selection state.
-- Real image/evidence/material-bill upload and viewing.
-- Production chat transport, notifications, and read state.
-- Cash/UPI payment integration and worker payment acknowledgement.
-- Multi-worker consent and backend synchronization.
+- Sprint 4: Customer: Gig Creation & Labour Price Preview (`POST /api/v1/gigs`, `GET /api/v1/gigs/{gig_id}`, `PATCH /api/v1/gigs/{gig_id}`, cancellation, reschedule).
+- Sprint 5: Worker: Availability & Conflict Detection.
+- Sprint 6: Worker: Opportunities & Exact Wage View (zero worker bidding).
+- Sprint 7: Customer: Worker Selection & Candidate Management.
+- Sprint 8: Active Job Workspace & Mutual Chat.
+- Sprint 9: Multi-Worker Collaboration & Rookie Progression.
+- Sprint 10: Material Procurement & Receipt Audits.
+- Sprint 11: Completion Evidence & Customer Confirmation.
+- Sprint 12: Cash & UPI Direct Payments (0% platform commission).
+- Sprint 13: Structured 3-4 MCQ Reviews & Bayesian Rating Updates.
+- Sprint 14: Visitation Diagnostics (₹100 fixed fee, fee waiver rules).
+- Sprint 15: Cancellation & Rescheduling Policies.
+- Sprint 16: Notifications & Audit Trail.
+- Sprint 17: Flutter-to-FastAPI End-to-End Integration.
+
+

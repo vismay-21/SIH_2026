@@ -1,0 +1,16 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest
+.pytest_cache/
+.coverage
+
+# SQLite database files
+*.db
+*.sqlite3
+
+# Local environment file with sensitive secrets
+.env
+!.env.example

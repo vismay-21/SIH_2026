@@ -67,8 +67,8 @@ This flow is the highest priority.
 Before implementing anything, the backend team/AI must read these documents completely:
 
 docs/
-├── SRS document
-├── wages.md
+├── SRS_Final.md
+├── WAGES.md
 ├── 04_DATABASE_DESIGN.md
 ├── 05_API_DESIGN.md
 ├── context.md
@@ -84,11 +84,11 @@ When two documents conflict, use this order:
 1. Explicit latest project decisions recorded in documentation
 2. 04_DATABASE_DESIGN.md
 3. 05_API_DESIGN.md
-4. wages.md for wage/experience algorithm rules
-5. SRS
+4. WAGES.md for wage/experience algorithm rules
+5. SRS_Final.md
 6. Older planning/roadmap documents
 
-Do not revive an older feature simply because it appears in the SRS if it was explicitly removed from the MVP.
+Do not revive an older feature simply because it appears in the SRS_Final.md if it was explicitly removed from the MVP.
 
 3. Critical MVP Scope
 
