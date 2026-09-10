@@ -25,7 +25,7 @@ class OpportunityDetailsScreen extends StatelessWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Accepted "${opportunity.title}" successfully!'),
+          content: Text('Accepted "${opportunity.title}". Waiting for customer selection.'),
           backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
         ),
@@ -41,7 +41,7 @@ class OpportunityDetailsScreen extends StatelessWidget {
         when: opportunity.when,
         location: opportunity.location,
         duration: opportunity.duration,
-        status: WorkerJobStatus.accepted,
+        status: WorkerJobStatus.awaitingSelection,
         customerName: 'Verified Customer',
         materials: opportunity.materials,
         instructions: opportunity.instructions,

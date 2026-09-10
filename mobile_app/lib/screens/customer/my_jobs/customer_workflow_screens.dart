@@ -42,9 +42,7 @@ class _AcceptedCandidatesScreenState extends State<AcceptedCandidatesScreen> {
       final dtoList = await _gigRepo.getCandidates(widget.gig.id!);
       if (mounted) {
         setState(() {
-          if (dtoList.isNotEmpty) {
-            _candidates = dtoList.map(GigCandidate.fromDto).toList();
-          }
+          _candidates = dtoList.map(GigCandidate.fromDto).toList();
         });
       }
     } catch (e) {
@@ -174,30 +172,66 @@ class _CandidateTile extends StatelessWidget {
         Row(
           children: [
             Expanded(
+              flex: 3,
               child: FilledButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => WorkerComparisonScreen(gig: gig),
-                  ),
-                ),
-                child: const Text('Compare'),
+                onPressed: () => _handleSelectCandidate(context),
+                child: const Text('Select Worker'),
               ),
             ),
             const SizedBox(width: 8),
-            OutlinedButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) =>
-                      WorkerProfileScreen(candidate: candidate, gig: gig),
+            Expanded(
+              flex: 2,
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        WorkerProfileScreen(candidate: candidate, gig: gig),
+                  ),
                 ),
+                child: const Text('Profile'),
               ),
-              child: const Text('Profile'),
             ),
           ],
         ),
       ],
     ),
   );
+
+  Future<void> _handleSelectCandidate(BuildContext context) async {
+    if (gig.id != null && candidate.workerId != null) {
+      try {
+        await GigRepository().selectWorker(
+          gigId: gig.id!,
+          workerId: candidate.workerId!,
+        );
+        if (context.mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => FinalWorkerSelectedScreen(
+                candidate: candidate,
+                gig: gig,
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to select worker: $e')),
+          );
+        }
+      }
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => FinalWorkerSelectedScreen(
+            candidate: candidate,
+            gig: gig,
+          ),
+        ),
+      );
+    }
+  }
 }
 
 class WorkerComparisonScreen extends StatelessWidget {

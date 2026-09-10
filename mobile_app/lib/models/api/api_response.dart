@@ -57,11 +57,18 @@ class PaginatedResponse<T> {
     Map<String, dynamic> json,
     T Function(dynamic item) fromJsonItem,
   ) {
-    final rawList = json['data'] as List<dynamic>? ?? [];
+    List<dynamic> rawList = [];
+    if (json['data'] is List) {
+      rawList = json['data'] as List<dynamic>;
+    } else if (json['data'] is Map && (json['data'] as Map)['items'] is List) {
+      rawList = (json['data'] as Map)['items'] as List<dynamic>;
+    } else if (json['items'] is List) {
+      rawList = json['items'] as List<dynamic>;
+    }
     final items = rawList.map((item) => fromJsonItem(item)).toList();
-    final meta = PaginationMeta.fromJson(
-      (json['pagination'] as Map<String, dynamic>?) ?? {},
-    );
+    final metaSource = (json['pagination'] as Map<String, dynamic>?) ??
+        (json['data'] is Map ? (json['data'] as Map<String, dynamic>) : json);
+    final meta = PaginationMeta.fromJson(metaSource);
     return PaginatedResponse<T>(data: items, pagination: meta);
   }
 }

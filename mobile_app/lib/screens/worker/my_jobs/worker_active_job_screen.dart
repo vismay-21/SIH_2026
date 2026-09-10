@@ -4,6 +4,8 @@ import '../../../models/worker_job_workflow.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import '../../../repositories/worker_repository.dart';
+import '../../../repositories/gig_repository.dart';
+import '../../../services/token_storage.dart';
 import '../../common/chat_screen.dart';
 import 'completion_evidence_upload_screen.dart';
 import 'material_bill_upload_screen.dart';
@@ -25,12 +27,82 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
   late WorkerJobStatus _status;
   int? _materialClaim;
   String? _invitedCoWorker;
+  bool _isCheckingStatus = false;
 
   @override
   void initState() {
     super.initState();
     _status = widget.job.status;
     _invitedCoWorker = widget.job.additionalWorkerName;
+  }
+
+  Future<void> _checkSelectionStatus() async {
+    final gigId = widget.job.gigId;
+    if (gigId == null || gigId.startsWith('job-') || gigId.startsWith('opp-')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Waiting for customer to review and select you.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isCheckingStatus = true);
+    try {
+      final gig = await GigRepository().getGig(gigId);
+      final currentUserId = TokenStorage.instance.currentUser?.id;
+
+      if (gig.selectedWorkerId != null) {
+        if (currentUserId == null || gig.selectedWorkerId == currentUserId) {
+          setState(() {
+            _status = WorkerJobStatus.accepted;
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Great news! The customer selected you! You can now start work.'),
+                backgroundColor: AppColors.success,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('The customer selected another worker for this gig.'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Still waiting for customer to select you. Please check back shortly.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not check status: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCheckingStatus = false);
+      }
+    }
   }
 
   Future<void> _advanceProgress() async {
@@ -108,6 +180,57 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
           _buildStatusTracker(),
           const SizedBox(height: 16),
 
+          // Waiting for Customer Banner if awaitingSelection
+          if (_status == WorkerJobStatus.awaitingSelection) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: 0.5),
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.hourglass_top_rounded,
+                    color: AppColors.primaryDark,
+                    size: 26,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Waiting for Customer to Accept You',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primaryDark,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'You have accepted this gig! The customer is currently reviewing candidates. Once the customer confirms you, you will be notified and can arrive & start work.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.text.withValues(alpha: 0.85),
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Main Header Card
           SurfaceCard(
             child: Column(
@@ -177,66 +300,67 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
 
           const SizedBox(height: 16),
 
-          // Quick Operations Row (SRS 16 & SRS 7.2 & SRS 21)
-          Row(
-            children: [
-              Expanded(
-                child: _buildOperationButton(
-                  icon: Icons.group_add_rounded,
-                  label: 'Invite Co-Worker',
-                  onTap: () async {
-                    final invited = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            MultiWorkerInviteScreen(job: widget.job),
-                      ),
-                    );
-                    if (invited == true) {
-                      setState(
-                        () => _invitedCoWorker = 'Suresh Kumar (Rookie)',
-                      );
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildOperationButton(
-                  icon: Icons.receipt_long_rounded,
-                  label: 'Material Bill',
-                  onTap: () async {
-                    final claim = await Navigator.of(context).push<int>(
-                      MaterialPageRoute(
-                        builder: (_) => MaterialBillUploadScreen(
-                          jobTitle: widget.job.title,
+          // Quick Operations Row (SRS 16 & SRS 7.2 & SRS 21) - Only when selected
+          if (_status != WorkerJobStatus.awaitingSelection) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _buildOperationButton(
+                    icon: Icons.group_add_rounded,
+                    label: 'Invite Co-Worker',
+                    onTap: () async {
+                      final invited = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              MultiWorkerInviteScreen(job: widget.job),
                         ),
-                      ),
-                    );
-                    if (claim != null) {
-                      setState(() => _materialClaim = claim);
-                    }
-                  },
+                      );
+                      if (invited == true) {
+                        setState(
+                          () => _invitedCoWorker = 'Suresh Kumar (Rookie)',
+                        );
+                      }
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildOperationButton(
-                  icon: Icons.schedule_send_rounded,
-                  label: 'Reschedule',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            WorkerCancelRescheduleScreen(job: widget.job),
-                      ),
-                    );
-                  },
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildOperationButton(
+                    icon: Icons.receipt_long_rounded,
+                    label: 'Material Bill',
+                    onTap: () async {
+                      final claim = await Navigator.of(context).push<int>(
+                        MaterialPageRoute(
+                          builder: (_) => MaterialBillUploadScreen(
+                            jobTitle: widget.job.title,
+                          ),
+                        ),
+                      );
+                      if (claim != null) {
+                        setState(() => _materialClaim = claim);
+                      }
+                    },
+                  ),
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildOperationButton(
+                    icon: Icons.schedule_send_rounded,
+                    label: 'Reschedule',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              WorkerCancelRescheduleScreen(job: widget.job),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // Collaborating Co-Worker Banner if any
           if (_invitedCoWorker != null) ...[
@@ -414,6 +538,44 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
   }
 
   Widget _buildStatusTracker() {
+    if (_status == WorkerJobStatus.awaitingSelection) {
+      final steps = ['Applied', 'Selection', 'In Progress', 'Evidence', 'Payment'];
+      return Row(
+        children: List.generate(steps.length, (idx) {
+          final isDone = idx == 0;
+          final isCurrent = idx == 1;
+          return Expanded(
+            child: Column(
+              children: [
+                Container(
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: isDone
+                        ? AppColors.primary
+                        : (isCurrent ? AppColors.accent : AppColors.border),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  steps[idx],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: (isCurrent || isDone) ? FontWeight.w800 : FontWeight.normal,
+                    color: isCurrent
+                        ? AppColors.primaryDark
+                        : (isDone ? AppColors.primary : AppColors.muted),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      );
+    }
+
     final steps = ['Accepted', 'In Progress', 'Evidence', 'Payment'];
     int currentStep = 0;
     if (_status == WorkerJobStatus.active) currentStep = 1;
@@ -485,6 +647,28 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
   }
 
   Widget _buildBottomActionButton() {
+    if (_status == WorkerJobStatus.awaitingSelection) {
+      return SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: FilledButton.tonalIcon(
+          onPressed: _isCheckingStatus ? null : _checkSelectionStatus,
+          icon: _isCheckingStatus
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh_rounded),
+          label: const Text(
+            'Waiting for Customer to Accept You · Check Status',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+        ),
+      );
+    }
+
     if (_status == WorkerJobStatus.accepted ||
         _status == WorkerJobStatus.scheduled) {
       return SizedBox(

@@ -67,9 +67,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     final user = TokenStorage.instance.currentUser;
     final workerName = user?.fullName ?? 'Worker';
 
-    final oppsToDisplay = _opportunities.isNotEmpty
-        ? _opportunities
-        : demoOpportunities;
+    final oppsToDisplay = _opportunities;
 
     return SafeArea(
       child: RefreshIndicator(
@@ -196,9 +194,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
               children: [
                 StatTile(
                   icon: Icons.explore_outlined,
-                  value: _opportunities.isNotEmpty
-                      ? '${_opportunities.length}'
-                      : '4',
+                  value: '${_opportunities.length}',
                   label: 'New opportunities',
                 ),
                 const SizedBox(width: 10),
@@ -224,12 +220,45 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
             ),
             const SizedBox(height: 8),
 
-            // Opportunities previews
             if (_isLoading)
               const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24.0),
                   child: CircularProgressIndicator(),
+                ),
+              )
+            else if (oppsToDisplay.isEmpty)
+              const SurfaceCard(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.search_off_rounded,
+                          size: 36,
+                          color: AppColors.muted,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'No new opportunities nearby',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'New customer requests matching your skills will appear here.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               )
             else

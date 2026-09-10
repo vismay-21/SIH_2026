@@ -1,56 +1,116 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/customer_gig_workflow.dart';
+import '../../../repositories/gig_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import '../../common/splash_screen.dart';
 import '../my_jobs/gig_details_screen.dart';
 
-class CustomerChatScreen extends StatelessWidget {
+class CustomerChatScreen extends StatefulWidget {
   const CustomerChatScreen({super.key});
+
+  @override
+  State<CustomerChatScreen> createState() => _CustomerChatScreenState();
+}
+
+class _CustomerChatScreenState extends State<CustomerChatScreen> {
+  final _gigRepo = GigRepository();
+  List<CustomerGig> _activeGigs = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChats();
+  }
+
+  Future<void> _loadChats() async {
+    setState(() => _isLoading = true);
+    try {
+      final resp = await _gigRepo.getCustomerGigs(pageSize: 50);
+      final list = resp.data
+          .where((dto) =>
+              dto.selectedWorkerId != null &&
+              dto.status != 'COMPLETED' &&
+              dto.status != 'CANCELLED')
+          .map((dto) => CustomerGig.fromDto(dto))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _activeGigs = list;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Chat')),
-    body: ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-      children: [
-        const Text(
-          'Keep job conversations in one place.',
-          style: TextStyle(color: AppColors.muted, fontSize: 15),
-        ),
-        const SizedBox(height: 18),
-        _ConversationTile(
-          name: 'Amit Sharma',
-          initials: 'AS',
-          preview: 'I can reach by 5:00 PM. I will bring the sealant.',
-          time: '12 min ago',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const CustomerChatThreadScreen(
-                workerName: 'Amit Sharma',
-                jobTitle: 'Kitchen sink leak repair',
+    body: _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _activeGigs.isEmpty
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 48,
+                        color: AppColors.muted,
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'No active conversations',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'Direct chat with workers opens once you confirm an artisan for your gig.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                itemCount: _activeGigs.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final gig = _activeGigs[index];
+                  final workerName =
+                      gig.selectedWorker?.name ?? 'Assigned Worker';
+                  return _ConversationTile(
+                    name: workerName,
+                    initials: workerName.isNotEmpty
+                        ? workerName[0].toUpperCase()
+                        : 'W',
+                    preview: 'Active discussion for ${gig.title}',
+                    time: gig.when,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => CustomerChatThreadScreen(
+                          workerName: workerName,
+                          jobTitle: gig.title,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        _ConversationTile(
-          name: 'Meena Das',
-          initials: 'MD',
-          preview: 'The replacement fan is ready for tomorrow.',
-          time: 'Yesterday',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const CustomerChatThreadScreen(
-                workerName: 'Meena Das',
-                jobTitle: 'Bedroom fan replacement',
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
   );
 }
 
@@ -183,60 +243,130 @@ class _CustomerChatThreadScreenState extends State<CustomerChatThreadScreen> {
   );
 }
 
-class CustomerJobHistoryScreen extends StatelessWidget {
+class CustomerJobHistoryScreen extends StatefulWidget {
   const CustomerJobHistoryScreen({super.key});
+
+  @override
+  State<CustomerJobHistoryScreen> createState() =>
+      _CustomerJobHistoryScreenState();
+}
+
+class _CustomerJobHistoryScreenState extends State<CustomerJobHistoryScreen> {
+  final _gigRepo = GigRepository();
+  List<CustomerGig> _completedGigs = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() => _isLoading = true);
+    try {
+      final resp = await _gigRepo.getCustomerGigs(status: 'COMPLETED');
+      final mapped = resp.data.map(CustomerGig.fromDto).toList();
+      if (!mounted) return;
+      setState(() {
+        _completedGigs = mapped;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Job history')),
-    body: ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-      itemCount: demoGigs.length,
-      separatorBuilder: (_, index) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final gig = demoGigs[index];
-        return InkWell(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => GigDetailsScreen(gig: gig)),
-          ),
-          child: SurfaceCard(
-            child: Row(
-              children: [
-                Icon(
-                  gig.stage == GigStage.completed
-                      ? Icons.check_circle_outline_rounded
-                      : Icons.work_outline_rounded,
-                  color: gig.stage == GigStage.completed
-                      ? AppColors.success
-                      : AppColors.primary,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
+    body: _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _completedGigs.isEmpty
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24.0),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        gig.title,
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      Icon(
+                        Icons.history_rounded,
+                        size: 48,
+                        color: AppColors.muted,
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 12),
                       Text(
-                        '${gig.stage.label} · ${gig.when}',
-                        style: const TextStyle(
+                        'No completed jobs yet',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'Completed household gigs and digital service receipts will appear here.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
                           color: AppColors.muted,
-                          fontSize: 12,
+                          fontSize: 13,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-              ],
-            ),
-          ),
-        );
-      },
-    ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                itemCount: _completedGigs.length,
+                separatorBuilder: (_, index) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final gig = _completedGigs[index];
+                  return InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => GigDetailsScreen(gig: gig),
+                      ),
+                    ),
+                    child: SurfaceCard(
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle_outline_rounded,
+                            color: AppColors.success,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  gig.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${gig.stage.label} · ${gig.when}',
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColors.muted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
   );
 }
 

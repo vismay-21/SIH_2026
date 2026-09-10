@@ -263,7 +263,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Active Job Workspace'), findsOneWidget);
-    expect(find.text('Arrived & Start Work'), findsOneWidget);
+    expect(find.textContaining('Waiting for Customer'), findsWidgets);
   });
 
   testWidgets('login layout navigates to forgot password and resets', (

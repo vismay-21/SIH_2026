@@ -1,6 +1,7 @@
 import 'api/api_models.dart';
 
 enum WorkerJobStatus {
+  awaitingSelection,
   accepted,
   scheduled,
   active,
@@ -11,6 +12,7 @@ enum WorkerJobStatus {
 
 extension WorkerJobStatusLabel on WorkerJobStatus {
   String get label => switch (this) {
+    WorkerJobStatus.awaitingSelection => 'Awaiting Selection',
     WorkerJobStatus.accepted => 'Accepted',
     WorkerJobStatus.scheduled => 'Scheduled',
     WorkerJobStatus.active => 'In Progress',
@@ -156,6 +158,28 @@ class WorkerJob {
       materials: 'Cooperative verified',
       instructions: '',
       isEmergency: dto.isEmergency,
+    );
+  }
+
+  factory WorkerJob.fromOpportunity(
+    WorkerOpportunity opp, {
+    WorkerJobStatus status = WorkerJobStatus.awaitingSelection,
+  }) {
+    return WorkerJob(
+      id: opp.gigId ?? opp.id,
+      gigId: opp.gigId ?? opp.id,
+      title: opp.title,
+      category: opp.category,
+      description: opp.description,
+      wage: opp.wage,
+      when: opp.when,
+      location: opp.location,
+      duration: opp.duration,
+      status: status,
+      customerName: 'Verified Customer',
+      materials: opp.materials,
+      instructions: opp.instructions,
+      isEmergency: opp.isEmergency,
     );
   }
 }

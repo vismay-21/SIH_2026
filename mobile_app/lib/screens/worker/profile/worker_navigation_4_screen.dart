@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../services/token_storage.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import '../../common/about_help_screen.dart';
@@ -72,6 +73,12 @@ class WorkerNavigation4Screen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = TokenStorage.instance.currentUser;
+    final fullName = (user?.fullName != null && user!.fullName!.trim().isNotEmpty)
+        ? user.fullName!.trim()
+        : 'Worker';
+    final initial = fullName.isNotEmpty ? fullName[0].toUpperCase() : 'W';
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(20),
@@ -88,35 +95,35 @@ class WorkerNavigation4Screen extends StatelessWidget {
           SurfaceCard(
             child: Row(
               children: [
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 28,
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   child: Text(
-                    'R',
-                    style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
+                    initial,
+                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
-                        'Ravi Kumar',
-                        style: TextStyle(
+                        fullName,
+                        style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Plumber · 4 years experience',
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Cooperative Artisan · Verified Member',
                         style: TextStyle(color: AppColors.muted),
                       ),
-                      SizedBox(height: 2),
-                      Text(
-                        '4.8 ★ · 128 Gigs completed',
+                      const SizedBox(height: 2),
+                      const Text(
+                        '4.8 ★ · Verified Skill Badge',
                         style: TextStyle(fontSize: 12, color: AppColors.muted),
                       ),
                     ],

@@ -7,6 +7,14 @@
 - Describe what changed and why in a few sentences.
 - Add new entries chronologically; do not rewrite older entries unless correcting an error.
 
+## 2026-09-10 14:15:00 +05:30 — Vismay
+
+- Overhauled Customer Home UI: Replaced hardcoded "Bhagya" greeting with dynamic name from `TokenStorage.instance.currentUser`, removed separate "Accepted workers" and "Cooperative area" stat tiles, and merged the Active Gigs badge/counter directly beside the "+ Create a gig" button.
+- Refactored Worker Acceptance Workflow: When a worker accepts an opportunity, the status transitions to `WorkerJobStatus.awaitingSelection` ("Waiting for Customer to Accept You") rather than jumping straight to "Arrived & Start Work". The Active Job Workspace displays an awaiting banner, updated progress steps, and a "Check Status" button that queries gig selection status and enables work start only after customer confirmation.
+- Purged hardcoded dummy/demo data across Customer and Worker frontends (`demoGigs`, `demoOpportunities`, `demoWorkerJobs`, and static mock workers). Replaced with live API queries to `GigRepository` and `WorkerRepository`, with clean empty states when lists are empty.
+- Added direct "Select Worker" action to `_CandidateTile` on customer candidate review screens.
+- Enhanced `PaginatedResponse.fromJson` parsing resilience. All 30 unit/widget tests passing (`flutter test`) and 0 issues on `flutter analyze`.
+
 ## 2026-09-05 02:48:04 +05:30 — Vismay
 
 Established the SIH 2026 repository baseline with the Flutter application inside `mobile_app/`, while reserving root-level `backend/` and `docs/` directories. Created the initial frontend structure under `mobile_app/lib/`, keeping `main.dart` in its standard location and assigning separate folders to Customer and Worker navigation destinations.

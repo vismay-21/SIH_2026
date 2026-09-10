@@ -43,7 +43,7 @@ Login and registration actions are demo navigation, not real authentication.
 - Candidate Visibility: `CustomerNavigation2Screen` queries live candidates via `/gigs/{gig_id}/candidates` for active gigs, badges the list tile with `"X accepted"`, and promotes the workflow stage to `GigStage.accepted`.
 - Sub-screens: `AcceptedCandidatesScreen`, `WaitingForCandidatesScreen`, `ReviewWorkerScreen` (structured 3–4 MCQs), `CancelGigScreen`, `RescheduleGigScreen`, `EmergencyTipScreen`, `PaymentScreen`, and `MaterialBillViewerScreen`.
 
-### Worker opportunities & schedule conflict detection
+### Worker opportunities & acceptance workflow
 
 ```text
 Worker Home / Opportunities Tab
@@ -52,12 +52,21 @@ Worker Home / Opportunities Tab
      -> Distance, location, instructions, material preference
      -> Conflict Detection Check (SRS 10.3)
         -> [If schedule conflict] Conflict Warning Dialog (SRS 10.3)
-     -> Accept Gig -> Active Job Workspace
+     -> Accept Gig
+        -> Status: Awaiting Customer Selection
+        -> Active Job Workspace (Waiting Banner + "Waiting for Customer to Accept You · Check Status")
+        -> [Customer Selects Worker via API] -> Status: Accepted / Scheduled
+        -> "Arrived & Start Work" Unlocks
 ```
 
-- Worker opportunities list with filters: "All", "Emergency", "Conflicts".
+- Worker opportunities list with filters: "All", "Emergency", "Conflicts", populated from live API endpoints without dummy fallback data.
 - Exact guaranteed cooperative wage shown before acceptance; worker bidding is strictly prohibited to eliminate predatory undercutting.
 - Conflict Detection (SRS 10.3): Opportunities that overlap with existing jobs or off-duty hours trigger `ConflictWarningDialog`.
+- True Cooperative Acceptance Lifecycle: When a worker accepts an opportunity, they enter `WorkerJobStatus.awaitingSelection` ("Waiting for Customer to Accept You"). Work start is withheld until the customer confirms them from the candidate pool, at which point "Arrived & Start Work" unlocks.
+- Real-time Check Status: Workers can tap "Check Status" to verify if the customer has chosen them. Quick operations (co-worker invitations, material bills) are disabled during this awaiting window.
+- Zero Dummy Data: Customer and worker feeds query real repository data (`GigRepository`, `WorkerRepository`) and display clean, empty state designs when no active records exist.
+- Dynamic Profile Names: Customer and Worker greetings and profile screens derive user names from `TokenStorage.instance.currentUser` (from login/registration).
+- Customer Home Dashboard: Replaced hardcoded "Bhagya", removed separate "Accepted workers" and "Cooperative area" stat tiles, and merged the Active Gigs badge/counter beside "+ Create a gig".
 
 ### Worker active job execution & audit chain
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/worker_job_workflow.dart';
+import '../../../repositories/worker_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import 'opportunity_details_screen.dart';
@@ -14,11 +15,36 @@ class WorkerNavigation2Screen extends StatefulWidget {
 }
 
 class _WorkerNavigation2ScreenState extends State<WorkerNavigation2Screen> {
+  final _workerRepo = WorkerRepository();
   String _activeFilter = 'All';
+  List<WorkerOpportunity> _opportunities = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOpportunities();
+  }
+
+  Future<void> _loadOpportunities() async {
+    setState(() => _isLoading = true);
+    try {
+      final resp = await _workerRepo.getOpportunities();
+      final mapped = resp.data.map(WorkerOpportunity.fromDto).toList();
+      if (!mounted) return;
+      setState(() {
+        _opportunities = mapped;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filteredOpportunities = demoOpportunities.where((opp) {
+    final filteredOpportunities = _opportunities.where((opp) {
       if (_activeFilter == 'Emergency') return opp.isEmergency;
       if (_activeFilter == 'Conflicts') return opp.hasScheduleConflict;
       return true;
@@ -33,169 +59,212 @@ class _WorkerNavigation2ScreenState extends State<WorkerNavigation2Screen> {
           ),
           automaticallyImplyLeading: false,
         ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
-          children: [
-            const Text(
-              'Guaranteed wages established by the cooperative. Zero bidding, zero commission.',
-              style: TextStyle(color: AppColors.muted, fontSize: 13),
-            ),
-            const SizedBox(height: 14),
-
-            // Filter Chips
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: ['All', 'Emergency', 'Conflicts'].map((filter) {
-                  final isSelected = _activeFilter == filter;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(filter),
-                      selected: isSelected,
-                      selectedColor: AppColors.primary.withValues(alpha: 0.15),
-                      labelStyle: TextStyle(
-                        color: isSelected ? AppColors.primary : AppColors.muted,
-                        fontWeight: isSelected
-                            ? FontWeight.w700
-                            : FontWeight.normal,
-                      ),
-                      onSelected: (val) {
-                        if (val) setState(() => _activeFilter = filter);
-                      },
-                    ),
-                  );
-                }).toList(),
+        body: RefreshIndicator(
+          onRefresh: _loadOpportunities,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+            children: [
+              const Text(
+                'Guaranteed wages established by the cooperative. Zero bidding, zero commission.',
+                style: TextStyle(color: AppColors.muted, fontSize: 13),
               ),
-            ),
+              const SizedBox(height: 14),
 
-            const SizedBox(height: 16),
-
-            ...filteredOpportunities.map((opp) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            OpportunityDetailsScreen(opportunity: opp),
+              // Filter Chips
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: ['All', 'Emergency', 'Conflicts'].map((filter) {
+                    final isSelected = _activeFilter == filter;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(filter),
+                        selected: isSelected,
+                        selectedColor: AppColors.primary.withValues(alpha: 0.15),
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppColors.primary : AppColors.muted,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.normal,
+                        ),
+                        onSelected: (val) {
+                          if (val) setState(() => _activeFilter = filter);
+                        },
                       ),
                     );
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: SurfaceCard(
+                  }).toList(),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              if (_isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (filteredOpportunities.isEmpty)
+                SurfaceCard(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 40,
+                    horizontal: 20,
+                  ),
+                  child: Center(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                opp.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            if (opp.isEmergency)
-                              const StatusPill('Emergency', warning: true)
-                            else if (opp.hasScheduleConflict)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.accent.withValues(
-                                    alpha: 0.2,
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Text(
-                                  'Conflict',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.primaryDark,
-                                  ),
-                                ),
-                              )
-                            else
-                              const StatusPill('Eligible'),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          opp.category,
-                          style: const TextStyle(
-                            color: AppColors.muted,
-                            fontSize: 12,
-                          ),
+                        const Icon(
+                          Icons.search_off_rounded,
+                          size: 44,
+                          color: AppColors.muted,
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.payments_outlined,
-                              size: 18,
-                              color: AppColors.primary,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              opp.wage,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              opp.when,
-                              style: const TextStyle(
-                                color: AppColors.muted,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+                        const Text(
+                          'No opportunities available',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.location_on_outlined,
-                              size: 16,
-                              color: AppColors.muted,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              opp.distance,
-                              style: const TextStyle(
-                                color: AppColors.muted,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const Spacer(),
-                            const Text(
-                              'View Details →',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(height: 4),
+                        const Text(
+                          'New household repair requests matching your trade will appear here.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppColors.muted, fontSize: 13),
                         ),
                       ],
                     ),
                   ),
-                ),
-              );
-            }),
-          ],
+                )
+              else
+                ...filteredOpportunities.map((opp) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                OpportunityDetailsScreen(opportunity: opp),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: SurfaceCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    opp.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                                if (opp.isEmergency)
+                                  const StatusPill('Emergency', warning: true)
+                                else if (opp.hasScheduleConflict)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accent.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      'Conflict',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primaryDark,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  const StatusPill('Eligible'),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              opp.category,
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.payments_outlined,
+                                  size: 18,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  opp.wage,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  opp.when,
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.location_on_outlined,
+                                  size: 16,
+                                  color: AppColors.muted,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  opp.distance,
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const Spacer(),
+                                const Text(
+                                  'View Details →',
+                                  style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+            ],
+          ),
         ),
       ),
     );

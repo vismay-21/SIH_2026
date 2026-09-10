@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../../../services/token_storage.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import '../../common/about_help_screen.dart';
@@ -11,6 +11,12 @@ class CustomerNavigation4Screen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = TokenStorage.instance.currentUser;
+    final fullName = (user?.fullName != null && user!.fullName!.trim().isNotEmpty)
+        ? user.fullName!.trim()
+        : 'Customer';
+    final initial = fullName.isNotEmpty ? fullName[0].toUpperCase() : 'C';
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(20),
@@ -22,7 +28,7 @@ class CustomerNavigation4Screen extends StatelessWidget {
             ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 18),
-          const SurfaceCard(
+          SurfaceCard(
             child: Row(
               children: [
                 CircleAvatar(
@@ -30,24 +36,24 @@ class CustomerNavigation4Screen extends StatelessWidget {
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   child: Text(
-                    'B',
-                    style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
+                    initial,
+                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
                   ),
                 ),
-                SizedBox(width: 14),
+                const SizedBox(width: 14),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Bhagya Rao',
-                      style: TextStyle(
+                      fullName,
+                      style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Customer · Bengaluru',
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Customer · Verified Account',
                       style: TextStyle(color: AppColors.muted),
                     ),
                   ],

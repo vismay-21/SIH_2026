@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/worker_job_workflow.dart';
+import '../../../repositories/worker_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
-import 'incoming_join_request_screen.dart';
 import 'rookie_progression_screen.dart';
 import 'worker_active_job_screen.dart';
 
@@ -18,11 +18,17 @@ class WorkerNavigation3Screen extends StatefulWidget {
 class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final _workerRepo = WorkerRepository();
+
+  List<WorkerJob> _activeAndScheduled = [];
+  List<WorkerJob> _completedJobs = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadJobs();
   }
 
   @override
@@ -31,15 +37,47 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
     super.dispose();
   }
 
+  Future<void> _loadJobs() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // 1. Fetch assigned active and upcoming gigs
+      final activeResp = await _workerRepo.getWorkerGigs(tab: 'active');
+      final upcomingResp = await _workerRepo.getWorkerGigs(tab: 'upcoming');
+      final completedResp = await _workerRepo.getWorkerGigs(tab: 'completed');
+
+      final activeJobs = activeResp.data.map(WorkerJob.fromDto).toList();
+      final upcomingJobs = upcomingResp.data.map(WorkerJob.fromDto).toList();
+      final completedJobs = completedResp.data.map(WorkerJob.fromDto).toList();
+
+      // 2. Fetch accepted opportunities currently awaiting customer selection
+      List<WorkerJob> awaitingJobs = [];
+      try {
+        final oppResp = await _workerRepo.getOpportunities(status: 'ACCEPTED');
+        awaitingJobs = oppResp.data
+            .map((dto) => WorkerJob.fromOpportunity(
+                  WorkerOpportunity.fromDto(dto),
+                  status: WorkerJobStatus.awaitingSelection,
+                ))
+            .toList();
+      } catch (_) {}
+
+      final allActive = [...awaitingJobs, ...activeJobs, ...upcomingJobs];
+
+      if (!mounted) return;
+      setState(() {
+        _activeAndScheduled = allActive;
+        _completedJobs = completedJobs;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final activeAndScheduled = demoWorkerJobs
-        .where((j) => j.status != WorkerJobStatus.completed)
-        .toList();
-    final completedJobs = demoWorkerJobs
-        .where((j) => j.status == WorkerJobStatus.completed)
-        .toList();
-
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
@@ -54,72 +92,19 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
             labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.muted,
             tabs: [
-              Tab(text: 'Active & Upcoming (${activeAndScheduled.length})'),
-              Tab(text: 'Completed (${completedJobs.length})'),
+              Tab(text: 'Active & Upcoming (${_activeAndScheduled.length})'),
+              Tab(text: 'Completed (${_completedJobs.length})'),
             ],
           ),
         ),
         body: Column(
           children: [
-            // Collaboration & Rookie Badges Bar
+            // Rookie Badges Bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               color: Theme.of(context).colorScheme.surface,
               child: Row(
                 children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => IncomingJoinRequestScreen(
-                              request: demoJoinRequests.first,
-                            ),
-                          ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          children: const [
-                            Icon(
-                              Icons.handshake_rounded,
-                              size: 16,
-                              color: AppColors.primary,
-                            ),
-                            SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                '2 Join Requests',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              size: 16,
-                              color: AppColors.primary,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   Expanded(
                     child: InkWell(
                       onTap: () {
@@ -132,8 +117,8 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                          horizontal: 12,
+                          vertical: 8,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.accent.withValues(alpha: 0.15),
@@ -142,17 +127,17 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
                             color: AppColors.accent.withValues(alpha: 0.5),
                           ),
                         ),
-                        child: Row(
-                          children: const [
+                        child: const Row(
+                          children: [
                             Icon(
                               Icons.school_rounded,
-                              size: 16,
+                              size: 18,
                               color: AppColors.primaryDark,
                             ),
-                            SizedBox(width: 6),
+                            SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Rookie Track (3.0 cr)',
+                                'Cooperative Artisan Growth & Rookie Track',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -162,7 +147,7 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
                             ),
                             Icon(
                               Icons.chevron_right_rounded,
-                              size: 16,
+                              size: 18,
                               color: AppColors.primaryDark,
                             ),
                           ],
@@ -177,13 +162,23 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
 
             // Tab Views
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildJobList(activeAndScheduled),
-                  _buildJobList(completedJobs),
-                ],
-              ),
+              child: _isLoading
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadJobs,
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildJobList(_activeAndScheduled, isCompletedTab: false),
+                          _buildJobList(_completedJobs, isCompletedTab: true),
+                        ],
+                      ),
+                    ),
             ),
           ],
         ),
@@ -191,17 +186,55 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
     );
   }
 
-  Widget _buildJobList(List<WorkerJob> jobs) {
+  Widget _buildJobList(List<WorkerJob> jobs, {required bool isCompletedTab}) {
     if (jobs.isEmpty) {
-      return const Center(
-        child: Text(
-          'No gigs in this category.',
-          style: TextStyle(color: AppColors.muted),
-        ),
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 60),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  Icon(
+                    isCompletedTab
+                        ? Icons.history_rounded
+                        : Icons.work_history_outlined,
+                    size: 44,
+                    color: AppColors.muted,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    isCompletedTab
+                        ? 'No completed gigs yet'
+                        : 'No active or upcoming gigs',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isCompletedTab
+                        ? 'Gigs you complete will appear here with proof of payment.'
+                        : 'Accept opportunities from the feed to begin work.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       );
     }
 
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
       itemCount: jobs.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -215,7 +248,7 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
               MaterialPageRoute<void>(
                 builder: (_) => WorkerActiveJobScreen(job: job),
               ),
-            );
+            ).then((_) => _loadJobs());
           },
           borderRadius: BorderRadius.circular(16),
           child: SurfaceCard(
