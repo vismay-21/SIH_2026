@@ -449,34 +449,60 @@ class OpportunityDetailsScreen extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => _handleDecline(context),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
+        child: opportunity.status == 'ACCEPTED'
+            ? SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    final job = WorkerJob.fromOpportunity(
+                      opportunity,
+                      status: WorkerJobStatus.accepted,
+                    );
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute<void>(
+                        builder: (_) => WorkerActiveJobScreen(job: job),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text(
+                    'You Accepted This Gig · Open Workspace',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                  ),
                 ),
-                child: const Text('Decline'),
+              )
+            : Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _handleDecline(context),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50),
+                      ),
+                      child: const Text('Decline'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      onPressed: () => _handleAccept(context),
+                      icon: const Icon(Icons.check_circle_outline_rounded),
+                      label: const Text(
+                        'Accept Gig',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2,
-              child: FilledButton.icon(
-                onPressed: () => _handleAccept(context),
-                icon: const Icon(Icons.check_circle_outline_rounded),
-                label: const Text(
-                  'Accept Gig',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

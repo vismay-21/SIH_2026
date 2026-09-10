@@ -160,7 +160,9 @@ class WorkerJob {
           ? '${dto.expectedDurationMinutes} min'
           : '2 hours',
       status: status,
-      customerName: 'Customer',
+      customerName: (dto.customerName != null && dto.customerName!.isNotEmpty)
+          ? dto.customerName!
+          : 'Customer',
       materials: 'Cooperative verified',
       instructions: '',
       isEmergency: dto.isEmergency,

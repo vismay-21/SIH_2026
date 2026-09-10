@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/api/api_models.dart';
 import '../../../models/worker_job_workflow.dart';
 import '../../../repositories/worker_repository.dart';
 import '../../../theme/app_theme.dart';
@@ -40,39 +41,39 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
   Future<void> _loadJobs() async {
     setState(() => _isLoading = true);
 
-    List<WorkerJob> activeJobs = [];
-    List<WorkerJob> upcomingJobs = [];
-    List<WorkerJob> completedJobs = [];
-    List<WorkerJob> awaitingJobs = [];
-
-    // 1. Fetch active assigned gigs (IN_PROGRESS, COMPLETION_SUBMITTED)
     try {
-      final activeResp = await _workerRepo.getWorkerGigs(tab: 'active');
-      activeJobs = activeResp.data.map(WorkerJob.fromDto).toList();
-    } catch (_) {}
+      final results = await Future.wait([
+        _workerRepo
+            .getWorkerGigs(tab: 'active')
+            .then((r) => r.data.map(WorkerJob.fromDto).toList())
+            .catchError((_) => <WorkerJob>[]),
+        _workerRepo
+            .getWorkerGigs(tab: 'upcoming')
+            .then((r) => r.data.map(WorkerJob.fromDto).toList())
+            .catchError((_) => <WorkerJob>[]),
+        _workerRepo
+            .getWorkerGigs(tab: 'completed')
+            .then((r) => r.data.map(WorkerJob.fromDto).toList())
+            .catchError((_) => <WorkerJob>[]),
+        _workerRepo
+            .getOpportunities(status: 'ACCEPTED')
+            .then((r) => r.data)
+            .catchError((_) => <OpportunityDto>[]),
+      ]);
 
-    // 2. Fetch upcoming assigned gigs (WORKER_SELECTED, SCHEDULED)
-    try {
-      final upcomingResp = await _workerRepo.getWorkerGigs(tab: 'upcoming');
-      upcomingJobs = upcomingResp.data.map(WorkerJob.fromDto).toList();
-    } catch (_) {}
+      final activeJobs = results[0] as List<WorkerJob>;
+      final upcomingJobs = results[1] as List<WorkerJob>;
+      final completedJobs = results[2] as List<WorkerJob>;
+      final acceptedOpps = results[3] as List<OpportunityDto>;
 
-    // 3. Fetch completed gigs
-    try {
-      final completedResp = await _workerRepo.getWorkerGigs(tab: 'completed');
-      completedJobs = completedResp.data.map(WorkerJob.fromDto).toList();
-    } catch (_) {}
-
-    // 4. Fetch accepted opportunities currently awaiting customer selection
-    try {
-      final oppResp = await _workerRepo.getOpportunities(status: 'ACCEPTED');
       final assignedGigIds = {
         ...activeJobs.map((j) => j.gigId ?? j.id),
         ...upcomingJobs.map((j) => j.gigId ?? j.id),
         ...completedJobs.map((j) => j.gigId ?? j.id),
       };
 
-      for (final dto in oppResp.data) {
+      final awaitingJobs = <WorkerJob>[];
+      for (final dto in acceptedOpps) {
         final gId = dto.gigId;
         if (!assignedGigIds.contains(gId)) {
           awaitingJobs.add(WorkerJob.fromOpportunity(
@@ -81,16 +82,19 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
           ));
         }
       }
-    } catch (_) {}
 
-    final allActive = [...upcomingJobs, ...activeJobs, ...awaitingJobs];
+      final allActive = [...upcomingJobs, ...activeJobs, ...awaitingJobs];
 
-    if (!mounted) return;
-    setState(() {
-      _activeAndScheduled = allActive;
-      _completedJobs = completedJobs;
-      _isLoading = false;
-    });
+      if (!mounted) return;
+      setState(() {
+        _activeAndScheduled = allActive;
+        _completedJobs = completedJobs;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
   }
 
   @override

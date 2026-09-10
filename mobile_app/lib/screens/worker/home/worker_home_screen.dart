@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/api/api_models.dart';
+import '../../../models/api/api_response.dart';
 import '../../../models/worker_job_workflow.dart';
 import '../../../repositories/worker_repository.dart';
 import '../../../services/token_storage.dart';
@@ -37,26 +39,61 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final oppResp = await _workerRepo.getOpportunities();
-      final opps = oppResp.data
-          .map((d) => WorkerOpportunity.fromDto(d))
-          .where((o) => o.status != 'ACCEPTED' && o.status != 'REJECTED')
-          .toList();
+      final results = await Future.wait([
+        _workerRepo.getOpportunities().catchError(
+              (_) => PaginatedResponse<OpportunityDto>(
+                data: [],
+                pagination: const PaginationMeta(
+                  total: 0,
+                  page: 1,
+                  pageSize: 20,
+                  totalPages: 0,
+                ),
+              ),
+            ),
+        _workerRepo.getWorkerGigs(tab: 'active').catchError(
+              (_) => PaginatedResponse<WorkerGigListItemDto>(
+                data: [],
+                pagination: const PaginationMeta(
+                  total: 0,
+                  page: 1,
+                  pageSize: 10,
+                  totalPages: 0,
+                ),
+              ),
+            ),
+        _workerRepo.getWorkerGigs(tab: 'upcoming').catchError(
+              (_) => PaginatedResponse<WorkerGigListItemDto>(
+                data: [],
+                pagination: const PaginationMeta(
+                  total: 0,
+                  page: 1,
+                  pageSize: 10,
+                  totalPages: 0,
+                ),
+              ),
+            ),
+      ]);
+
+      final oppResp = results[0] as PaginatedResponse<OpportunityDto>;
+      final activeResp = results[1] as PaginatedResponse<WorkerGigListItemDto>;
+      final upcomingResp = results[2] as PaginatedResponse<WorkerGigListItemDto>;
 
       WorkerJob? activeJob;
-      try {
-        final gigsResp = await _workerRepo.getWorkerGigs(tab: 'active');
-        if (gigsResp.data.isNotEmpty) {
-          activeJob = WorkerJob.fromDto(gigsResp.data.first);
-        } else {
-          final upResp = await _workerRepo.getWorkerGigs(tab: 'upcoming');
-          if (upResp.data.isNotEmpty) {
-            activeJob = WorkerJob.fromDto(upResp.data.first);
-          }
-        }
-      } catch (_) {
-        // Gigs list fallback
+      if (activeResp.data.isNotEmpty) {
+        activeJob = WorkerJob.fromDto(activeResp.data.first);
+      } else if (upcomingResp.data.isNotEmpty) {
+        activeJob = WorkerJob.fromDto(upcomingResp.data.first);
       }
+
+      final currentGigId = activeJob?.gigId;
+      final opps = oppResp.data
+          .map((d) => WorkerOpportunity.fromDto(d))
+          .where((o) =>
+              o.status != 'ACCEPTED' &&
+              o.status != 'REJECTED' &&
+              (currentGigId == null || o.gigId != currentGigId))
+          .toList();
 
       if (!mounted) return;
       setState(() {

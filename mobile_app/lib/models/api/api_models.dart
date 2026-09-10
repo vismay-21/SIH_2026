@@ -655,6 +655,7 @@ class WorkerGigListItemDto {
   final String gigType;
   final String status;
   final String? address;
+  final String? customerName;
   final String? scheduledDate;
   final String? scheduledStartTime;
   final int? expectedDurationMinutes;
@@ -671,6 +672,7 @@ class WorkerGigListItemDto {
     required this.gigType,
     required this.status,
     this.address,
+    this.customerName,
     this.scheduledDate,
     this.scheduledStartTime,
     this.expectedDurationMinutes,
@@ -682,18 +684,19 @@ class WorkerGigListItemDto {
 
   factory WorkerGigListItemDto.fromJson(Map<String, dynamic> json) {
     return WorkerGigListItemDto(
-      id: json['id'] as String,
-      customerId: json['customer_id'] as String,
-      categoryId: json['category_id'] as String,
-      categoryName: json['category_name'] as String,
-      gigType: json['gig_type'] as String,
-      status: json['status'] as String,
-      address: json['address'] as String?,
-      scheduledDate: json['scheduled_date'] as String?,
-      scheduledStartTime: json['scheduled_start_time'] as String?,
+      id: json['id'] as String? ?? '',
+      customerId: json['customer_id'] as String? ?? '',
+      categoryId: json['category_id'] as String? ?? '',
+      categoryName: json['category_name'] as String? ?? '',
+      gigType: json['gig_type'] as String? ?? 'STANDARD',
+      status: json['status'] as String? ?? 'POSTED',
+      address: (json['address_line'] ?? json['address']) as String?,
+      customerName: json['customer_name'] as String?,
+      scheduledDate: json['scheduled_date']?.toString(),
+      scheduledStartTime: json['scheduled_start_time']?.toString(),
       expectedDurationMinutes:
           (json['expected_duration_minutes'] as num?)?.toInt(),
-      isEmergency: (json['is_emergency'] as bool?) ?? false,
+      isEmergency: (json['emergency'] ?? json['is_emergency']) as bool? ?? false,
       exactWage: (json['exact_wage'] as num?)?.toDouble() ?? 0.0,
       canStart: (json['can_start'] as bool?) ?? false,
       canComplete: (json['can_complete'] as bool?) ?? false,

@@ -123,7 +123,9 @@ class _LiveGigListState extends State<_LiveGigList> {
             status != 'COMPLETED' &&
             status != 'CANCELLED') {
           try {
-            final cDtos = await _gigRepo.getCandidates(dto.id);
+            final cDtos = await _gigRepo
+                .getCandidates(dto.id)
+                .timeout(const Duration(seconds: 2));
             candidates = cDtos.map(GigCandidate.fromDto).toList();
           } catch (_) {}
         }
