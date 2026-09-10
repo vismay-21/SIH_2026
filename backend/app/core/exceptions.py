@@ -169,13 +169,16 @@ async def http_exception_handler(
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all unhandled 500 exceptions."""
     logger.exception(f"Unhandled error processing request {request.url}: {exc}")
+    details = {}
+    if settings.DEBUG or settings.ENVIRONMENT.lower() in {"development", "dev", "local"}:
+        details = {"debug_error": str(exc), "error_type": exc.__class__.__name__}
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": {
                 "code": "INTERNAL_SERVER_ERROR",
                 "message": "An unexpected server error occurred.",
-                "details": {},
+                "details": details,
             }
         },
     )

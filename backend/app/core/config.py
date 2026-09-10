@@ -11,14 +11,22 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     API_V1_STR: str = "/api/v1"
 
-    # Database Configuration
-    DATABASE_URL: str = "sqlite:///./sahakaar_seva.db"
+    # Database Configuration (Supabase PostgreSQL default)
+    DATABASE_URL: str = (
+        "postgresql://postgres:mWqJ8%2F2-4XTrvqq@db.upkxwtnxfnkjuuwrjutk.supabase.co:5432/postgres"
+    )
 
     # Supabase Configuration
-    SUPABASE_URL: str = ""
-    SUPABASE_KEY: str = ""
-    SUPABASE_SERVICE_ROLE_KEY: str = ""
-    SUPABASE_JWT_SECRET: str = ""
+    SUPABASE_URL: str = "https://upkxwtnxfnkjuuwrjutk.supabase.co"
+    SUPABASE_KEY: str = (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwa3h3dG54Zm5ranV1d3JqdXRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NTE2NzIsImV4cCI6MjEwNDUyNzY3Mn0.tUxZOgkvGx3G5lWF9e9jmDr7rcL6KoarTZgNca5Zd4Y"
+    )
+    SUPABASE_SERVICE_ROLE_KEY: str = (
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwa3h3dG54Zm5ranV1d3JqdXRrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODk1MTY3MiwiZXhwIjoyMTA0NTI3NjcyfQ.Irm700H4RNYtJFsnv-BkZCpmH9oCh_YfJChNM2oa76I"
+    )
+    SUPABASE_JWT_SECRET: str = (
+        "cRxE/GJqlOm2EySqZDlcUQhnv06c6BxJK9V1OBx3rsR0VSog2amt1kNIzJ3MFefhxiskh6GdknMRNkpICrzmLw=="
+    )
 
     # CORS Configuration
     CORS_ORIGINS: Union[List[str], str] = ["*"]
