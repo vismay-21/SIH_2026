@@ -888,16 +888,12 @@ Completed **Sprint 15 Final Security + Contract Verification Fixes**:
 - **Flutter Test Suite**: `All 30 tests passed!` (`flutter test`).
 - **Verdict**: APPROVED — Sprint 15 is safe to permanently lock.
 
+## 2026-09-10 11:23:40 +05:30 — Vismay & Antigravity
 
-
-
-
-
-
-
-
-
-
-
-
+Successfully deployed the backend to Railway cloud infrastructure and established untethered mobile operation:
+- Created and committed `backend/Procfile` targeting `uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`.
+- Identified that Supabase direct connection (`db.upkxwtnxfnkjuuwrjutk.supabase.co:5432`) is IPv6-only, which cloud containers cannot route to without IPv4 dual-stack; resolved by reconfiguring `DATABASE_URL` to use Supabase's AWS Mumbai IPv4 session pooler (`aws-0-ap-south-1.pooler.supabase.com:5432`) with user `postgres.upkxwtnxfnkjuuwrjutk`.
+- Added startup table verification and catalogue/review seeding in `backend/app/main.py` lifespan and pre-seeded development demo accounts in `backend/app/api/v1/endpoints/auth.py`.
+- Configured `TokenStorage.instance.defaultBaseUrl` in `mobile_app/lib/services/token_storage.dart` with default fallback to `https://sih2026-production-ee63.up.railway.app/api/v1`.
+- Verified live cloud health check (`200 OK`), demo accounts retrieval (`GET /api/v1/auth/demo-users` returning all 6 accounts), and development JWT authentication (`POST /api/v1/auth/login` returning 200 OK with valid bearer token).
 
