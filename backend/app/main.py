@@ -25,15 +25,19 @@ async def lifespan(app: FastAPI):
     setup_logging()
     logger.info(f"Starting {settings.PROJECT_NAME} in [{settings.ENVIRONMENT}] mode")
     try:
-        from app.db.session import SessionLocal
+        from app.db.base import Base
+        import app.db.models as _models  # noqa: F401
+        from app.db.session import engine, SessionLocal
+        Base.metadata.create_all(bind=engine)
+
         from app.services.catalogue_service import CatalogueService
         from app.services.review_service import ReviewService
         with SessionLocal() as db:
             CatalogueService.seed_catalogue_if_empty(db)
             ReviewService.seed_review_questions_if_empty(db)
-        logger.info("Service catalogue and review questions verified/seeded.")
+        logger.info("Database tables, service catalogue, and review questions verified/seeded.")
     except Exception as e:
-        logger.warning(f"Catalogue/Review seeding deferred or skipped on startup: {e}")
+        logger.warning(f"Startup database initialization or seeding warning: {e}")
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
 

@@ -109,6 +109,39 @@ def get_demo_users(
     _ensure_dev_environment()
 
     users = db.query(User).filter(User.is_active == True).limit(20).all()
+    if not users:
+        # Auto-seed a default customer and worker for seamless out-of-the-box demoing
+        try:
+            cust_id = uuid.uuid4()
+            UserService.initialize_user(
+                db=db,
+                user_id=cust_id,
+                email="customer@example.com",
+                data=UserInitializeRequest(
+                    role=UserRole.CUSTOMER,
+                    full_name="Demo Customer",
+                    phone="9876543210",
+                ),
+            )
+            worker_id = uuid.uuid4()
+            worker = UserService.initialize_user(
+                db=db,
+                user_id=worker_id,
+                email="worker@example.com",
+                data=UserInitializeRequest(
+                    role=UserRole.WORKER,
+                    full_name="Demo Worker",
+                    phone="9876543211",
+                ),
+            )
+            category = db.query(ServiceCategory).filter(ServiceCategory.is_active == True).first()
+            if category:
+                db.add(WorkerCategory(worker_id=worker.id, category_id=category.id))
+                db.commit()
+            users = db.query(User).filter(User.is_active == True).limit(20).all()
+        except Exception:
+            pass
+
     items = [
         DemoUserItem(
             id=u.id,
