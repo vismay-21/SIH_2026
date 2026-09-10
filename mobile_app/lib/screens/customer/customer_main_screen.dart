@@ -18,6 +18,16 @@ class CustomerMainScreen extends StatefulWidget {
 
 class _CustomerMainScreenState extends State<CustomerMainScreen> {
   late int _selectedIndex = widget.initialIndex;
+  int _homeRevision = 0;
+  int _myJobsRevision = 0;
+
+  void _onTabChanged(int index) {
+    setState(() {
+      _selectedIndex = index;
+      if (index == 0) _homeRevision++;
+      if (index == 1) _myJobsRevision++;
+    });
+  }
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(),
@@ -45,7 +55,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         if (currentNav != null && currentNav.canPop()) {
           currentNav.pop();
         } else if (_selectedIndex != 0) {
-          setState(() => _selectedIndex = 0);
+          _onTabChanged(0);
         } else {
           final rootNav = Navigator.of(context, rootNavigator: true);
           if (rootNav.canPop()) {
@@ -57,10 +67,18 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         body: IndexedStack(
           index: _selectedIndex,
           children: [
-            _buildTabNavigator(0, const CustomerHomeScreen()),
+            _buildTabNavigator(
+              0,
+              CustomerHomeScreen(
+                key: ValueKey('cust_home_$_homeRevision'),
+              ),
+            ),
             _buildTabNavigator(
               1,
-              CustomerNavigation2Screen(initialGig: widget.initialGig),
+              CustomerNavigation2Screen(
+                key: ValueKey('cust_jobs_$_myJobsRevision'),
+                initialGig: widget.initialGig,
+              ),
             ),
             _buildTabNavigator(2, const CustomerNavigation3Screen()),
             _buildTabNavigator(3, const CustomerNavigation4Screen()),
@@ -73,8 +91,9 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
               _navigatorKeys[index].currentState?.popUntil(
                 (route) => route.isFirst,
               );
+              _onTabChanged(index);
             } else {
-              setState(() => _selectedIndex = index);
+              _onTabChanged(index);
             }
           },
           destinations: const [

@@ -45,6 +45,7 @@ class WorkerOpportunity {
     required this.duration,
     required this.materials,
     required this.instructions,
+    this.status = 'PENDING',
     this.isEmergency = false,
     this.hasScheduleConflict = false,
   });
@@ -61,6 +62,7 @@ class WorkerOpportunity {
   final String duration;
   final String materials;
   final String instructions;
+  final String status;
   final bool isEmergency;
   final bool hasScheduleConflict;
 
@@ -85,6 +87,7 @@ class WorkerOpportunity {
           ? 'Customer purchases'
           : 'Worker purchases',
       instructions: gig.instructions ?? '',
+      status: dto.status,
       isEmergency: gig.isEmergency,
       hasScheduleConflict: false,
     );
@@ -132,11 +135,14 @@ class WorkerJob {
 
   factory WorkerJob.fromDto(WorkerGigListItemDto dto) {
     final status = switch (dto.status.toUpperCase()) {
-      'SCHEDULED' => WorkerJobStatus.scheduled,
+      'WORKER_SELECTED' || 'SCHEDULED' => WorkerJobStatus.accepted,
       'IN_PROGRESS' => WorkerJobStatus.active,
-      'WORKER_COMPLETED' => WorkerJobStatus.evidenceSubmitted,
-      'CUSTOMER_CONFIRMED' => WorkerJobStatus.paymentPending,
-      'COMPLETED' => WorkerJobStatus.completed,
+      'COMPLETION_SUBMITTED' || 'WORKER_COMPLETED' => WorkerJobStatus.evidenceSubmitted,
+      'CUSTOMER_CONFIRMED' ||
+      'PAYMENT_PENDING' ||
+      'PAYMENT_CUSTOMER_PAID' =>
+        WorkerJobStatus.paymentPending,
+      'PAYMENT_WORKER_CONFIRMED' || 'COMPLETED' => WorkerJobStatus.completed,
       _ => WorkerJobStatus.accepted,
     };
 

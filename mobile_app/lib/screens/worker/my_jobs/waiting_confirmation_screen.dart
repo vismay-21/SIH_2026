@@ -19,6 +19,19 @@ class WaitingConfirmationScreen extends StatelessWidget {
           'Waiting for Customer',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Check approval & payment',
+            onPressed: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute<void>(
+                  builder: (_) => WorkerPaymentConfirmationScreen(job: job),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 100),

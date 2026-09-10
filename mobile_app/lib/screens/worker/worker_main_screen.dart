@@ -16,6 +16,18 @@ class WorkerMainScreen extends StatefulWidget {
 
 class _WorkerMainScreenState extends State<WorkerMainScreen> {
   late int _selectedIndex = widget.initialIndex;
+  int _homeRevision = 0;
+  int _opportunitiesRevision = 0;
+  int _myJobsRevision = 0;
+
+  void _onTabChanged(int index) {
+    setState(() {
+      _selectedIndex = index;
+      if (index == 0) _homeRevision++;
+      if (index == 1) _opportunitiesRevision++;
+      if (index == 2) _myJobsRevision++;
+    });
+  }
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(),
@@ -43,7 +55,7 @@ class _WorkerMainScreenState extends State<WorkerMainScreen> {
         if (currentNav != null && currentNav.canPop()) {
           currentNav.pop();
         } else if (_selectedIndex != 0) {
-          setState(() => _selectedIndex = 0);
+          _onTabChanged(0);
         } else {
           final rootNav = Navigator.of(context, rootNavigator: true);
           if (rootNav.canPop()) {
@@ -58,13 +70,24 @@ class _WorkerMainScreenState extends State<WorkerMainScreen> {
             _buildTabNavigator(
               0,
               WorkerHomeScreen(
+                key: ValueKey('worker_home_$_homeRevision'),
                 onSelectTab: (idx) {
-                  setState(() => _selectedIndex = idx);
+                  _onTabChanged(idx);
                 },
               ),
             ),
-            _buildTabNavigator(1, const WorkerNavigation2Screen()),
-            _buildTabNavigator(2, const WorkerNavigation3Screen()),
+            _buildTabNavigator(
+              1,
+              WorkerNavigation2Screen(
+                key: ValueKey('worker_opps_$_opportunitiesRevision'),
+              ),
+            ),
+            _buildTabNavigator(
+              2,
+              WorkerNavigation3Screen(
+                key: ValueKey('worker_jobs_$_myJobsRevision'),
+              ),
+            ),
             _buildTabNavigator(3, const WorkerNavigation4Screen()),
           ],
         ),
@@ -75,8 +98,9 @@ class _WorkerMainScreenState extends State<WorkerMainScreen> {
               _navigatorKeys[index].currentState?.popUntil(
                 (route) => route.isFirst,
               );
+              _onTabChanged(index);
             } else {
-              setState(() => _selectedIndex = index);
+              _onTabChanged(index);
             }
           },
           destinations: const [

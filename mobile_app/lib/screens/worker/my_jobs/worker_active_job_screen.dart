@@ -34,17 +34,20 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
     super.initState();
     _status = widget.job.status;
     _invitedCoWorker = widget.job.additionalWorkerName;
+    _checkSelectionStatus(silent: true);
   }
 
-  Future<void> _checkSelectionStatus() async {
+  Future<void> _checkSelectionStatus({bool silent = false}) async {
     final gigId = widget.job.gigId;
     if (gigId == null || gigId.startsWith('job-') || gigId.startsWith('opp-')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Waiting for customer to review and select you.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (!silent && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Waiting for customer to review and select you.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
       return;
     }
 
@@ -55,20 +58,36 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
 
       if (gig.selectedWorkerId != null) {
         if (currentUserId == null || gig.selectedWorkerId == currentUserId) {
+          final s = gig.status.toUpperCase();
+          WorkerJobStatus newStatus = WorkerJobStatus.accepted;
+          if (s == 'IN_PROGRESS') {
+            newStatus = WorkerJobStatus.active;
+          } else if (s == 'COMPLETION_SUBMITTED' || s == 'WORKER_COMPLETED') {
+            newStatus = WorkerJobStatus.evidenceSubmitted;
+          } else if (s == 'CUSTOMER_CONFIRMED' ||
+              s == 'PAYMENT_PENDING' ||
+              s == 'PAYMENT_CUSTOMER_PAID') {
+            newStatus = WorkerJobStatus.paymentPending;
+          } else if (s == 'COMPLETED' || s == 'PAYMENT_WORKER_CONFIRMED') {
+            newStatus = WorkerJobStatus.completed;
+          }
+
           setState(() {
-            _status = WorkerJobStatus.accepted;
+            _status = newStatus;
           });
-          if (mounted) {
+          if (mounted && !silent) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Great news! The customer selected you! You can now start work.'),
+              SnackBar(
+                content: Text(newStatus == WorkerJobStatus.accepted
+                    ? 'Great news! The customer selected you! You can now start work.'
+                    : 'Gig status updated: ${_status.label}.'),
                 backgroundColor: AppColors.success,
                 behavior: SnackBarBehavior.floating,
               ),
             );
           }
         } else {
-          if (mounted) {
+          if (mounted && !silent) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('The customer selected another worker for this gig.'),
@@ -79,7 +98,7 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
           }
         }
       } else {
-        if (mounted) {
+        if (mounted && !silent) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Still waiting for customer to select you. Please check back shortly.'),
@@ -89,7 +108,7 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Could not check status: $e'),
@@ -146,6 +165,17 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         actions: [
+          IconButton(
+            icon: _isCheckingStatus
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh Status',
+            onPressed: _isCheckingStatus ? null : () => _checkSelectionStatus(),
+          ),
           IconButton(
             icon: const Icon(Icons.chat_outlined),
             tooltip: 'Job Chat',

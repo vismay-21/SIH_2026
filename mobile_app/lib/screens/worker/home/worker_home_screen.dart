@@ -38,13 +38,21 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
 
     try {
       final oppResp = await _workerRepo.getOpportunities();
-      final opps = oppResp.data.map((d) => WorkerOpportunity.fromDto(d)).toList();
+      final opps = oppResp.data
+          .map((d) => WorkerOpportunity.fromDto(d))
+          .where((o) => o.status != 'ACCEPTED' && o.status != 'REJECTED')
+          .toList();
 
       WorkerJob? activeJob;
       try {
         final gigsResp = await _workerRepo.getWorkerGigs(tab: 'active');
         if (gigsResp.data.isNotEmpty) {
           activeJob = WorkerJob.fromDto(gigsResp.data.first);
+        } else {
+          final upResp = await _workerRepo.getWorkerGigs(tab: 'upcoming');
+          if (upResp.data.isNotEmpty) {
+            activeJob = WorkerJob.fromDto(upResp.data.first);
+          }
         }
       } catch (_) {
         // Gigs list fallback

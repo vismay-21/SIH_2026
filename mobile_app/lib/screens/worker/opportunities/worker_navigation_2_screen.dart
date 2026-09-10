@@ -45,6 +45,7 @@ class _WorkerNavigation2ScreenState extends State<WorkerNavigation2Screen> {
   @override
   Widget build(BuildContext context) {
     final filteredOpportunities = _opportunities.where((opp) {
+      if (opp.status == 'ACCEPTED' || opp.status == 'REJECTED') return false;
       if (_activeFilter == 'Emergency') return opp.isEmergency;
       if (_activeFilter == 'Conflicts') return opp.hasScheduleConflict;
       return true;
@@ -149,7 +150,7 @@ class _WorkerNavigation2ScreenState extends State<WorkerNavigation2Screen> {
                             builder: (_) =>
                                 OpportunityDetailsScreen(opportunity: opp),
                           ),
-                        );
+                        ).then((_) => _loadOpportunities());
                       },
                       borderRadius: BorderRadius.circular(16),
                       child: SurfaceCard(

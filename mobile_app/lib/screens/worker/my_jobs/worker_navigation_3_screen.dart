@@ -40,40 +40,57 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
   Future<void> _loadJobs() async {
     setState(() => _isLoading = true);
 
+    List<WorkerJob> activeJobs = [];
+    List<WorkerJob> upcomingJobs = [];
+    List<WorkerJob> completedJobs = [];
+    List<WorkerJob> awaitingJobs = [];
+
+    // 1. Fetch active assigned gigs (IN_PROGRESS, COMPLETION_SUBMITTED)
     try {
-      // 1. Fetch assigned active and upcoming gigs
       final activeResp = await _workerRepo.getWorkerGigs(tab: 'active');
+      activeJobs = activeResp.data.map(WorkerJob.fromDto).toList();
+    } catch (_) {}
+
+    // 2. Fetch upcoming assigned gigs (WORKER_SELECTED, SCHEDULED)
+    try {
       final upcomingResp = await _workerRepo.getWorkerGigs(tab: 'upcoming');
+      upcomingJobs = upcomingResp.data.map(WorkerJob.fromDto).toList();
+    } catch (_) {}
+
+    // 3. Fetch completed gigs
+    try {
       final completedResp = await _workerRepo.getWorkerGigs(tab: 'completed');
+      completedJobs = completedResp.data.map(WorkerJob.fromDto).toList();
+    } catch (_) {}
 
-      final activeJobs = activeResp.data.map(WorkerJob.fromDto).toList();
-      final upcomingJobs = upcomingResp.data.map(WorkerJob.fromDto).toList();
-      final completedJobs = completedResp.data.map(WorkerJob.fromDto).toList();
+    // 4. Fetch accepted opportunities currently awaiting customer selection
+    try {
+      final oppResp = await _workerRepo.getOpportunities(status: 'ACCEPTED');
+      final assignedGigIds = {
+        ...activeJobs.map((j) => j.gigId ?? j.id),
+        ...upcomingJobs.map((j) => j.gigId ?? j.id),
+        ...completedJobs.map((j) => j.gigId ?? j.id),
+      };
 
-      // 2. Fetch accepted opportunities currently awaiting customer selection
-      List<WorkerJob> awaitingJobs = [];
-      try {
-        final oppResp = await _workerRepo.getOpportunities(status: 'ACCEPTED');
-        awaitingJobs = oppResp.data
-            .map((dto) => WorkerJob.fromOpportunity(
-                  WorkerOpportunity.fromDto(dto),
-                  status: WorkerJobStatus.awaitingSelection,
-                ))
-            .toList();
-      } catch (_) {}
+      for (final dto in oppResp.data) {
+        final gId = dto.gigId;
+        if (!assignedGigIds.contains(gId)) {
+          awaitingJobs.add(WorkerJob.fromOpportunity(
+            WorkerOpportunity.fromDto(dto),
+            status: WorkerJobStatus.awaitingSelection,
+          ));
+        }
+      }
+    } catch (_) {}
 
-      final allActive = [...awaitingJobs, ...activeJobs, ...upcomingJobs];
+    final allActive = [...upcomingJobs, ...activeJobs, ...awaitingJobs];
 
-      if (!mounted) return;
-      setState(() {
-        _activeAndScheduled = allActive;
-        _completedJobs = completedJobs;
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-    }
+    if (!mounted) return;
+    setState(() {
+      _activeAndScheduled = allActive;
+      _completedJobs = completedJobs;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -86,6 +103,13 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 24),
           ),
           automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: _loadJobs,
+              tooltip: 'Refresh jobs',
+            ),
+          ],
           bottom: TabBar(
             controller: _tabController,
             indicatorColor: AppColors.primary,
@@ -169,15 +193,24 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
                         child: CircularProgressIndicator(),
                       ),
                     )
-                  : RefreshIndicator(
-                      onRefresh: _loadJobs,
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildJobList(_activeAndScheduled, isCompletedTab: false),
-                          _buildJobList(_completedJobs, isCompletedTab: true),
-                        ],
-                      ),
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        RefreshIndicator(
+                          onRefresh: _loadJobs,
+                          child: _buildJobList(
+                            _activeAndScheduled,
+                            isCompletedTab: false,
+                          ),
+                        ),
+                        RefreshIndicator(
+                          onRefresh: _loadJobs,
+                          child: _buildJobList(
+                            _completedJobs,
+                            isCompletedTab: true,
+                          ),
+                        ),
+                      ],
                     ),
             ),
           ],
