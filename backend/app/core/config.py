@@ -11,9 +11,9 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     API_V1_STR: str = "/api/v1"
 
-    # Database Configuration (Supabase PostgreSQL default)
+    # Database Configuration (Supabase PostgreSQL IPv4 pooler default)
     DATABASE_URL: str = (
-        "postgresql://postgres:mWqJ8%2F2-4XTrvqq@db.upkxwtnxfnkjuuwrjutk.supabase.co:5432/postgres"
+        "postgresql://postgres.upkxwtnxfnkjuuwrjutk:mWqJ8%2F2-4XTrvqq@aws-0-ap-south-1.pooler.supabase.com:5432/postgres"
     )
 
     # Supabase Configuration
