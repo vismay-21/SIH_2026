@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 import '../../../models/api/api_models.dart';
 import '../../../models/customer_gig_workflow.dart';
@@ -903,13 +903,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final amount = double.tryParse(rawAmountStr) ?? 680.0;
 
     if (_method == 'UPI') {
-      final upiUri = Uri.parse(
-        'upi://pay?pa=yugshah5253@oksbi&pn=Yug%20Shah&am=${amount.toStringAsFixed(2)}&cu=INR&tn=Sahakaar%20Seva%20Payment',
-      );
+      const upiUri = 'upi://pay?pa=yugshah5253@oksbi&pn=Yug%20Shah&cu=INR&tn=Sahakaar%20Seva%20Payment';
+      final formattedUri = '$upiUri&am=${amount.toStringAsFixed(2)}';
       try {
-        await launchUrl(upiUri, mode: LaunchMode.externalApplication);
+        const channel = MethodChannel('sahakaar_seva/upi');
+        await channel.invokeMethod('launchUpi', {'uri': formattedUri});
       } catch (e) {
-        debugPrint('Could not launch UPI app: $e');
+        debugPrint('Could not launch native UPI intent: $e');
       }
     }
 
