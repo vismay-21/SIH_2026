@@ -110,7 +110,8 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = TokenStorage.instance.currentUser;
-    final workerName = user?.fullName ?? 'Worker';
+    final rawName = user?.fullName ?? 'Worker';
+    final workerName = rawName.split('(').first.trim().split(' ').first;
 
     final oppsToDisplay = _opportunities;
 
