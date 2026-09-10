@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/api/api_models.dart';
 import '../../../models/customer_gig_workflow.dart';
@@ -896,6 +897,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _handlePayment() async {
+    final rawAmountStr = _displayAmount?.replaceAll(RegExp(r'[^0-9.]'), '') ??
+        widget.gig.selectedWorker?.wage.replaceAll(RegExp(r'[^0-9.]'), '') ??
+        '680';
+    final amount = double.tryParse(rawAmountStr) ?? 680.0;
+
+    if (_method == 'UPI') {
+      final upiUri = Uri.parse(
+        'upi://pay?pa=yugshah5253@oksbi&pn=Yug%20Shah&am=${amount.toStringAsFixed(2)}&cu=INR&tn=Sahakaar%20Seva%20Payment',
+      );
+      try {
+        await launchUrl(upiUri, mode: LaunchMode.externalApplication);
+      } catch (e) {
+        debugPrint('Could not launch UPI app: $e');
+      }
+    }
+
     if (widget.gig.id != null) {
       setState(() => _isProcessing = true);
       try {
@@ -908,9 +925,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
             _paid = true;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'Payment recorded. Worker confirmation is pending.',
+                _method == 'UPI'
+                    ? 'UPI payment initiated (₹${amount.toStringAsFixed(0)} to yugshah5253@oksbi). Worker confirmation is pending.'
+                    : 'Payment recorded. Worker confirmation is pending.',
               ),
             ),
           );
@@ -925,11 +944,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
         if (mounted) setState(() => _isProcessing = false);
       }
     } else {
+      if (!mounted) return;
       setState(() => _paid = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Payment recorded. Worker confirmation is pending.',
+            _method == 'UPI'
+                ? 'UPI payment initiated (₹${amount.toStringAsFixed(0)} to yugshah5253@oksbi).'
+                : 'Payment recorded. Worker confirmation is pending.',
           ),
         ),
       );
