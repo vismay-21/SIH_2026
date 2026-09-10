@@ -897,3 +897,62 @@ Successfully deployed the backend to Railway cloud infrastructure and establishe
 - Configured `TokenStorage.instance.defaultBaseUrl` in `mobile_app/lib/services/token_storage.dart` with default fallback to `https://sih2026-production-ee63.up.railway.app/api/v1`.
 - Verified live cloud health check (`200 OK`), demo accounts retrieval (`GET /api/v1/auth/demo-users` returning all 6 accounts), and development JWT authentication (`POST /api/v1/auth/login` returning 200 OK with valid bearer token).
 
+## 2026-09-10 13:35:00 +05:30 — Vismay & Antigravity
+
+Completed **Customer UI Redesign, ₹100 Visitation Option, and Worker Acceptance Visibility Fix**:
+
+### 1. Task Selection Redesign (Clean Checkbox Card, No Price Leaks)
+- Replaced the previous grid of FilterChip buttons showing raw backend prices like `(₹95)`, `(₹140)` with a clean, scrollable card of checkbox items showing only task names (`Curtain rod installation`, `Lock installation/repair`).
+- Kept individual rates hidden; customers see only the final cooperative price range on Step 3 (Labour Price Preview).
+- Updated `mobile_app/lib/screens/customer/home/create_gig_screen.dart`.
+
+### 2. Site Visit First Option (Fixed ₹100 Charge)
+- Added a dedicated "Request a site visit first" toggle directly to Step 1 of gig creation: *"A worker visits your location, inspects the scope, and proposes tasks and pricing before you commit. Fixed ₹100 visit charge."*
+- Added `requiresVisitation` flag to `GigDraft` (`mobile_app/lib/models/gig_draft.dart`).
+- When toggled ON, task selection becomes optional (worker proposes tasks after inspection) and automatically passes `gigType: 'VISITATION'` to the backend.
+- Updated `material_procurement_screen.dart` to forward the flag, and `labour_price_preview_screen.dart` to display a dedicated ₹100 site visit breakdown card.
+
+### 3. Customer Gig Details Overhaul (Horizontal Stepper & Compact Layout)
+- Replaced the verbose vertical status tracker with a clean **horizontal 4-step progress bar** (`Accepted` | `In Progress` | `Evidence` | `Payment`) matching the worker active job design.
+- Re-architected `mobile_app/lib/screens/customer/my_jobs/gig_details_screen.dart` into a compact, single-viewport layout:
+  - **Summary Card**: Title, status pill, category/date/duration, and large bold price.
+  - **Quick Actions Row**: 3 side-by-side cards (`[ Candidates / Workspace ]`, `[ Material Bill ]`, `[ Reschedule ]`).
+  - **Context-Aware Action Banner**: Prominent green banner when workers accept (`"X workers accepted! Tap to choose"`), worker contact card with call & chat when assigned, or live radar card when seeking.
+  - **Location & Details Card**: Address, instructions, and materials.
+  - **Bottom Primary Button**: Stage-aware contextual action.
+
+### 4. Worker Acceptance Visibility & Candidate Fetching Fix
+- Resolved issue where customers could not see workers who accepted a posted gig:
+  - Updated `CustomerNavigation2Screen` (`customer_navigation_2_screen.dart`) to fetch live candidates for all active gigs via `_gigRepo.getCandidates(dto.id)`.
+  - Added an `"X accepted"` badge directly on the gig list tile.
+  - Updated `CustomerGig.fromDto` in `customer_gig_workflow.dart` to elevate stage to `GigStage.accepted` and resolve selected worker when candidates exist.
+  - Added background auto-refresh on screen load and pull-to-refresh directly in `GigDetailsScreen`.
+
+### 5. Automated Verification
+- **Flutter Analyzer**: `flutter analyze` passed with 0 issues found.
+- **Flutter Test Suite**: `flutter test` passed with all 30/30 tests successful.
+
+## 2026-09-10 13:45:00 +05:30 — Vismay & Antigravity
+
+Completed **Create Gig Screen Streamlining & Collapsible Task Search**:
+
+### 1. Collapsible Task Selector with Instant Search
+- Transformed the task selection section in `mobile_app/lib/screens/customer/home/create_gig_screen.dart` into an expandable, collapsible card.
+- Added an interactive search box (`TextField` with search and clear icons) enabling instant query filtering (e.g., typing "tap" displays matching tap repair tasks immediately).
+- Constrained list height to 250px with a smooth scrollbar, preventing long task lists from dominating page height.
+- Collapsed state displays a neat badge and selected task chip preview.
+
+### 2. UI Layout Reordering
+- Positioned the "Request a site visit first" card **directly below the Service category dropdown** and **above the task selection section** for immediate visibility.
+
+### 3. Merged Inputs & Removed Expected Duration
+- Merged the previous separate "What needs to be done?" and "Additional instructions" text fields into a single, unified "Work details & instructions (optional)" field.
+- Made description optional in the continuation validation logic, defaulting to selected task names or category scope when empty.
+- Completely removed the "Expected duration" dropdown from the UI to eliminate redundancy, relying on standard backend task durations.
+
+### 4. Verification
+- **Flutter Analyzer**: `flutter analyze` passed with 0 issues.
+- **Flutter Test Suite**: `flutter test` passed with all 30/30 tests successful.
+
+
+

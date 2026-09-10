@@ -96,6 +96,7 @@ class _MaterialProcurementScreenState extends State<MaterialProcurementScreen> {
                         photoCount: widget.draft.photoCount,
                         instructions: widget.draft.instructions,
                         customerBuysMaterials: _customerBuysMaterials,
+                        requiresVisitation: widget.draft.requiresVisitation,
                       ),
                     ),
                   ),

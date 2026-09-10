@@ -33,12 +33,15 @@ Login and registration actions are demo navigation, not real authentication.
 
 ### Customer gig creation & management
 
-- Gig details form with category, work description, location, required date/time, duration, emergency status toggle, photo placeholders, instructions, and materials.
-- Material choice: Customer purchases materials vs Worker purchases materials. Labour is shown separately from materials (`₹550 – ₹800` cooperative example range).
-- Emergency status is configured via toggle inside `CreateGigScreen`.
+- Gig details form with category dropdown, site visit first toggle directly below category, collapsible task selector with real-time keyword search (height constrained with scrollbar and chip preview when collapsed), merged optional work details & instructions field, location, date/time pickers, emergency toggle, photo uploads, and materials procurement choice.
+- Site Visit First Option (Fixed ₹100 Charge): Positioned immediately below category selection in `CreateGigScreen`, enabling customers to request an on-site scope inspection by a verified worker before committing, creating a `VISITATION` gig with a ₹100 line item.
+- Task Search & Selection: Collapsible card with instant search filtering (e.g. typing "tap" displays matching tap repair tasks), clean checkboxes showing only task names without raw rates, and compact summary chip display when collapsed.
+- Material choice: Customer purchases materials vs Worker purchases materials. Labour is shown separately from materials (`₹550 – ₹800` cooperative example range or ₹100 site visit charge).
+- Simplified Inputs: Merged "What needs to be done?" and "Additional instructions" into a single optional field. Removed expected duration dropdown to eliminate unnecessary steps.
 - Fallback tipping incentive (SRS 18.1): When a posted gig has no accepting workers, `GigDetailsScreen` displays a fallback banner allowing the customer to add a voluntary tip incentive (100% direct worker payout) and re-notify nearby workers.
-- My Gigs tabbed tracker: Seeking Workers -> Workers Responding -> Accepted Candidates -> Worker Selected -> Scheduled -> Active -> Completion Requested -> Payment -> Completed.
-- Sub-screens: `WaitingForCandidatesScreen`, `ReviewWorkerScreen` (structured 3–4 MCQs), `CancelGigScreen`, `RescheduleGigScreen`, `EmergencyTipScreen`, `PaymentScreen`, and `MaterialBillViewerScreen`.
+- Customer Gig Details (`GigDetailsScreen`): Compact, single-viewport layout featuring a horizontal 4-step progress tracker (`Accepted` | `In Progress` | `Evidence` | `Payment`) matching the worker side, quick action buttons (`[ Candidates / Workspace ]`, `[ Material Bill ]`, `[ Reschedule ]`), dynamic context card (prominent accepted candidates banner with count, or assigned worker card with call/chat, or broadcast radar), and location/notes card. Auto-refreshes candidate status on load and supports pull-to-refresh.
+- Candidate Visibility: `CustomerNavigation2Screen` queries live candidates via `/gigs/{gig_id}/candidates` for active gigs, badges the list tile with `"X accepted"`, and promotes the workflow stage to `GigStage.accepted`.
+- Sub-screens: `AcceptedCandidatesScreen`, `WaitingForCandidatesScreen`, `ReviewWorkerScreen` (structured 3–4 MCQs), `CancelGigScreen`, `RescheduleGigScreen`, `EmergencyTipScreen`, `PaymentScreen`, and `MaterialBillViewerScreen`.
 
 ### Worker opportunities & schedule conflict detection
 

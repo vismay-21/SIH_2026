@@ -38,10 +38,17 @@ class _LabourPricePreviewScreenState extends State<LabourPricePreviewScreen> {
     final catId = widget.draft.categoryId;
     final taskIds = widget.draft.taskIds;
 
-    if (catId == null || taskIds.isEmpty) {
+    // For visitation gigs, tasks may be empty (worker proposes after visit)
+    if (catId == null || (taskIds.isEmpty && !widget.draft.requiresVisitation)) {
       setState(() {
         _isLoadingPreview = false;
       });
+      return;
+    }
+
+    if (taskIds.isEmpty && widget.draft.requiresVisitation) {
+      // No price preview needed for visitation-only gigs
+      setState(() => _isLoadingPreview = false);
       return;
     }
 
@@ -89,7 +96,9 @@ class _LabourPricePreviewScreenState extends State<LabourPricePreviewScreen> {
         GigCreateRequestDto(
           categoryId: catId,
           taskIds: taskIds,
-          gigType: widget.draft.isEmergency ? 'EMERGENCY' : 'NORMAL',
+          gigType: widget.draft.requiresVisitation
+              ? 'VISITATION'
+              : (widget.draft.isEmergency ? 'EMERGENCY' : 'NORMAL'),
           description: widget.draft.description,
           instructions: widget.draft.instructions.isNotEmpty
               ? widget.draft.instructions
@@ -227,6 +236,59 @@ class _LabourPricePreviewScreenState extends State<LabourPricePreviewScreen> {
                   ],
                 ),
               ),
+            if (widget.draft.requiresVisitation) ...[
+              const SizedBox(height: 12),
+              SurfaceCard(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.home_repair_service_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Site visit charge',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Worker inspects scope before full job',
+                            style: TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Text(
+                      '₹100',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             const SectionTitle('Gig summary'),
             const SizedBox(height: 8),
@@ -246,6 +308,11 @@ class _LabourPricePreviewScreenState extends State<LabourPricePreviewScreen> {
                     label: 'Priority',
                     value: widget.draft.isEmergency ? 'Emergency' : 'Standard',
                   ),
+                  if (widget.draft.requiresVisitation)
+                    const _SummaryRow(
+                      label: 'Site visit',
+                      value: 'Requested (₹100)',
+                    ),
                 ],
               ),
             ),

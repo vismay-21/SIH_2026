@@ -116,7 +116,19 @@ class _LiveGigListState extends State<_LiveGigList> {
 
     try {
       final paginated = await _gigRepo.getCustomerGigs(pageSize: 50);
-      final mapped = paginated.data.map((dto) => CustomerGig.fromDto(dto)).toList();
+      final mapped = await Future.wait(paginated.data.map((dto) async {
+        List<GigCandidate> candidates = [];
+        final status = dto.status.toUpperCase();
+        if (dto.selectedWorkerId == null &&
+            status != 'COMPLETED' &&
+            status != 'CANCELLED') {
+          try {
+            final cDtos = await _gigRepo.getCandidates(dto.id);
+            candidates = cDtos.map(GigCandidate.fromDto).toList();
+          } catch (_) {}
+        }
+        return CustomerGig.fromDto(dto, candidates: candidates);
+      }));
 
       if (!mounted) return;
       setState(() {
@@ -209,22 +221,26 @@ class _LiveGigListState extends State<_LiveGigList> {
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
         itemCount: filtered.length,
         separatorBuilder: (_, index) => const SizedBox(height: 12),
-        itemBuilder: (context, index) => _GigListTile(gig: filtered[index]),
+        itemBuilder: (context, index) => _GigListTile(
+          gig: filtered[index],
+          onRefresh: _fetchGigs,
+        ),
       ),
     );
   }
 }
 
 class _GigListTile extends StatelessWidget {
-  const _GigListTile({required this.gig});
+  const _GigListTile({required this.gig, this.onRefresh});
 
   final CustomerGig gig;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) => InkWell(
-    onTap: () => Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => GigDetailsScreen(gig: gig))),
+    onTap: () => Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => GigDetailsScreen(gig: gig)))
+        .then((_) => onRefresh?.call()),
     borderRadius: BorderRadius.circular(14),
     child: SurfaceCard(
       child: Row(
@@ -248,9 +264,24 @@ class _GigListTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  gig.title,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        gig.title,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    if (gig.price != null)
+                      Text(
+                        '₹${gig.price!.toInt()}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -258,13 +289,36 @@ class _GigListTile extends StatelessWidget {
                   style: const TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '${gig.stage.label} · ${gig.when}',
-                  style: const TextStyle(fontSize: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${gig.stage.label} · ${gig.when}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    if (gig.candidates.isNotEmpty && gig.selectedWorker == null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${gig.candidates.length} accepted',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
         ],
       ),

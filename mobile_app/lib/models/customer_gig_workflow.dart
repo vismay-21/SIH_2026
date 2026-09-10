@@ -88,6 +88,8 @@ class CustomerGig {
     required this.candidates,
     this.isEmergency = false,
     this.selectedWorker,
+    this.price,
+    this.gigType,
   });
 
   final String? id;
@@ -103,6 +105,8 @@ class CustomerGig {
   final List<GigCandidate> candidates;
   final bool isEmergency;
   final GigCandidate? selectedWorker;
+  final double? price;
+  final String? gigType;
 
   bool get chatEnabled => selectedWorker != null && stage != GigStage.completed;
 
@@ -112,17 +116,27 @@ class CustomerGig {
     GigCandidate? selectedWorker,
   }) {
     final status = dto.status.toUpperCase();
-    final stage = switch (status) {
+    var stage = switch (status) {
       'DRAFT' || 'POSTED' || 'BROADCASTING' => GigStage.seeking,
-      'RESPONDING' => GigStage.responding,
+      'ACCEPTANCE_OPEN' || 'RESPONDING' => GigStage.responding,
       'WORKER_SELECTED' => GigStage.selected,
       'SCHEDULED' => GigStage.scheduled,
       'IN_PROGRESS' => GigStage.active,
-      'WORKER_COMPLETED' => GigStage.completionRequested,
-      'CUSTOMER_CONFIRMED' => GigStage.payment,
-      'COMPLETED' => GigStage.completed,
+      'WORKER_COMPLETED' || 'COMPLETION_SUBMITTED' => GigStage.completionRequested,
+      'CUSTOMER_CONFIRMED' || 'PAYMENT_PENDING' || 'PAYMENT_CUSTOMER_PAID' => GigStage.payment,
+      'COMPLETED' || 'PAYMENT_WORKER_CONFIRMED' => GigStage.completed,
       _ => GigStage.active,
     };
+
+    // If workers have accepted the opportunity, show accepted candidates stage
+    if ((stage == GigStage.seeking || stage == GigStage.responding) && candidates.isNotEmpty) {
+      stage = GigStage.accepted;
+    }
+
+    final resolvedWorker = selectedWorker ??
+        (dto.selectedWorkerId != null && candidates.isNotEmpty
+            ? candidates.where((c) => c.workerId == dto.selectedWorkerId).firstOrNull
+            : null);
 
     final title = dto.tasks.isNotEmpty ? dto.tasks.first.taskName : dto.categoryName;
     return CustomerGig(
@@ -142,7 +156,9 @@ class CustomerGig {
       instructions: dto.instructions ?? '',
       candidates: candidates,
       isEmergency: dto.isEmergency,
-      selectedWorker: selectedWorker,
+      selectedWorker: resolvedWorker,
+      price: dto.basePrice > 0 ? dto.basePrice : null,
+      gigType: dto.gigType,
     );
   }
 
@@ -151,6 +167,8 @@ class CustomerGig {
     GigStage? stage,
     GigCandidate? selectedWorker,
     List<GigCandidate>? candidates,
+    double? price,
+    String? gigType,
   }) =>
       CustomerGig(
         id: id ?? this.id,
@@ -166,6 +184,8 @@ class CustomerGig {
         candidates: candidates ?? this.candidates,
         isEmergency: isEmergency,
         selectedWorker: selectedWorker ?? this.selectedWorker,
+        price: price ?? this.price,
+        gigType: gigType ?? this.gigType,
       );
 }
 

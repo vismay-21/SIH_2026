@@ -12,6 +12,7 @@ class GigDraft {
     required this.photoCount,
     required this.instructions,
     required this.customerBuysMaterials,
+    this.requiresVisitation = false,
   });
 
   final String category;
@@ -26,4 +27,5 @@ class GigDraft {
   final int photoCount;
   final String instructions;
   final bool customerBuysMaterials;
+  final bool requiresVisitation;
 }
