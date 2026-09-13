@@ -310,9 +310,10 @@ class _GigCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      gig.category,
+                      '${gig.category} · ${gig.priceDisplay}',
                       style: const TextStyle(
-                        color: AppColors.muted,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
                         fontSize: 12,
                       ),
                     ),

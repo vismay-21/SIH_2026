@@ -382,6 +382,9 @@ class GigDto {
   final int? minimumBillableMinutesSnapshot;
   final double? baseRatePerMinuteSnapshot;
   final String? selectedWorkerId;
+  final double? workerWage;
+  final double? estimatedMinPrice;
+  final double? estimatedMaxPrice;
   final List<GigTaskItemDto> tasks;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -411,6 +414,9 @@ class GigDto {
     this.minimumBillableMinutesSnapshot,
     this.baseRatePerMinuteSnapshot,
     this.selectedWorkerId,
+    this.workerWage,
+    this.estimatedMinPrice,
+    this.estimatedMaxPrice,
     required this.tasks,
     required this.createdAt,
     required this.updatedAt,
@@ -446,6 +452,9 @@ class GigDto {
       baseRatePerMinuteSnapshot:
           (json['base_rate_per_minute_snapshot'] as num?)?.toDouble(),
       selectedWorkerId: json['selected_worker_id'] as String?,
+      workerWage: (json['worker_wage'] as num?)?.toDouble(),
+      estimatedMinPrice: (json['estimated_min_price'] as num?)?.toDouble(),
+      estimatedMaxPrice: (json['estimated_max_price'] as num?)?.toDouble(),
       tasks: (json['tasks'] as List<dynamic>? ?? [])
           .map((item) => GigTaskItemDto.fromJson(item as Map<String, dynamic>))
           .toList(),

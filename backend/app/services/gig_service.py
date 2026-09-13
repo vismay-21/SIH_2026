@@ -15,6 +15,7 @@ from app.db.models.service import ServiceCategory, ServiceTask
 from app.db.models.gig import Gig, GigTask, GigWorkerOpportunity
 from app.db.models.communication import GigEvent, Notification
 from app.db.models.enums import GigStatus, OpportunityStatus, UserRole
+from app.core.config import settings
 from app.schemas.gig import GigCreateRequest, GigResponse, GigTaskItemResponse
 from app.schemas.candidate import GigCandidateResponse, SelectWorkerResponse
 from app.schemas.common import PaginatedResponse, PaginationMeta
@@ -35,6 +36,18 @@ class GigService:
             )
             for gt in gig.gig_tasks
         ]
+
+        # Selected worker wage resolution
+        worker_wage = None
+        if gig.selected_worker_id:
+            for opp in (gig.opportunities or []):
+                if str(opp.worker_id) == str(gig.selected_worker_id) and opp.exact_wage is not None:
+                    worker_wage = float(opp.exact_wage)
+                    break
+
+        base_p = float(gig.base_price)
+        min_p = round(base_p * 1.0, 2)
+        max_p = round(base_p * (1.0 + getattr(settings, "WAGE_PREMIUM_MAX_FACTOR", 0.30)), 2)
 
         return GigResponse(
             id=gig.id,
@@ -57,12 +70,15 @@ class GigService:
             is_emergency=gig.is_emergency,
             acceptance_deadline=gig.acceptance_deadline,
             material_procurement_mode=gig.material_procurement_mode,
-            base_price=float(gig.base_price),
+            base_price=base_p,
             minimum_billable_minutes_snapshot=gig.minimum_billable_minutes_snapshot,
             base_rate_per_minute_snapshot=float(gig.base_rate_per_minute_snapshot)
             if gig.base_rate_per_minute_snapshot is not None
             else None,
             selected_worker_id=gig.selected_worker_id,
+            worker_wage=worker_wage,
+            estimated_min_price=min_p,
+            estimated_max_price=max_p,
             tasks=tasks,
             created_at=gig.created_at,
             updated_at=gig.updated_at,

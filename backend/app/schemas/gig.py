@@ -71,6 +71,9 @@ class GigResponse(BaseModel):
     minimum_billable_minutes_snapshot: Optional[int] = None
     base_rate_per_minute_snapshot: Optional[float] = None
     selected_worker_id: Optional[uuid.UUID] = None
+    worker_wage: Optional[float] = None
+    estimated_min_price: Optional[float] = None
+    estimated_max_price: Optional[float] = None
     tasks: List[GigTaskItemResponse]
     created_at: datetime
     updated_at: datetime

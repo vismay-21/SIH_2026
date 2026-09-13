@@ -328,15 +328,14 @@ class _GigListTile extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
-                    if (gig.price != null)
-                      Text(
-                        '₹${gig.price!.toInt()}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          color: AppColors.primary,
-                        ),
+                    Text(
+                      gig.priceDisplay,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: AppColors.primary,
                       ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 4),

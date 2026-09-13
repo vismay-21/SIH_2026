@@ -196,7 +196,6 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
 
   /// Compact header card with title, status pill, category/when/duration, and price
   Widget _buildMainSummaryCard() {
-    final hasPrice = _gig.price != null && _gig.price! > 0;
     final isVisitation = _gig.gigType == 'VISITATION';
 
     return SurfaceCard(
@@ -236,13 +235,21 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                isVisitation ? 'Site Visit Charge' : 'Cooperative Labour Price',
+                isVisitation
+                    ? 'Site Visit Charge'
+                    : (_gig.selectedWorker != null ||
+                            _gig.stage == GigStage.selected ||
+                            _gig.stage == GigStage.scheduled ||
+                            _gig.stage == GigStage.active ||
+                            _gig.stage == GigStage.completionRequested ||
+                            _gig.stage == GigStage.payment ||
+                            _gig.stage == GigStage.completed
+                        ? 'Confirmed Labour Price'
+                        : 'Estimated Labour Range'),
                 style: const TextStyle(color: AppColors.muted, fontSize: 13),
               ),
               Text(
-                hasPrice
-                    ? '₹${_gig.price!.toInt()}'
-                    : (isVisitation ? '₹100' : '₹550 – ₹800'),
+                _gig.priceDisplay,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,

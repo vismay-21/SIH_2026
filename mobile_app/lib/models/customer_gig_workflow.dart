@@ -91,6 +91,9 @@ class CustomerGig {
     this.price,
     this.gigType,
     this.rawStatus,
+    this.workerWage,
+    this.estimatedMinPrice,
+    this.estimatedMaxPrice,
   });
 
   final String? id;
@@ -109,8 +112,79 @@ class CustomerGig {
   final double? price;
   final String? gigType;
   final String? rawStatus;
+  final double? workerWage;
+  final double? estimatedMinPrice;
+  final double? estimatedMaxPrice;
 
   bool get chatEnabled => selectedWorker != null && stage != GigStage.completed;
+
+  /// Dynamic price display:
+  /// - Before worker selection: shows price range (e.g. ₹550 – ₹800 or ₹min – ₹max)
+  /// - After worker selection: shows exact fixed price agreed with worker (e.g. ₹680)
+  String get priceDisplay {
+    final isWorkerSelected = selectedWorker != null ||
+        stage == GigStage.selected ||
+        stage == GigStage.scheduled ||
+        stage == GigStage.active ||
+        stage == GigStage.completionRequested ||
+        stage == GigStage.payment ||
+        stage == GigStage.completed;
+
+    if (isWorkerSelected) {
+      if (workerWage != null && workerWage! > 0) {
+        return '₹${workerWage!.toInt()}';
+      }
+      if (selectedWorker != null && selectedWorker!.wage.isNotEmpty) {
+        final digitsOnly = selectedWorker!.wage.replaceAll(RegExp(r'[^0-9.]'), '');
+        final parsed = double.tryParse(digitsOnly);
+        if (parsed != null && parsed > 0) {
+          return '₹${parsed.toInt()}';
+        }
+      }
+      if (price != null && price! > 0) {
+        return '₹${price!.toInt()}';
+      }
+      return '₹680';
+    }
+
+    // Before worker is selected: show price range!
+    if (candidates.isNotEmpty) {
+      final wages = candidates
+          .map((c) => double.tryParse(c.wage.replaceAll(RegExp(r'[^0-9.]'), '')))
+          .whereType<double>()
+          .toList();
+      if (wages.isNotEmpty) {
+        wages.sort();
+        final minW = wages.first.toInt();
+        final maxW = wages.last.toInt();
+        if (minW != maxW) {
+          return '₹$minW – ₹$maxW';
+        } else {
+          return '₹$minW';
+        }
+      }
+    }
+
+    if (estimatedMinPrice != null && estimatedMaxPrice != null && estimatedMinPrice! > 0) {
+      final minP = estimatedMinPrice!.toInt();
+      final maxP = estimatedMaxPrice!.toInt();
+      if (minP != maxP) {
+        return '₹$minP – ₹$maxP';
+      }
+      return '₹$minP';
+    }
+
+    if (price != null && price! > 0) {
+      final minP = price!.toInt();
+      final maxP = (price! * 1.30).round();
+      if (minP != maxP) {
+        return '₹$minP – ₹$maxP';
+      }
+      return '₹$minP';
+    }
+
+    return '₹550 – ₹800';
+  }
 
   factory CustomerGig.fromDto(
     GigDto dto, {
@@ -139,11 +213,12 @@ class CustomerGig {
         (dto.selectedWorkerId != null && candidates.isNotEmpty
             ? candidates.where((c) => c.workerId == dto.selectedWorkerId).firstOrNull
             : (dto.selectedWorkerId != null
-                ? const GigCandidate(
+                ? GigCandidate(
+                    workerId: dto.selectedWorkerId,
                     name: 'Rajesh',
                     initials: 'R',
                     skill: 'Specialist Artisan',
-                    wage: '',
+                    wage: dto.workerWage != null ? '₹${dto.workerWage!.toInt()}' : '',
                     experience: 'Verified',
                     rating: '4.8',
                     jobs: 'Cooperative artisan',
@@ -174,6 +249,9 @@ class CustomerGig {
       price: dto.basePrice > 0 ? dto.basePrice : null,
       gigType: dto.gigType,
       rawStatus: status,
+      workerWage: dto.workerWage,
+      estimatedMinPrice: dto.estimatedMinPrice,
+      estimatedMaxPrice: dto.estimatedMaxPrice,
     );
   }
 
@@ -185,6 +263,9 @@ class CustomerGig {
     double? price,
     String? gigType,
     String? rawStatus,
+    double? workerWage,
+    double? estimatedMinPrice,
+    double? estimatedMaxPrice,
   }) =>
       CustomerGig(
         id: id ?? this.id,
@@ -203,5 +284,8 @@ class CustomerGig {
         price: price ?? this.price,
         gigType: gigType ?? this.gigType,
         rawStatus: rawStatus ?? this.rawStatus,
+        workerWage: workerWage ?? this.workerWage,
+        estimatedMinPrice: estimatedMinPrice ?? this.estimatedMinPrice,
+        estimatedMaxPrice: estimatedMaxPrice ?? this.estimatedMaxPrice,
       );
 }
