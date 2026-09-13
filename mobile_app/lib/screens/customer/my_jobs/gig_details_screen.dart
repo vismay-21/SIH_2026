@@ -9,6 +9,7 @@ import 'active_job_screen.dart';
 import 'cancel_gig_screen.dart';
 import 'completion_evidence_review_screen.dart';
 import 'material_bill_viewer_screen.dart';
+import 'payment_screen.dart';
 import 'reschedule_gig_screen.dart';
 import 'review_worker_screen.dart';
 import 'waiting_for_candidates_screen.dart';
@@ -578,7 +579,67 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
           MaterialPageRoute<void>(
             builder: (_) => CompletionEvidenceReviewScreen(gig: _gig),
           ),
-        ),
+        ).then((_) => _refreshGig()),
+      );
+    }
+
+    // Payment stage: distinctly handle paid vs pending
+    if (_gig.stage == GigStage.payment) {
+      final isPaid = _gig.rawStatus == 'PAYMENT_CUSTOMER_PAID';
+      if (isPaid) {
+        return SurfaceCard(
+          color: AppColors.success.withValues(alpha: 0.12),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.success,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Payment Complete',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Awaiting ${_gig.selectedWorker?.name ?? "worker"} receipt confirmation.',
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => PaymentScreen(gig: _gig),
+                  ),
+                ).then((_) => _refreshGig()),
+                child: const Text('Details'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return PrimaryAction(
+        label: 'Proceed to Payment',
+        icon: Icons.payment_rounded,
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => PaymentScreen(gig: _gig),
+          ),
+        ).then((_) => _refreshGig()),
       );
     }
 
@@ -593,7 +654,7 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
               gigTitle: _gig.title,
             ),
           ),
-        ),
+        ).then((_) => _refreshGig()),
       );
     }
 
@@ -605,11 +666,71 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
           MaterialPageRoute<void>(
             builder: (_) => ActiveJobScreen(gig: _gig),
           ),
-        ),
+        ).then((_) => _refreshGig()),
       );
     }
 
-    // Default / Seeking state: Cancel option
+    // Selected / Scheduled: Worker assigned, awaiting arrival
+    if (_gig.stage == GigStage.selected || _gig.stage == GigStage.scheduled) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SurfaceCard(
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.person_pin_circle_outlined,
+                  color: AppColors.primary,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Worker Assigned: ${_gig.selectedWorker?.name ?? "Specialist"}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Awaiting artisan arrival at your address.',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CancelGigScreen(gig: _gig),
+                ),
+              ).then((_) => _refreshGig()),
+              icon: const Icon(Icons.cancel_outlined, size: 16),
+              label: const Text('Cancel Gig (₹50 fee applies)'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red.shade700,
+                side: BorderSide(color: Colors.red.shade200),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Pre-matching seeking/responding: Cancel option (₹0 fee)
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
@@ -617,7 +738,7 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
           MaterialPageRoute<void>(
             builder: (_) => CancelGigScreen(gig: _gig),
           ),
-        ),
+        ).then((_) => _refreshGig()),
         icon: const Icon(Icons.cancel_outlined, size: 18),
         label: const Text('Cancel Gig Request'),
       ),
@@ -625,6 +746,13 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
   }
 
   void _showMoreMenu(BuildContext context) {
+    // Per SRS Section 21 & Backend Ground Truth, cancellation is strictly prohibited once work has started
+    final canCancel = _gig.stage == GigStage.seeking ||
+        _gig.stage == GigStage.responding ||
+        _gig.stage == GigStage.accepted ||
+        _gig.stage == GigStage.selected ||
+        _gig.stage == GigStage.scheduled;
+
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -644,19 +772,20 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
                   _refreshGig();
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.edit_calendar_rounded),
-                title: const Text('Reschedule gig'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => RescheduleGigScreen(gig: _gig),
-                    ),
-                  );
-                },
-              ),
-              if (_gig.stage != GigStage.completed)
+              if (_gig.stage != GigStage.completed && _gig.stage != GigStage.payment)
+                ListTile(
+                  leading: const Icon(Icons.edit_calendar_rounded),
+                  title: const Text('Reschedule gig'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => RescheduleGigScreen(gig: _gig),
+                      ),
+                    );
+                  },
+                ),
+              if (canCancel)
                 ListTile(
                   leading: const Icon(Icons.cancel_outlined, color: Colors.red),
                   title: const Text('Cancel gig', style: TextStyle(color: Colors.red)),
@@ -666,7 +795,7 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
                       MaterialPageRoute<void>(
                         builder: (_) => CancelGigScreen(gig: _gig),
                       ),
-                    );
+                    ).then((_) => _refreshGig());
                   },
                 ),
             ],

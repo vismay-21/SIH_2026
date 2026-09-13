@@ -4,6 +4,7 @@ import '../../../models/worker_job_workflow.dart';
 import '../../../repositories/worker_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../../widgets/common/skeleton_loaders.dart';
 import 'opportunity_details_screen.dart';
 
 class WorkerNavigation2Screen extends StatefulWidget {
@@ -100,14 +101,15 @@ class _WorkerNavigation2ScreenState extends State<WorkerNavigation2Screen> {
 
               const SizedBox(height: 16),
 
-              if (_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: CircularProgressIndicator(),
-                  ),
+              if (_isLoading && _opportunities.isEmpty)
+                const Column(
+                  children: [
+                    OpportunityCardSkeleton(),
+                    OpportunityCardSkeleton(),
+                    OpportunityCardSkeleton(),
+                  ],
                 )
-              else if (filteredOpportunities.isEmpty)
+              else if (filteredOpportunities.isEmpty && !_isLoading)
                 SurfaceCard(
                   padding: const EdgeInsets.symmetric(
                     vertical: 40,

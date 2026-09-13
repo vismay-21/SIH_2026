@@ -90,6 +90,7 @@ class CustomerGig {
     this.selectedWorker,
     this.price,
     this.gigType,
+    this.rawStatus,
   });
 
   final String? id;
@@ -107,6 +108,7 @@ class CustomerGig {
   final GigCandidate? selectedWorker;
   final double? price;
   final String? gigType;
+  final String? rawStatus;
 
   bool get chatEnabled => selectedWorker != null && stage != GigStage.completed;
 
@@ -159,6 +161,7 @@ class CustomerGig {
       selectedWorker: resolvedWorker,
       price: dto.basePrice > 0 ? dto.basePrice : null,
       gigType: dto.gigType,
+      rawStatus: status,
     );
   }
 
@@ -169,6 +172,7 @@ class CustomerGig {
     List<GigCandidate>? candidates,
     double? price,
     String? gigType,
+    String? rawStatus,
   }) =>
       CustomerGig(
         id: id ?? this.id,
@@ -186,121 +190,6 @@ class CustomerGig {
         selectedWorker: selectedWorker ?? this.selectedWorker,
         price: price ?? this.price,
         gigType: gigType ?? this.gigType,
+        rawStatus: rawStatus ?? this.rawStatus,
       );
 }
-
-const demoCandidates = [
-  GigCandidate(
-    name: 'Amit Sharma',
-    initials: 'AS',
-    skill: 'Plumber',
-    wage: '₹680',
-    experience: '6 years',
-    rating: '4.8',
-    jobs: '23 comparable jobs',
-    summary: 'Reliable plumbing work with strong repeat-customer reviews.',
-    factors: ['Strong skill match', 'Available today', 'High reliability'],
-    isRecommended: true,
-  ),
-  GigCandidate(
-    name: 'Suresh Kumar',
-    initials: 'SK',
-    skill: 'Plumber',
-    wage: '₹550',
-    experience: '2 years',
-    rating: '4.6',
-    jobs: '11 completed jobs',
-    summary: 'Good value and verified for household plumbing repairs.',
-    factors: ['Lowest labour wage', 'Verified worker', 'Available today'],
-  ),
-  GigCandidate(
-    name: 'Meena Das',
-    initials: 'MD',
-    skill: 'Plumbing specialist',
-    wage: '₹800',
-    experience: '9 years',
-    rating: '4.9',
-    jobs: '41 comparable jobs',
-    summary: 'Experienced specialist with excellent quality feedback.',
-    factors: ['Highest experience', 'Best review quality', 'Busy until 6 PM'],
-  ),
-];
-
-final demoGigs = [
-  CustomerGig(
-    title: 'Kitchen sink leak repair',
-    category: 'Plumbing repair',
-    description: 'Leak under sink. Same-day repair required.',
-    when: 'Today · 5:00 PM',
-    location: 'Indiranagar, Bengaluru',
-    duration: 'Estimated · 2 hrs',
-    stage: GigStage.accepted,
-    materials: 'Customer purchases materials',
-    instructions: 'Please call at the gate before entering.',
-    candidates: demoCandidates,
-  ),
-  CustomerGig(
-    title: 'Emergency bathroom clog',
-    category: 'Emergency plumbing',
-    description: 'Urgent clog. Nearby worker matching enabled.',
-    when: 'Today · Immediate',
-    location: 'Ulsoor, Bengaluru',
-    duration: 'Estimated · 60–90 min',
-    stage: GigStage.responding,
-    materials: 'Worker purchases materials',
-    instructions: 'The bathroom is next to the kitchen.',
-    candidates: [demoCandidates[1]],
-    isEmergency: true,
-  ),
-  CustomerGig(
-    title: 'Bedroom fan replacement',
-    category: 'Electrical work',
-    description: 'Replace the ceiling fan and check the regulator.',
-    when: 'Tomorrow · 10:00 AM',
-    location: 'Koramangala, Bengaluru',
-    duration: 'Estimated · 1 hr',
-    stage: GigStage.scheduled,
-    materials: 'Customer purchases materials',
-    instructions: 'New fan is already at home.',
-    candidates: [demoCandidates[2]],
-    selectedWorker: demoCandidates[2],
-  ),
-  CustomerGig(
-    title: 'Living room deep clean',
-    category: 'Cleaning',
-    description: 'Deep clean after a small family event.',
-    when: 'Completed · 18 Aug',
-    location: 'Jayanagar, Bengaluru',
-    duration: 'Estimated · 3 hrs',
-    stage: GigStage.completed,
-    materials: 'Customer purchases materials',
-    instructions: 'Use the supplies in the utility room.',
-    candidates: [demoCandidates[0]],
-    selectedWorker: demoCandidates[0],
-  ),
-  CustomerGig(
-    title: 'Water heater installation',
-    category: 'Plumbing & Appliance',
-    description: 'Installing a new 15L water heater in the master bathroom.',
-    when: 'Today · 6:30 PM',
-    location: 'Indiranagar, Bengaluru',
-    duration: 'Estimated · 2 hrs',
-    stage: GigStage.seeking,
-    materials: 'Customer purchases materials',
-    instructions: 'Heater is unboxed. Bring mounting tools.',
-    candidates: [],
-  ),
-  CustomerGig(
-    title: 'Main power fuse tripping',
-    category: 'Emergency Electrical',
-    description: 'Frequent tripping of main breaker box in 2BHK.',
-    when: 'Today · Immediate',
-    location: 'HSR Layout, Bengaluru',
-    duration: 'Estimated · 45 min',
-    stage: GigStage.seeking,
-    materials: 'Worker purchases materials',
-    instructions: 'Power currently off in bedrooms.',
-    candidates: [],
-    isEmergency: true,
-  ),
-];

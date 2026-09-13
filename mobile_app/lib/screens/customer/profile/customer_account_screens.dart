@@ -105,6 +105,7 @@ class _CustomerChatScreenState extends State<CustomerChatScreen> {
                         builder: (_) => CustomerChatThreadScreen(
                           workerName: workerName,
                           jobTitle: gig.title,
+                          gig: gig,
                         ),
                       ),
                     ),
@@ -120,11 +121,13 @@ class CustomerChatThreadScreen extends StatefulWidget {
     required this.workerName,
     required this.jobTitle,
     this.enabled = true,
+    this.gig,
   });
 
   final String workerName;
   final String jobTitle;
   final bool enabled;
+  final CustomerGig? gig;
 
   @override
   State<CustomerChatThreadScreen> createState() =>
@@ -167,15 +170,16 @@ class _CustomerChatThreadScreenState extends State<CustomerChatThreadScreen> {
         ],
       ),
       actions: [
-        IconButton(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => GigDetailsScreen(gig: demoGigs[0]),
+        if (widget.gig != null)
+          IconButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => GigDetailsScreen(gig: widget.gig!),
+              ),
             ),
+            icon: const Icon(Icons.work_outline_rounded),
+            tooltip: 'Open job',
           ),
-          icon: const Icon(Icons.work_outline_rounded),
-          tooltip: 'Open job',
-        ),
       ],
     ),
     body: Column(

@@ -18,12 +18,13 @@ class TokenStorage {
   final ValueNotifier<UserDto?> userNotifier = ValueNotifier<UserDto?>(null);
 
   /// Determine default API base URL based on platform:
-  /// - Android emulator uses 10.0.2.2 to reach host machine's localhost:8000
-  /// - iOS simulator, desktop (Windows/macOS/Linux), and Web use localhost:8000
+  /// - Real Android device uses http://127.0.0.1:8000/api/v1 via `adb reverse tcp:8000 tcp:8000`
+  /// - Fallback can be configured via setBaseUrl() or --dart-define=API_BASE_URL=...
+  /// - Desktop and Web use http://localhost:8000/api/v1
   String get defaultBaseUrl {
     const envUrl = String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'https://sih2026-production-ee63.up.railway.app/api/v1',
+      defaultValue: 'http://127.0.0.1:8000/api/v1',
     );
     if (envUrl.isNotEmpty) {
       return envUrl.trim().replaceAll(RegExp(r'/+$'), '');
@@ -33,7 +34,7 @@ class TokenStorage {
     }
     try {
       if (Platform.isAndroid) {
-        return 'http://10.0.2.2:8000/api/v1';
+        return 'http://127.0.0.1:8000/api/v1';
       }
     } catch (_) {
       // Platform may throw on unsupported web targets

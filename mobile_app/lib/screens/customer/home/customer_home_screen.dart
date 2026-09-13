@@ -5,6 +5,7 @@ import '../../../repositories/gig_repository.dart';
 import '../../../services/token_storage.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../../widgets/common/skeleton_loaders.dart';
 import '../customer_main_screen.dart';
 import '../profile/customer_account_screens.dart';
 import 'create_gig_screen.dart';
@@ -213,14 +214,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             const SizedBox(height: 8),
 
             // Real Gigs List or Clean Empty State
-            if (_isLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24.0),
-                  child: CircularProgressIndicator(),
-                ),
+            if (_isLoading && _gigs.isEmpty)
+              const Column(
+                children: [
+                  GigCardSkeleton(),
+                  GigCardSkeleton(),
+                ],
               )
-            else if (activeGigs.isEmpty)
+            else if (activeGigs.isEmpty && !_isLoading)
               SurfaceCard(
                 padding: const EdgeInsets.symmetric(
                   vertical: 32,
@@ -366,6 +367,7 @@ class _GigCard extends StatelessWidget {
                                 gig.selectedWorker?.name ?? 'Assigned Worker',
                             jobTitle: gig.title,
                             enabled: gig.chatEnabled,
+                            gig: gig,
                           ),
                         ),
                       )

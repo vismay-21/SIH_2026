@@ -7,6 +7,7 @@ import '../../../repositories/worker_repository.dart';
 import '../../../services/token_storage.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../../widgets/common/skeleton_loaders.dart';
 import '../../common/notifications_screen.dart';
 import '../my_jobs/worker_active_job_screen.dart';
 import '../opportunities/opportunity_details_screen.dart';
@@ -266,14 +267,14 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
             ),
             const SizedBox(height: 8),
 
-            if (_isLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24.0),
-                  child: CircularProgressIndicator(),
-                ),
+            if (_isLoading && _opportunities.isEmpty)
+              const Column(
+                children: [
+                  OpportunityCardSkeleton(),
+                  OpportunityCardSkeleton(),
+                ],
               )
-            else if (oppsToDisplay.isEmpty)
+            else if (oppsToDisplay.isEmpty && !_isLoading)
               const SurfaceCard(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),

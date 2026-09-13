@@ -5,6 +5,7 @@ import '../../../models/customer_gig_workflow.dart';
 import '../../../repositories/gig_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../../widgets/common/skeleton_loaders.dart';
 import 'gig_details_screen.dart';
 
 class CustomerNavigation2Screen extends StatefulWidget {
@@ -154,12 +155,14 @@ class _LiveGigListState extends State<_LiveGigList> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24.0),
-          child: CircularProgressIndicator(),
-        ),
+    if (_isLoading && _gigs.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+        children: const [
+          GigCardSkeleton(),
+          GigCardSkeleton(),
+          GigCardSkeleton(),
+        ],
       );
     }
 

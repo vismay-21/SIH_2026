@@ -630,9 +630,10 @@ class ActiveJobScreen extends StatelessWidget {
                       MaterialPageRoute<void>(
                         builder: (_) => CustomerChatThreadScreen(
                           workerName:
-                              gig.selectedWorker?.name ?? 'Amit Sharma',
+                              gig.selectedWorker?.name ?? 'Assigned Worker',
                           jobTitle: gig.title,
                           enabled: gig.chatEnabled,
+                          gig: gig,
                         ),
                       ),
                     );
