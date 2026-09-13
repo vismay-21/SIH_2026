@@ -22,15 +22,12 @@ class TokenStorage {
   /// - Fallback can be configured via setBaseUrl() or --dart-define=API_BASE_URL=...
   /// - Desktop and Web use http://localhost:8000/api/v1
   String get defaultBaseUrl {
-    const envUrl = String.fromEnvironment(
-      'API_BASE_URL',
-      defaultValue: 'http://127.0.0.1:8000/api/v1',
-    );
+    const envUrl = String.fromEnvironment('API_BASE_URL');
     if (envUrl.isNotEmpty) {
       return envUrl.trim().replaceAll(RegExp(r'/+$'), '');
     }
     if (kIsWeb) {
-      return 'http://localhost:8000/api/v1';
+      return 'http://127.0.0.1:8000/api/v1';
     }
     try {
       if (Platform.isAndroid) {
@@ -39,7 +36,7 @@ class TokenStorage {
     } catch (_) {
       // Platform may throw on unsupported web targets
     }
-    return 'http://localhost:8000/api/v1';
+    return 'http://127.0.0.1:8000/api/v1';
   }
 
   String get baseUrl => _customBaseUrl ?? defaultBaseUrl;
