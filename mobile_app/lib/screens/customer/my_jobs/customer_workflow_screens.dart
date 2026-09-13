@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -595,75 +597,141 @@ class ActiveJobScreen extends StatelessWidget {
   final CustomerGig gig;
 
   @override
-  Widget build(BuildContext context) => _WorkflowScaffold(
-    title: 'Active job',
-    subtitle: 'Keep the job information and next action in one place.',
-    child: Column(
-      children: [
-        _InfoCard(
-          title: gig.title,
-          body:
-              '${gig.location}\n${gig.when}\n${gig.duration}\n${gig.instructions}',
-        ),
-        _InfoCard(
-          title: 'Selected worker',
-          body: gig.selectedWorker?.name ?? 'Assigned Worker',
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: () {
-                  if (gig.id != null) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => ChatScreen(
-                          title: gig.selectedWorker?.name ?? 'Assigned Worker',
-                          subtitle: gig.title,
-                          gigId: gig.id,
-                        ),
-                      ),
-                    );
-                  } else {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => CustomerChatThreadScreen(
-                          workerName:
-                              gig.selectedWorker?.name ?? 'Assigned Worker',
-                          jobTitle: gig.title,
-                          enabled: gig.chatEnabled,
-                          gig: gig,
-                        ),
-                      ),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.chat_bubble_outline_rounded),
-                label: Text(
-                  gig.chatEnabled ? 'Open chat' : 'View chat history',
-                ),
-              ),
+  Widget build(BuildContext context) {
+    final workerName = gig.selectedWorker?.name ?? 'Assigned Worker';
+    final isCompletionRequested = gig.stage == GigStage.completionRequested;
+    final isCompleted = gig.stage == GigStage.completed;
+    final isPayment = gig.stage == GigStage.payment;
+    final isInProgress = gig.stage == GigStage.active;
+
+    String subtitleText;
+    String statusText;
+    if (isCompleted) {
+      subtitleText = 'This gig is fully completed.';
+      statusText = 'Completed';
+    } else if (isPayment) {
+      subtitleText = 'Work has been approved. Payment release pending.';
+      statusText = 'Payment Required';
+    } else if (isCompletionRequested) {
+      subtitleText = 'Artisan has submitted work evidence for your review.';
+      statusText = 'Evidence Submitted · Action Required';
+    } else if (isInProgress) {
+      subtitleText = 'Artisan is actively working on the repair.';
+      statusText = 'In Progress · Work Underway';
+    } else {
+      subtitleText = 'Artisan has been assigned. Waiting for artisan to arrive and start work.';
+      statusText = 'Scheduled · Awaiting Arrival';
+    }
+
+    void openChat() {
+      if (gig.id != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => ChatScreen(
+              title: workerName,
+              subtitle: gig.title,
+              gigId: gig.id,
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => CompletionEvidenceReviewScreen(gig: gig),
+          ),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => CustomerChatThreadScreen(
+              workerName: workerName,
+              jobTitle: gig.title,
+              enabled: gig.chatEnabled,
+              gig: gig,
+            ),
+          ),
+        );
+      }
+    }
+
+    return _WorkflowScaffold(
+      title: isInProgress ? 'Job in progress' : (isCompleted ? 'Job completed' : 'Scheduled job'),
+      subtitle: subtitleText,
+      child: Column(
+        children: [
+          _InfoCard(
+            title: gig.title,
+            body:
+                '${gig.location}\n${gig.when}\n${gig.duration}\n${gig.instructions}',
+          ),
+          _InfoCard(
+            title: 'Selected artisan',
+            body: workerName,
+          ),
+          const SizedBox(height: 6),
+          if (isCompletionRequested) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: openChat,
+                    icon: const Icon(Icons.chat_bubble_outline_rounded),
+                    label: const Text('Chat'),
                   ),
                 ),
-                icon: const Icon(Icons.fact_check_outlined),
-                label: const Text('Review evidence'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => CompletionEvidenceReviewScreen(gig: gig),
+                      ),
+                    ),
+                    icon: const Icon(Icons.fact_check_rounded),
+                    label: const Text('Review evidence'),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (isPayment) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => PaymentScreen(gig: gig),
+                  ),
+                ),
+                icon: const Icon(Icons.payment_rounded),
+                label: const Text('Proceed to Payment'),
+              ),
+            ),
+          ] else if (isCompleted) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ReviewWorkerScreen(
+                      workerName: workerName,
+                      gigTitle: gig.title,
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.rate_review_outlined),
+                label: const Text('Rate & Review Worker'),
+              ),
+            ),
+          ] else ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: openChat,
+                icon: const Icon(Icons.chat_bubble_outline_rounded),
+                label: Text(gig.chatEnabled ? 'Open chat with artisan' : 'View chat history'),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 14),
-        const StatusPill('Scheduled · Active next'),
-      ],
-    ),
-  );
+          const SizedBox(height: 14),
+          StatusPill(statusText),
+        ],
+      ),
+    );
+  }
 }
 
 class CompletionEvidenceReviewScreen extends StatefulWidget {
@@ -698,6 +766,53 @@ class _CompletionEvidenceReviewScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (widget.gig.stage != GigStage.completionRequested && _completion == null) {
+      return _WorkflowScaffold(
+        title: 'Completion evidence',
+        subtitle: 'Evidence has not been submitted yet.',
+        child: Column(
+          children: [
+            SurfaceCard(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.pending_actions_rounded,
+                        size: 48,
+                        color: AppColors.muted,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Evidence Pending',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'The artisan has not submitted work completion photos yet. Once work is finished and photos are uploaded, you will be able to review and confirm them here.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.35),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.arrow_back_rounded),
+                label: const Text('Back to Job Details'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final photoCount = _completion?.submission?.evidenceFiles.length ?? 2;
     final notes = _completion?.submission?.description ??
         'Before and after photos from the selected worker are ready to review.';
@@ -872,12 +987,39 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String _method = 'UPI';
   bool _isProcessing = false;
   bool _paid = false;
+  bool _workerConfirmed = false;
   String? _displayAmount;
+  Timer? _paymentCheckTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchPayment();
+  }
+
+  @override
+  void dispose() {
+    _paymentCheckTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPaymentPolling() {
+    _paymentCheckTimer?.cancel();
+    _paymentCheckTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
+      if (!mounted || widget.gig.id == null) return;
+      try {
+        final payment = await _paymentRepo.getGigPayment(widget.gig.id!);
+        if (payment.status == 'WORKER_CONFIRMED' || payment.status == 'COMPLETED') {
+          _paymentCheckTimer?.cancel();
+          _paymentCheckTimer = null;
+          if (mounted) {
+            setState(() {
+              _workerConfirmed = true;
+            });
+          }
+        }
+      } catch (_) {}
+    });
   }
 
   Future<void> _fetchPayment() async {
@@ -887,8 +1029,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (mounted) {
         setState(() {
           _displayAmount = '₹${payment.amount.toStringAsFixed(0)}';
-          if (payment.status == 'COMPLETED' || payment.status == 'SUCCESS') {
+          if (payment.status == 'COMPLETED' || payment.status == 'WORKER_CONFIRMED' || payment.status == 'SUCCESS') {
             _paid = true;
+            _workerConfirmed = true;
+          } else if (payment.status == 'CUSTOMER_PAID') {
+            _paid = true;
+            _startPaymentPolling();
           }
         });
       }
@@ -925,6 +1071,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           setState(() {
             _paid = true;
           });
+          _startPaymentPolling();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -1030,8 +1177,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
             padding: const EdgeInsets.only(top: 14),
             child: Column(
               children: [
-                const StatusPill(
-                  'Payment complete · Awaiting receipt confirmation',
+                StatusPill(
+                  _workerConfirmed
+                      ? 'Payment verified by artisan · Job completed'
+                      : 'Payment complete · Awaiting receipt confirmation',
+                  warning: !_workerConfirmed,
                 ),
                 const SizedBox(height: 12),
                 if (widget.gig.id != null) ...[

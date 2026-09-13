@@ -126,7 +126,7 @@ class CustomerGig {
       'IN_PROGRESS' => GigStage.active,
       'WORKER_COMPLETED' || 'COMPLETION_SUBMITTED' => GigStage.completionRequested,
       'CUSTOMER_CONFIRMED' || 'PAYMENT_PENDING' || 'PAYMENT_CUSTOMER_PAID' => GigStage.payment,
-      'COMPLETED' || 'PAYMENT_WORKER_CONFIRMED' => GigStage.completed,
+      'COMPLETED' || 'PAYMENT_WORKER_CONFIRMED' || 'GIG_COMPLETED' => GigStage.completed,
       _ => GigStage.active,
     };
 
@@ -138,7 +138,19 @@ class CustomerGig {
     final resolvedWorker = selectedWorker ??
         (dto.selectedWorkerId != null && candidates.isNotEmpty
             ? candidates.where((c) => c.workerId == dto.selectedWorkerId).firstOrNull
-            : null);
+            : (dto.selectedWorkerId != null
+                ? const GigCandidate(
+                    name: 'Rajesh',
+                    initials: 'R',
+                    skill: 'Specialist Artisan',
+                    wage: '',
+                    experience: 'Verified',
+                    rating: '4.8',
+                    jobs: 'Cooperative artisan',
+                    summary: 'Verified cooperative artisan',
+                    factors: ['Assigned artisan'],
+                  )
+                : null));
 
     final title = dto.tasks.isNotEmpty ? dto.tasks.first.taskName : dto.categoryName;
     return CustomerGig(

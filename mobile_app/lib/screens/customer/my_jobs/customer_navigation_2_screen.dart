@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../models/api/api_response.dart';
@@ -18,8 +20,30 @@ class CustomerNavigation2Screen extends StatefulWidget {
       _CustomerNavigation2ScreenState();
 }
 
-class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen> {
+enum _GigFilter { active, upcoming, completed }
+
+class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  final _gigRepo = GigRepository();
+  List<CustomerGig> _gigs = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  Timer? _pollingTimer;
   bool _openedInitialGig = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        _fetchGigs(silent: true);
+      }
+    });
+    _fetchGigs();
+    _startPeriodicPolling();
+  }
 
   @override
   void didChangeDependencies() {
@@ -28,92 +52,47 @@ class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen> {
       _openedInitialGig = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => GigDetailsScreen(gig: widget.initialGig!),
-            ),
-          );
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute<void>(
+                  builder: (_) => GigDetailsScreen(gig: widget.initialGig!),
+                ),
+              )
+              .then((_) => _fetchGigs(silent: true));
         }
       });
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
-              child: Text(
-                'My gigs',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Track every gig from request to payment.',
-                style: TextStyle(color: AppColors.muted),
-              ),
-            ),
-            const SizedBox(height: 18),
-            const TabBar(
-              tabs: [
-                Tab(text: 'Active'),
-                Tab(text: 'Upcoming'),
-                Tab(text: 'Completed'),
-              ],
-            ),
-            const Expanded(
-              child: TabBarView(
-                children: [
-                  _LiveGigList(filter: _GigFilter.active),
-                  _LiveGigList(filter: _GigFilter.upcoming),
-                  _LiveGigList(filter: _GigFilter.completed),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-enum _GigFilter { active, upcoming, completed }
-
-class _LiveGigList extends StatefulWidget {
-  const _LiveGigList({required this.filter});
-
-  final _GigFilter filter;
-
-  @override
-  State<_LiveGigList> createState() => _LiveGigListState();
-}
-
-class _LiveGigListState extends State<_LiveGigList> {
-  final _gigRepo = GigRepository();
-  List<CustomerGig> _gigs = [];
-  bool _isLoading = true;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchGigs();
+  void dispose() {
+    _pollingTimer?.cancel();
+    _tabController.dispose();
+    super.dispose();
   }
 
-  Future<void> _fetchGigs() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+  void _startPeriodicPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) return;
+      final hasActiveTransition = _gigs.any((g) =>
+          g.stage == GigStage.payment ||
+          g.stage == GigStage.completionRequested ||
+          g.stage == GigStage.selected ||
+          g.rawStatus == 'PAYMENT_CUSTOMER_PAID');
+      if (hasActiveTransition) {
+        _fetchGigs(silent: true);
+      }
     });
+  }
+
+  Future<void> _fetchGigs({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final paginated = await _gigRepo.getCustomerGigs(pageSize: 50);
@@ -137,24 +116,45 @@ class _LiveGigListState extends State<_LiveGigList> {
       setState(() {
         _gigs = mapped;
         _isLoading = false;
+        _errorMessage = null;
       });
     } on ApiError catch (e) {
       if (!mounted) return;
-      setState(() {
-        _errorMessage = e.message;
-        _isLoading = false;
-      });
+      if (!silent) {
+        setState(() {
+          _errorMessage = e.message;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      if (!silent) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  List<CustomerGig> _getFilteredGigs(_GigFilter filter) {
+    return _gigs.where((gig) {
+      final isCompleted = gig.stage == GigStage.completed ||
+          gig.rawStatus == 'COMPLETED' ||
+          gig.rawStatus == 'PAYMENT_WORKER_CONFIRMED' ||
+          gig.rawStatus == 'GIG_COMPLETED';
+      final isCancelled = gig.rawStatus == 'CANCELLED';
+
+      return switch (filter) {
+        _GigFilter.active =>
+          !isCompleted && !isCancelled && gig.stage != GigStage.scheduled,
+        _GigFilter.upcoming => !isCancelled && gig.stage == GigStage.scheduled,
+        _GigFilter.completed => isCompleted,
+      };
+    }).toList();
+  }
+
+  Widget _buildTabContent(_GigFilter filter) {
     if (_isLoading && _gigs.isEmpty) {
       return ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -166,14 +166,18 @@ class _LiveGigListState extends State<_LiveGigList> {
       );
     }
 
-    if (_errorMessage != null) {
+    if (_errorMessage != null && _gigs.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off_rounded, size: 40, color: AppColors.muted),
+              const Icon(
+                Icons.cloud_off_rounded,
+                size: 40,
+                color: AppColors.muted,
+              ),
               const SizedBox(height: 12),
               Text(
                 _errorMessage!,
@@ -182,7 +186,7 @@ class _LiveGigListState extends State<_LiveGigList> {
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
-                onPressed: _fetchGigs,
+                onPressed: () => _fetchGigs(),
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Retry'),
               ),
@@ -192,26 +196,23 @@ class _LiveGigListState extends State<_LiveGigList> {
       );
     }
 
-    final filtered = _gigs.where((gig) {
-      return switch (widget.filter) {
-        _GigFilter.active =>
-          gig.stage != GigStage.completed && gig.stage != GigStage.scheduled,
-        _GigFilter.upcoming => gig.stage == GigStage.scheduled,
-        _GigFilter.completed => gig.stage == GigStage.completed,
-      };
-    }).toList();
+    final filtered = _getFilteredGigs(filter);
 
     if (filtered.isEmpty) {
       return RefreshIndicator(
-        onRefresh: _fetchGigs,
+        onRefresh: () => _fetchGigs(),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 80),
+          children: [
+            const SizedBox(height: 80),
             Center(
               child: Text(
-                'No gigs found in this category.',
-                style: TextStyle(color: AppColors.muted),
+                filter == _GigFilter.completed
+                    ? 'No completed gigs yet.'
+                    : (filter == _GigFilter.upcoming
+                        ? 'No upcoming scheduled gigs.'
+                        : 'No active gigs currently.'),
+                style: const TextStyle(color: AppColors.muted),
               ),
             ),
           ],
@@ -220,7 +221,7 @@ class _LiveGigListState extends State<_LiveGigList> {
     }
 
     return RefreshIndicator(
-      onRefresh: _fetchGigs,
+      onRefresh: () => _fetchGigs(),
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -228,8 +229,54 @@ class _LiveGigListState extends State<_LiveGigList> {
         separatorBuilder: (_, index) => const SizedBox(height: 12),
         itemBuilder: (context, index) => _GigListTile(
           gig: filtered[index],
-          onRefresh: _fetchGigs,
+          onRefresh: () => _fetchGigs(silent: true),
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
+            child: Text(
+              'My gigs',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Track every gig from request to payment.',
+              style: TextStyle(color: AppColors.muted),
+            ),
+          ),
+          const SizedBox(height: 18),
+          TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Active'),
+              Tab(text: 'Upcoming'),
+              Tab(text: 'Completed'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildTabContent(_GigFilter.active),
+                _buildTabContent(_GigFilter.upcoming),
+                _buildTabContent(_GigFilter.completed),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -244,7 +291,11 @@ class _GigListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: () => Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => GigDetailsScreen(gig: gig)))
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) => GigDetailsScreen(gig: gig),
+          ),
+        )
         .then((_) => onRefresh?.call()),
     borderRadius: BorderRadius.circular(14),
     child: SurfaceCard(
@@ -304,7 +355,10 @@ class _GigListTile extends StatelessWidget {
                     ),
                     if (gig.candidates.isNotEmpty && gig.selectedWorker == null)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),

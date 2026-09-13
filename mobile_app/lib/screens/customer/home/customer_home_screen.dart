@@ -64,7 +64,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         ? user.fullName!.trim().split(' ').first
         : 'Customer';
 
-    final activeGigs = _gigs.where((g) => g.stage != GigStage.completed).toList();
+    final activeGigs = _gigs.where((g) {
+      final isCompleted = g.stage == GigStage.completed ||
+          g.rawStatus == 'COMPLETED' ||
+          g.rawStatus == 'PAYMENT_WORKER_CONFIRMED' ||
+          g.rawStatus == 'GIG_COMPLETED';
+      return !isCompleted && g.rawStatus != 'CANCELLED';
+    }).toList();
     final activeCount = activeGigs.length;
 
     return SafeArea(

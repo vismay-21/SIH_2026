@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../models/customer_gig_workflow.dart';
 import '../../../repositories/gig_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../common/chat_screen.dart';
 import 'accepted_candidates_screen.dart';
 import 'active_job_screen.dart';
 import 'cancel_gig_screen.dart';
@@ -27,12 +29,33 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
   final _gigRepo = GigRepository();
   late CustomerGig _gig;
   bool _isRefreshing = false;
+  Timer? _statusPollingTimer;
 
   @override
   void initState() {
     super.initState();
     _gig = widget.gig;
     _refreshGig();
+    _startStatusPollingIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _statusPollingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startStatusPollingIfNeeded() {
+    _statusPollingTimer?.cancel();
+    // When waiting for worker confirmation, poll every 2.5s so screen auto-completes
+    if (_gig.rawStatus == 'PAYMENT_CUSTOMER_PAID' && _gig.stage != GigStage.completed) {
+      _statusPollingTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) async {
+        await _refreshGig();
+        if (_gig.stage == GigStage.completed) {
+          _statusPollingTimer?.cancel();
+        }
+      });
+    }
   }
 
   Future<void> _refreshGig() async {
@@ -53,6 +76,7 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
         _gig = CustomerGig.fromDto(gigDto, candidates: candidates);
         _isRefreshing = false;
       });
+      _startStatusPollingIfNeeded();
     } catch (_) {
       if (!mounted) return;
       setState(() => _isRefreshing = false);
@@ -237,45 +261,116 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
     final hasCandidates = _gig.candidates.isNotEmpty;
     final hasSelectedWorker = _gig.selectedWorker != null;
 
+    IconData card1Icon;
+    String card1Label;
+    bool card1Highlighted = false;
+    VoidCallback card1OnTap;
+
+    if (!hasSelectedWorker) {
+      if (hasCandidates) {
+        card1Icon = Icons.people_alt_rounded;
+        card1Label = 'Candidates (${_gig.candidates.length})';
+        card1Highlighted = true;
+        card1OnTap = () => Navigator.of(context)
+            .push(
+              MaterialPageRoute<void>(
+                builder: (_) => AcceptedCandidatesScreen(gig: _gig),
+              ),
+            )
+            .then((_) => _refreshGig());
+      } else {
+        card1Icon = Icons.radar_rounded;
+        card1Label = 'Worker Radar';
+        card1OnTap = () => Navigator.of(context)
+            .push(
+              MaterialPageRoute<void>(
+                builder: (_) => WaitingForCandidatesScreen(gig: _gig),
+              ),
+            )
+            .then((_) => _refreshGig());
+      }
+    } else {
+      switch (_gig.stage) {
+        case GigStage.selected:
+        case GigStage.scheduled:
+          card1Icon = Icons.chat_bubble_outline_rounded;
+          card1Label = 'Chat with Artisan';
+          card1OnTap = () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ChatScreen(
+                title: _gig.selectedWorker?.name ?? 'Assigned Worker',
+                subtitle: _gig.title,
+                gigId: _gig.id,
+              ),
+            ),
+          );
+          break;
+        case GigStage.active:
+          card1Icon = Icons.engineering_rounded;
+          card1Label = 'In Progress';
+          card1OnTap = () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ActiveJobScreen(gig: _gig),
+            ),
+          ).then((_) => _refreshGig());
+          break;
+        case GigStage.completionRequested:
+          card1Icon = Icons.fact_check_rounded;
+          card1Label = 'Review Evidence';
+          card1Highlighted = true;
+          card1OnTap = () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => CompletionEvidenceReviewScreen(gig: _gig),
+            ),
+          ).then((_) => _refreshGig());
+          break;
+        case GigStage.payment:
+          card1Icon = Icons.payment_rounded;
+          card1Label = _gig.rawStatus == 'PAYMENT_CUSTOMER_PAID' ? 'Paid' : 'Payment';
+          card1Highlighted = _gig.rawStatus != 'PAYMENT_CUSTOMER_PAID';
+          card1OnTap = () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => PaymentScreen(gig: _gig),
+            ),
+          ).then((_) => _refreshGig());
+          break;
+        case GigStage.completed:
+          card1Icon = Icons.rate_review_outlined;
+          card1Label = 'Review Worker';
+          card1Highlighted = true;
+          card1OnTap = () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ReviewWorkerScreen(
+                workerName: _gig.selectedWorker?.name ?? 'Worker',
+                gigTitle: _gig.title,
+              ),
+            ),
+          ).then((_) => _refreshGig());
+          break;
+        default:
+          card1Icon = Icons.chat_bubble_outline_rounded;
+          card1Label = 'Chat';
+          card1OnTap = () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ChatScreen(
+                title: _gig.selectedWorker?.name ?? 'Assigned Worker',
+                subtitle: _gig.title,
+                gigId: _gig.id,
+              ),
+            ),
+          );
+      }
+    }
+
     return Row(
       children: [
-        // Card 1: Candidates / Workspace / Radar
+        // Card 1: State-driven primary entry
         Expanded(
           child: _QuickCard(
-            icon: hasSelectedWorker
-                ? Icons.work_history_rounded
-                : (hasCandidates
-                    ? Icons.people_alt_rounded
-                    : Icons.radar_rounded),
-            label: hasSelectedWorker
-                ? 'Workspace'
-                : (hasCandidates
-                    ? 'Candidates (${_gig.candidates.length})'
-                    : 'Worker Radar'),
-            isHighlighted: hasCandidates && !hasSelectedWorker,
-            onTap: () {
-              if (hasSelectedWorker) {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ActiveJobScreen(gig: _gig),
-                  ),
-                );
-              } else if (hasCandidates) {
-                Navigator.of(context)
-                    .push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => AcceptedCandidatesScreen(gig: _gig),
-                      ),
-                    )
-                    .then((_) => _refreshGig());
-              } else {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => WaitingForCandidatesScreen(gig: _gig),
-                  ),
-                );
-              }
-            },
+            icon: card1Icon,
+            label: card1Label,
+            isHighlighted: card1Highlighted,
+            onTap: card1OnTap,
           ),
         ),
         const SizedBox(width: 8),
@@ -299,11 +394,19 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
           child: _QuickCard(
             icon: Icons.edit_calendar_rounded,
             label: 'Reschedule',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => RescheduleGigScreen(gig: _gig),
-              ),
-            ),
+            onTap: () {
+              if (_gig.stage == GigStage.completed || _gig.stage == GigStage.payment) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Cannot reschedule a completed or paying gig.')),
+                );
+                return;
+              }
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => RescheduleGigScreen(gig: _gig),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -375,7 +478,11 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => ActiveJobScreen(gig: _gig),
+                        builder: (_) => ChatScreen(
+                          title: selectedWorker.name,
+                          subtitle: _gig.title,
+                          gigId: _gig.id,
+                        ),
                       ),
                     );
                   },
@@ -659,14 +766,59 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
     }
 
     if (_gig.stage == GigStage.active && _gig.selectedWorker != null) {
-      return PrimaryAction(
-        label: 'Open Active Job Workspace',
-        icon: Icons.work_history_rounded,
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => ActiveJobScreen(gig: _gig),
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SurfaceCard(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.engineering_rounded,
+                  color: AppColors.primary,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Work in Progress · ${_gig.selectedWorker?.name ?? "Artisan"}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Artisan is currently performing the work at your location.',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ).then((_) => _refreshGig()),
+          const SizedBox(height: 8),
+          PrimaryAction(
+            label: 'Chat with Artisan',
+            icon: Icons.chat_bubble_outline_rounded,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => ChatScreen(
+                  title: _gig.selectedWorker?.name ?? 'Assigned Worker',
+                  subtitle: _gig.title,
+                  gigId: _gig.id,
+                ),
+              ),
+            ).then((_) => _refreshGig()),
+          ),
+        ],
       );
     }
 
