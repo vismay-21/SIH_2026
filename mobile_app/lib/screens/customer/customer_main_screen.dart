@@ -12,6 +12,20 @@ class CustomerMainScreen extends StatefulWidget {
   final int initialIndex;
   final CustomerGig? initialGig;
 
+  static void switchTab(BuildContext context, int index, {CustomerGig? initialGig}) {
+    final state = context.findAncestorStateOfType<_CustomerMainScreenState>();
+    if (state != null) {
+      state.switchTab(index, initialGig: initialGig);
+    } else {
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => CustomerMainScreen(initialIndex: index, initialGig: initialGig),
+        ),
+        (route) => false,
+      );
+    }
+  }
+
   @override
   State<CustomerMainScreen> createState() => _CustomerMainScreenState();
 }
@@ -20,6 +34,23 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   late int _selectedIndex = widget.initialIndex;
   int _homeRevision = 0;
   int _myJobsRevision = 0;
+  CustomerGig? _activeInitialGig;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeInitialGig = widget.initialGig;
+  }
+
+  void switchTab(int index, {CustomerGig? initialGig}) {
+    setState(() {
+      _selectedIndex = index;
+      _activeInitialGig = initialGig;
+      if (index == 0) _homeRevision++;
+      if (index == 1) _myJobsRevision++;
+    });
+    _navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
+  }
 
   void _onTabChanged(int index) {
     setState(() {
@@ -77,7 +108,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
               1,
               CustomerNavigation2Screen(
                 key: ValueKey('cust_jobs_$_myJobsRevision'),
-                initialGig: widget.initialGig,
+                initialGig: _activeInitialGig,
               ),
             ),
             _buildTabNavigator(2, const CustomerNavigation3Screen()),

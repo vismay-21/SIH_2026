@@ -101,12 +101,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   ],
                 ),
                 IconButton(
-                  onPressed: () =>
-                      Navigator.of(context, rootNavigator: true).pushReplacement(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const CustomerMainScreen(initialIndex: 2),
-                    ),
-                  ),
+                  onPressed: () => CustomerMainScreen.switchTab(context, 2),
                   icon: const Icon(Icons.notifications_none_rounded, size: 27),
                 ),
               ],
@@ -158,13 +153,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                       const SizedBox(width: 10),
                       InkWell(
-                        onTap: () => Navigator.of(context, rootNavigator: true)
-                            .pushReplacement(
-                          MaterialPageRoute<void>(
-                            builder: (_) =>
-                                const CustomerMainScreen(initialIndex: 1),
-                          ),
-                        ),
+                        onTap: () => CustomerMainScreen.switchTab(context, 1),
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -210,12 +199,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             SectionTitle(
               'Active and upcoming',
               action: activeGigs.isNotEmpty ? 'View all' : null,
-              onAction: () =>
-                  Navigator.of(context, rootNavigator: true).pushReplacement(
-                MaterialPageRoute<void>(
-                  builder: (_) => const CustomerMainScreen(initialIndex: 1),
-                ),
-              ),
+              onAction: () => CustomerMainScreen.switchTab(context, 1),
             ),
             const SizedBox(height: 8),
 
@@ -351,14 +335,10 @@ class _GigCard extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () => Navigator.of(context, rootNavigator: true)
-                      .pushReplacement(
-                    MaterialPageRoute<void>(
-                      builder: (_) => CustomerMainScreen(
-                        initialIndex: 1,
-                        initialGig: gig,
-                      ),
-                    ),
+                  onPressed: () => CustomerMainScreen.switchTab(
+                    context,
+                    1,
+                    initialGig: gig,
                   ),
                   icon: const Icon(Icons.timeline_rounded, size: 16),
                   label: const Text('Track job'),

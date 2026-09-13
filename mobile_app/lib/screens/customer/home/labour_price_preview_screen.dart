@@ -7,7 +7,6 @@ import '../../../repositories/catalogue_repository.dart';
 import '../../../repositories/gig_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
-import '../customer_main_screen.dart';
 
 class LabourPricePreviewScreen extends StatefulWidget {
   const LabourPricePreviewScreen({super.key, required this.draft});
@@ -123,12 +122,7 @@ class _LabourPricePreviewScreenState extends State<LabourPricePreviewScreen> {
         ),
       );
 
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(
-          builder: (_) => const CustomerMainScreen(),
-        ),
-        (route) => false,
-      );
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } on ApiError catch (e) {
       if (!mounted) return;
       setState(() => _isPosting = false);
