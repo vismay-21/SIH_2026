@@ -81,8 +81,9 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
         return;
       }
 
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(builder: (_) => const CustomerMainScreen()),
+        (route) => false,
       );
     } on ApiError catch (e) {
       if (mounted) {

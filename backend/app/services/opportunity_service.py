@@ -437,6 +437,15 @@ class OpportunityService:
 
         if status:
             query = query.filter(GigWorkerOpportunity.status == status)
+            if status == OpportunityStatus.PENDING:
+                query = query.filter(Gig.status.in_([GigStatus.POSTED, GigStatus.ACCEPTANCE_OPEN]))
+            elif status == OpportunityStatus.ACCEPTED:
+                query = query.filter(Gig.status.notin_([GigStatus.CANCELLED, GigStatus.COMPLETED]))
+        else:
+            query = query.filter(
+                GigWorkerOpportunity.status.in_([OpportunityStatus.PENDING, OpportunityStatus.ACCEPTED]),
+                Gig.status.in_([GigStatus.POSTED, GigStatus.ACCEPTANCE_OPEN]),
+            )
 
         total = query.count()
         offset = (page - 1) * page_size

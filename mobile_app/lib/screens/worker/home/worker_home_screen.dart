@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
-import '../../../models/api/api_models.dart';
-import '../../../models/api/api_response.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../models/worker_job_workflow.dart';
-import '../../../repositories/worker_repository.dart';
+import '../../../providers/worker_jobs_provider.dart';
 import '../../../services/token_storage.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
@@ -13,108 +14,65 @@ import '../my_jobs/worker_active_job_screen.dart';
 import '../opportunities/opportunity_details_screen.dart';
 import '../profile/worker_availability_screen.dart';
 
-class WorkerHomeScreen extends StatefulWidget {
+class WorkerHomeScreen extends ConsumerStatefulWidget {
   const WorkerHomeScreen({super.key, this.onSelectTab});
 
   final ValueChanged<int>? onSelectTab;
 
   @override
-  State<WorkerHomeScreen> createState() => _WorkerHomeScreenState();
+  ConsumerState<WorkerHomeScreen> createState() => _WorkerHomeScreenState();
 }
 
-class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
-  final _workerRepo = WorkerRepository();
-
+class _WorkerHomeScreenState extends ConsumerState<WorkerHomeScreen> {
   bool _isAvailable = true;
-  List<WorkerOpportunity> _opportunities = [];
-  WorkerJob? _currentJob;
-  bool _isLoading = true;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadData();
+      }
+    });
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted) {
+        ref.read(workerOpportunitiesProvider.notifier).loadOpportunities(silent: true);
+        ref.read(workerJobsProvider.notifier).loadJobs(silent: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final results = await Future.wait([
-        _workerRepo.getOpportunities().catchError(
-              (_) => PaginatedResponse<OpportunityDto>(
-                data: [],
-                pagination: const PaginationMeta(
-                  total: 0,
-                  page: 1,
-                  pageSize: 20,
-                  totalPages: 0,
-                ),
-              ),
-            ),
-        _workerRepo.getWorkerGigs(tab: 'active').catchError(
-              (_) => PaginatedResponse<WorkerGigListItemDto>(
-                data: [],
-                pagination: const PaginationMeta(
-                  total: 0,
-                  page: 1,
-                  pageSize: 10,
-                  totalPages: 0,
-                ),
-              ),
-            ),
-        _workerRepo.getWorkerGigs(tab: 'upcoming').catchError(
-              (_) => PaginatedResponse<WorkerGigListItemDto>(
-                data: [],
-                pagination: const PaginationMeta(
-                  total: 0,
-                  page: 1,
-                  pageSize: 10,
-                  totalPages: 0,
-                ),
-              ),
-            ),
-      ]);
-
-      final oppResp = results[0] as PaginatedResponse<OpportunityDto>;
-      final activeResp = results[1] as PaginatedResponse<WorkerGigListItemDto>;
-      final upcomingResp = results[2] as PaginatedResponse<WorkerGigListItemDto>;
-
-      WorkerJob? activeJob;
-      if (activeResp.data.isNotEmpty) {
-        activeJob = WorkerJob.fromDto(activeResp.data.first);
-      } else if (upcomingResp.data.isNotEmpty) {
-        activeJob = WorkerJob.fromDto(upcomingResp.data.first);
-      }
-
-      final currentGigId = activeJob?.gigId;
-      final opps = oppResp.data
-          .map((d) => WorkerOpportunity.fromDto(d))
-          .where((o) =>
-              o.status != 'ACCEPTED' &&
-              o.status != 'REJECTED' &&
-              (currentGigId == null || o.gigId != currentGigId))
-          .toList();
-
-      if (!mounted) return;
-      setState(() {
-        _opportunities = opps;
-        _currentJob = activeJob;
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-    }
+    await Future.wait([
+      ref.read(workerOpportunitiesProvider.notifier).loadOpportunities(silent: false),
+      ref.read(workerJobsProvider.notifier).loadJobs(silent: false),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
+    final jobsState = ref.watch(workerJobsProvider);
+    final oppsState = ref.watch(workerOpportunitiesProvider);
+
+    final currentJob = jobsState.currentJob;
+    final currentGigId = currentJob?.gigId;
+    final opportunities = oppsState.opportunities
+        .where((o) => currentGigId == null || o.gigId != currentGigId)
+        .toList();
+    final isLoading = jobsState.isLoading || oppsState.isLoading;
+
     final user = TokenStorage.instance.currentUser;
     final rawName = user?.fullName ?? 'Worker';
     final workerName = rawName.split('(').first.trim().split(' ').first;
 
-    final oppsToDisplay = _opportunities;
+    final oppsToDisplay = opportunities;
 
     return SafeArea(
       child: RefreshIndicator(
@@ -241,13 +199,13 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
               children: [
                 StatTile(
                   icon: Icons.explore_outlined,
-                  value: '${_opportunities.length}',
+                  value: '${opportunities.length}',
                   label: 'New opportunities',
                 ),
                 const SizedBox(width: 10),
                 StatTile(
                   icon: Icons.work_outline_rounded,
-                  value: _currentJob != null ? '1' : '0',
+                  value: currentJob != null ? '1' : '0',
                   label: 'Current job',
                 ),
                 const SizedBox(width: 10),
@@ -267,14 +225,14 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
             ),
             const SizedBox(height: 8),
 
-            if (_isLoading && _opportunities.isEmpty)
+            if (isLoading && opportunities.isEmpty)
               const Column(
                 children: [
                   OpportunityCardSkeleton(),
                   OpportunityCardSkeleton(),
                 ],
               )
-            else if (oppsToDisplay.isEmpty && !_isLoading)
+            else if (oppsToDisplay.isEmpty && !isLoading)
               const SurfaceCard(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -421,12 +379,12 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
             const SectionTitle('Upcoming / Current job'),
             const SizedBox(height: 8),
 
-            if (_currentJob != null)
+            if (currentJob != null)
               InkWell(
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => WorkerActiveJobScreen(job: _currentJob!),
+                      builder: (_) => WorkerActiveJobScreen(job: currentJob),
                     ),
                   );
                 },
@@ -445,12 +403,12 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _currentJob!.title,
+                              currentJob.title,
                               style: const TextStyle(fontWeight: FontWeight.w800),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${_currentJob!.when} · ${_currentJob!.wage}',
+                              '${currentJob.when} · ${currentJob.wage}',
                               style: const TextStyle(
                                 color: AppColors.muted,
                                 fontSize: 12,
@@ -459,7 +417,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                           ],
                         ),
                       ),
-                      StatusPill(_currentJob!.status.label),
+                      StatusPill(currentJob.status.label),
                     ],
                   ),
                 ),

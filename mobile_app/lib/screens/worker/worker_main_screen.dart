@@ -10,6 +10,21 @@ class WorkerMainScreen extends StatefulWidget {
 
   final int initialIndex;
 
+  static void switchTab(BuildContext context, int index) {
+    final state = context.findAncestorStateOfType<_WorkerMainScreenState>();
+    if (state != null) {
+      state._onTabChanged(index);
+      state._navigatorKeys[index].currentState?.popUntil((route) => route.isFirst);
+    } else {
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => WorkerMainScreen(initialIndex: index),
+        ),
+        (route) => false,
+      );
+    }
+  }
+
   @override
   State<WorkerMainScreen> createState() => _WorkerMainScreenState();
 }

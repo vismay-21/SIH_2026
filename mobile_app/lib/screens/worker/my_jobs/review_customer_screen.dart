@@ -6,6 +6,7 @@ import '../../../models/worker_job_workflow.dart';
 import '../../../repositories/review_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../worker_main_screen.dart';
 
 class ReviewCustomerScreen extends StatefulWidget {
   const ReviewCustomerScreen({super.key, required this.job});
@@ -52,7 +53,14 @@ class _ReviewCustomerScreenState extends State<ReviewCustomerScreen> {
   }
 
   Future<void> _submitReview() async {
-    if (widget.job.gigId != null && widget.job.customerId != null && _questions.isNotEmpty) {
+    final gigId = widget.job.gigId;
+    final customerId = widget.job.customerId;
+    final isRealBackendGig = gigId != null &&
+        !gigId.startsWith('job-') &&
+        customerId != null &&
+        !customerId.startsWith('cust-');
+
+    if (isRealBackendGig && _questions.isNotEmpty) {
       setState(() {
         _isSubmitting = true;
         _errorMessage = null;
@@ -64,8 +72,8 @@ class _ReviewCustomerScreenState extends State<ReviewCustomerScreen> {
             .toList();
 
         await _reviewRepo.submitReview(
-          gigId: widget.job.gigId!,
-          revieweeId: widget.job.customerId!,
+          gigId: gigId,
+          revieweeId: customerId,
           answers: answerItems,
         );
 
@@ -79,7 +87,7 @@ class _ReviewCustomerScreenState extends State<ReviewCustomerScreen> {
             backgroundColor: AppColors.primary,
           ),
         );
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        WorkerMainScreen.switchTab(context, 2);
       } on ApiError catch (e) {
         if (!mounted) return;
         setState(() {
@@ -103,7 +111,7 @@ class _ReviewCustomerScreenState extends State<ReviewCustomerScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      WorkerMainScreen.switchTab(context, 2);
     }
   }
 

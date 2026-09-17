@@ -174,11 +174,12 @@ class WaitingConfirmationScreen extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () {
-                          Navigator.of(context).push(
+                          Navigator.of(context, rootNavigator: true).push(
                             MaterialPageRoute<void>(
                               builder: (_) => ChatScreen(
                                 title: job.customerName,
                                 subtitle: 'Customer · ${job.title}',
+                                gigId: job.gigId,
                               ),
                             ),
                           );

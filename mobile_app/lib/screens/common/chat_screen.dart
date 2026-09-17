@@ -26,6 +26,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _chatRepo = ChatRepository();
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   List<MessageDto> _messages = [];
   bool _isLoading = false;
@@ -35,25 +36,62 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.gigId != null) {
-      _loadMessages();
-    }
+    _loadMessages();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   Future<void> _loadMessages() async {
-    if (widget.gigId == null) return;
+    final gigId = widget.gigId;
+    final isRealBackendGig = gigId != null && !gigId.startsWith('job-');
+
+    if (!isRealBackendGig) {
+      if (_messages.isEmpty) {
+        final isWorker = TokenStorage.instance.currentUser?.role == 'worker';
+        setState(() {
+          _messages = [
+            MessageDto(
+              id: 'demo-msg-1',
+              conversationId: gigId ?? 'demo',
+              senderId: 'counterparty-id',
+              senderName: widget.title,
+              senderRole: isWorker ? 'customer' : 'worker',
+              messageText: isWorker
+                  ? 'Hello! Looking forward to having the job done. Let me know if you need any directions.'
+                  : 'Hello! I am on my way to the site now.',
+              isRead: true,
+              createdAt: DateTime.now().subtract(const Duration(minutes: 8)),
+            ),
+          ];
+        });
+        _scrollToBottom();
+      }
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final messagesResp = await _chatRepo.getMessages(widget.gigId!);
+      final messagesResp = await _chatRepo.getMessages(gigId);
       if (!mounted) return;
       setState(() {
         _messages = messagesResp.messages;
         _isLoading = false;
       });
+      _scrollToBottom();
     } on ApiError catch (e) {
       if (!mounted) return;
       setState(() {
@@ -73,21 +111,62 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty || _isSending) return;
 
-    if (widget.gigId == null) {
-      _controller.clear();
+    final gigId = widget.gigId;
+    final isRealBackendGig = gigId != null && !gigId.startsWith('job-');
+    final currentUser = TokenStorage.instance.currentUser;
+    final currentUserId = currentUser?.id ?? 'me';
+    final currentUserName = currentUser?.fullName ?? 'You';
+    final currentUserRole = currentUser?.role ?? 'worker';
+
+    if (!isRealBackendGig) {
+      final demoMsg = MessageDto(
+        id: 'msg-${DateTime.now().millisecondsSinceEpoch}',
+        conversationId: gigId ?? 'demo',
+        senderId: currentUserId,
+        senderName: currentUserName,
+        senderRole: currentUserRole,
+        messageText: text,
+        isRead: true,
+        createdAt: DateTime.now(),
+      );
+
+      setState(() {
+        _messages.add(demoMsg);
+        _controller.clear();
+      });
+      _scrollToBottom();
+
+      Future.delayed(const Duration(milliseconds: 900), () {
+        if (!mounted) return;
+        final replyMsg = MessageDto(
+          id: 'reply-${DateTime.now().millisecondsSinceEpoch}',
+          conversationId: gigId ?? 'demo',
+          senderId: 'counterparty-id',
+          senderName: widget.title,
+          senderRole: currentUserRole == 'worker' ? 'customer' : 'worker',
+          messageText: 'Got it, thank you for the update!',
+          isRead: true,
+          createdAt: DateTime.now(),
+        );
+        setState(() {
+          _messages.add(replyMsg);
+        });
+        _scrollToBottom();
+      });
       return;
     }
 
     setState(() => _isSending = true);
 
     try {
-      final msg = await _chatRepo.sendMessage(widget.gigId!, text);
+      final msg = await _chatRepo.sendMessage(gigId, text);
       if (!mounted) return;
       setState(() {
         _messages.add(msg);
         _controller.clear();
         _isSending = false;
       });
+      _scrollToBottom();
     } on ApiError catch (e) {
       if (!mounted) return;
       setState(() => _isSending = false);
@@ -106,6 +185,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -129,12 +209,11 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         actions: [
-          if (widget.gigId != null)
-            IconButton(
-              icon: const Icon(Icons.refresh_rounded),
-              onPressed: _loadMessages,
-              tooltip: 'Refresh messages',
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _loadMessages,
+            tooltip: 'Refresh messages',
+          ),
         ],
       ),
       body: Column(
@@ -170,11 +249,14 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                           )
                         : ListView.builder(
+                            controller: _scrollController,
                             padding: const EdgeInsets.all(16),
                             itemCount: _messages.length,
                             itemBuilder: (context, index) {
                               final msg = _messages[index];
-                              final isMe = msg.senderId == currentUserId;
+                              final isMe = msg.senderId == currentUserId ||
+                                  (currentUserId == null &&
+                                      msg.senderId != 'counterparty-id');
 
                               return Align(
                                 alignment: isMe

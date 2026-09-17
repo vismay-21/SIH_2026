@@ -79,3 +79,14 @@ class GigResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class GigScheduleUpdateRequest(BaseModel):
+    """Payload to directly update gig schedule prior to worker assignment."""
+
+    scheduled_date: date = Field(description="Scheduled date of service (YYYY-MM-DD)")
+    scheduled_start_time: Optional[time] = Field(default=None, description="Scheduled arrival start time (HH:MM:SS)")
+    scheduled_end_time: Optional[time] = Field(default=None, description="Scheduled end time (HH:MM:SS)")
+
+    model_config = ConfigDict(extra="ignore")
+

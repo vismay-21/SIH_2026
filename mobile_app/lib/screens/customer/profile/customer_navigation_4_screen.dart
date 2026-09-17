@@ -29,32 +29,75 @@ class CustomerNavigation4Screen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           SurfaceCard(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  child: Text(
-                    initial,
-                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text(
-                      fullName,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      child: Text(
+                        initial,
+                        style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Customer · Verified Account',
-                      style: TextStyle(color: AppColors.muted),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fullName,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Customer · Verified Account',
+                            style: TextStyle(color: AppColors.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                const Row(
+                  children: [
+                    Icon(Icons.phone_outlined, size: 18, color: AppColors.primary),
+                    SizedBox(width: 10),
+                    Text(
+                      'Registered Phone:',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
+                    Spacer(),
+                    Text(
+                      '+91 98765 43211',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Row(
+                  children: [
+                    Icon(Icons.emergency_outlined, size: 18, color: AppColors.danger),
+                    SizedBox(width: 10),
+                    Text(
+                      'SOS Emergency:',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
+                    Spacer(),
+                    Text(
+                      'Rajesh (+91 98765 43212)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        color: AppColors.danger,
+                      ),
                     ),
                   ],
                 ),

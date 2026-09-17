@@ -357,6 +357,24 @@ class GigCreateRequestDto {
   };
 }
 
+class GigScheduleUpdateRequestDto {
+  final String scheduledDate; // 'YYYY-MM-DD'
+  final String? scheduledStartTime; // 'HH:MM:SS'
+  final String? scheduledEndTime; // 'HH:MM:SS'
+
+  const GigScheduleUpdateRequestDto({
+    required this.scheduledDate,
+    this.scheduledStartTime,
+    this.scheduledEndTime,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'scheduled_date': scheduledDate,
+    if (scheduledStartTime != null) 'scheduled_start_time': scheduledStartTime,
+    if (scheduledEndTime != null) 'scheduled_end_time': scheduledEndTime,
+  };
+}
+
 class GigDto {
   final String id;
   final String customerId;
@@ -550,6 +568,7 @@ class OpportunityGigDto {
   final String? address;
   final double? latitude;
   final double? longitude;
+  final String? googleMapsLink;
   final String? scheduledDate;
   final String? scheduledStartTime;
   final String? scheduledEndTime;
@@ -569,6 +588,7 @@ class OpportunityGigDto {
     this.address,
     this.latitude,
     this.longitude,
+    this.googleMapsLink,
     this.scheduledDate,
     this.scheduledStartTime,
     this.scheduledEndTime,
@@ -580,6 +600,13 @@ class OpportunityGigDto {
   });
 
   factory OpportunityGigDto.fromJson(Map<String, dynamic> json) {
+    final lat = (json['latitude'] as num?)?.toDouble();
+    final lng = (json['longitude'] as num?)?.toDouble();
+    String? gLink = json['google_maps_link'] as String?;
+    if (gLink == null && lat != null && lng != null) {
+      gLink = 'https://www.google.com/maps/search/?api=1&query=${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}';
+    }
+
     return OpportunityGigDto(
       id: json['id'] as String,
       categoryId: json['category_id'] as String,
@@ -588,8 +615,9 @@ class OpportunityGigDto {
       description: json['description'] as String?,
       instructions: json['instructions'] as String?,
       address: json['address'] as String?,
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
+      latitude: lat,
+      longitude: lng,
+      googleMapsLink: gLink,
       scheduledDate: json['scheduled_date'] as String?,
       scheduledStartTime: json['scheduled_start_time'] as String?,
       scheduledEndTime: json['scheduled_end_time'] as String?,
@@ -664,6 +692,9 @@ class WorkerGigListItemDto {
   final String gigType;
   final String status;
   final String? address;
+  final double? latitude;
+  final double? longitude;
+  final String? googleMapsLink;
   final String? customerName;
   final String? scheduledDate;
   final String? scheduledStartTime;
@@ -681,6 +712,9 @@ class WorkerGigListItemDto {
     required this.gigType,
     required this.status,
     this.address,
+    this.latitude,
+    this.longitude,
+    this.googleMapsLink,
     this.customerName,
     this.scheduledDate,
     this.scheduledStartTime,
@@ -692,6 +726,13 @@ class WorkerGigListItemDto {
   });
 
   factory WorkerGigListItemDto.fromJson(Map<String, dynamic> json) {
+    final lat = (json['latitude'] as num?)?.toDouble();
+    final lng = (json['longitude'] as num?)?.toDouble();
+    String? gLink = json['google_maps_link'] as String?;
+    if (gLink == null && lat != null && lng != null) {
+      gLink = 'https://www.google.com/maps/search/?api=1&query=${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}';
+    }
+
     return WorkerGigListItemDto(
       id: json['id'] as String? ?? '',
       customerId: json['customer_id'] as String? ?? '',
@@ -700,6 +741,9 @@ class WorkerGigListItemDto {
       gigType: json['gig_type'] as String? ?? 'STANDARD',
       status: json['status'] as String? ?? 'POSTED',
       address: (json['address_line'] ?? json['address']) as String?,
+      latitude: lat,
+      longitude: lng,
+      googleMapsLink: gLink,
       customerName: json['customer_name'] as String?,
       scheduledDate: json['scheduled_date']?.toString(),
       scheduledStartTime: json['scheduled_start_time']?.toString(),
@@ -1337,3 +1381,152 @@ class NotificationReadAllDto {
     );
   }
 }
+
+// VISITATION WORKFLOW
+class VisitationProposalTaskItemDto {
+  final String id;
+  final String taskId;
+  final String taskName;
+  final int standardDurationMinutesSnapshot;
+  final double basePriceSnapshot;
+
+  const VisitationProposalTaskItemDto({
+    required this.id,
+    required this.taskId,
+    required this.taskName,
+    required this.standardDurationMinutesSnapshot,
+    required this.basePriceSnapshot,
+  });
+
+  factory VisitationProposalTaskItemDto.fromJson(Map<String, dynamic> json) {
+    return VisitationProposalTaskItemDto(
+      id: json['id'] as String,
+      taskId: json['task_id'] as String,
+      taskName: json['task_name'] as String,
+      standardDurationMinutesSnapshot:
+          (json['standard_duration_minutes_snapshot'] as num?)?.toInt() ?? 0,
+      basePriceSnapshot:
+          (json['base_price_snapshot'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class VisitationProposalDto {
+  final String id;
+  final String gigId;
+  final String workerId;
+  final double basePrice;
+  final String status;
+  final DateTime proposedAt;
+  final DateTime? customerRespondedAt;
+  final List<VisitationProposalTaskItemDto> tasks;
+
+  const VisitationProposalDto({
+    required this.id,
+    required this.gigId,
+    required this.workerId,
+    required this.basePrice,
+    required this.status,
+    required this.proposedAt,
+    this.customerRespondedAt,
+    required this.tasks,
+  });
+
+  factory VisitationProposalDto.fromJson(Map<String, dynamic> json) {
+    return VisitationProposalDto(
+      id: json['id'] as String,
+      gigId: json['gig_id'] as String,
+      workerId: json['worker_id'] as String,
+      basePrice: (json['base_price'] as num?)?.toDouble() ?? 0.0,
+      status: json['status'] as String,
+      proposedAt: DateTime.parse(json['proposed_at'] as String),
+      customerRespondedAt: json['customer_responded_at'] != null
+          ? DateTime.tryParse(json['customer_responded_at'] as String)
+          : null,
+      tasks: (json['tasks'] as List<dynamic>? ?? [])
+          .map((item) =>
+              VisitationProposalTaskItemDto.fromJson(item as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class VisitationResponseDto {
+  final String gigId;
+  final String gigType;
+  final double visitationFee;
+  final bool isVisitation;
+  final VisitationProposalDto? activeProposal;
+  final List<VisitationProposalDto> proposals;
+  final bool canPropose;
+  final bool canRespond;
+
+  const VisitationResponseDto({
+    required this.gigId,
+    required this.gigType,
+    required this.visitationFee,
+    required this.isVisitation,
+    this.activeProposal,
+    required this.proposals,
+    required this.canPropose,
+    required this.canRespond,
+  });
+
+  factory VisitationResponseDto.fromJson(Map<String, dynamic> json) {
+    return VisitationResponseDto(
+      gigId: json['gig_id'] as String,
+      gigType: json['gig_type'] as String? ?? 'NORMAL',
+      visitationFee: (json['visitation_fee'] as num?)?.toDouble() ?? 100.0,
+      isVisitation: (json['is_visitation'] as bool?) ?? false,
+      activeProposal: json['active_proposal'] != null
+          ? VisitationProposalDto.fromJson(
+              json['active_proposal'] as Map<String, dynamic>)
+          : null,
+      proposals: (json['proposals'] as List<dynamic>? ?? [])
+          .map((item) =>
+              VisitationProposalDto.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      canPropose: (json['can_propose'] as bool?) ?? false,
+      canRespond: (json['can_respond'] as bool?) ?? false,
+    );
+  }
+}
+
+class GigCancelResponseDto {
+  final String gigId;
+  final String status;
+  final String cancelledBy;
+  final String cancellationReason;
+  final double feeAmount;
+  final String cancelledAt;
+  final String? paymentStatus;
+  final bool paymentRequired;
+  final String cancellationId;
+
+  const GigCancelResponseDto({
+    required this.gigId,
+    required this.status,
+    required this.cancelledBy,
+    required this.cancellationReason,
+    required this.feeAmount,
+    required this.cancelledAt,
+    this.paymentStatus,
+    this.paymentRequired = false,
+    required this.cancellationId,
+  });
+
+  factory GigCancelResponseDto.fromJson(Map<String, dynamic> json) {
+    return GigCancelResponseDto(
+      gigId: json['gig_id'] as String,
+      status: json['status'] as String,
+      cancelledBy: json['cancelled_by'] as String,
+      cancellationReason: json['cancellation_reason'] as String? ?? '',
+      feeAmount: (json['fee_amount'] as num?)?.toDouble() ?? 0.0,
+      cancelledAt: json['cancelled_at'] as String? ?? '',
+      paymentStatus: json['payment_status'] as String?,
+      paymentRequired: json['payment_required'] as bool? ?? false,
+      cancellationId: json['cancellation_id'] as String? ?? '',
+    );
+  }
+}
+

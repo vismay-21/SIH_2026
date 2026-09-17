@@ -62,6 +62,23 @@ void main() {
       }
 
       if (path.contains('/worker/opportunities')) {
+        final statusQuery = options.queryParameters['status'] as String?;
+        if (statusQuery == 'ACCEPTED') {
+          return Response<dynamic>(
+            requestOptions: options,
+            statusCode: 200,
+            data: {
+              'status': 'success',
+              'data': {
+                'items': [],
+                'total': 0,
+                'page': 1,
+                'page_size': 20,
+                'pages': 0,
+              },
+            },
+          );
+        }
         return Response<dynamic>(
           requestOptions: options,
           statusCode: 200,
@@ -126,6 +143,34 @@ void main() {
               'page': 1,
               'page_size': 20,
               'pages': 0,
+            },
+          },
+        );
+      }
+
+      if (path.contains('/gigs/')) {
+        return Response<dynamic>(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'status': 'success',
+            'data': {
+              'id': 'gig-123',
+              'customer_id': 'demo-customer-1',
+              'category_id': 'cat-plumbing',
+              'category_name': 'Plumbing',
+              'gig_type': 'STANDARD',
+              'status': 'OPEN',
+              'scheduled_date': 'Today',
+              'scheduled_start_time': '4:00 PM',
+              'expected_duration_minutes': 120,
+              'material_procurement_mode': 'CUSTOMER_PURCHASES',
+              'is_emergency': false,
+              'tasks': [],
+              'selected_worker_id': null,
+              'bids_count': 1,
+              'created_at': '2026-09-10T10:00:00Z',
+              'updated_at': '2026-09-10T10:00:00Z',
             },
           },
         );
@@ -331,6 +376,8 @@ void main() {
 
     // 2. Check Settings Navigation
     expect(find.text('Settings'), findsOneWidget);
+    await tester.ensureVisible(find.text('Settings'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
 

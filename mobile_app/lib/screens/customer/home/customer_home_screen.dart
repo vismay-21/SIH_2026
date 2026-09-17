@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/customer_gig_workflow.dart';
-import '../../../repositories/gig_repository.dart';
+import '../../../providers/customer_gigs_provider.dart';
 import '../../../services/token_storage.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
@@ -10,53 +11,14 @@ import '../customer_main_screen.dart';
 import '../profile/customer_account_screens.dart';
 import 'create_gig_screen.dart';
 
-class CustomerHomeScreen extends StatefulWidget {
+class CustomerHomeScreen extends ConsumerStatefulWidget {
   const CustomerHomeScreen({super.key});
 
   @override
-  State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
+  ConsumerState<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
 }
 
-class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
-  final _gigRepo = GigRepository();
-  List<CustomerGig> _gigs = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    try {
-      final paginated = await _gigRepo.getCustomerGigs(pageSize: 50);
-      final mapped = await Future.wait(paginated.data.map((dto) async {
-        List<GigCandidate> candidates = [];
-        final status = dto.status.toUpperCase();
-        if (dto.selectedWorkerId == null &&
-            status != 'COMPLETED' &&
-            status != 'CANCELLED') {
-          try {
-            final cDtos = await _gigRepo.getCandidates(dto.id);
-            candidates = cDtos.map(GigCandidate.fromDto).toList();
-          } catch (_) {}
-        }
-        return CustomerGig.fromDto(dto, candidates: candidates);
-      }));
-
-      if (!mounted) return;
-      setState(() {
-        _gigs = mapped;
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-    }
-  }
-
+class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = TokenStorage.instance.currentUser;
@@ -64,45 +26,32 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         ? user.fullName!.trim().split(' ').first
         : 'Customer';
 
-    final activeGigs = _gigs.where((g) {
-      final isCompleted = g.stage == GigStage.completed ||
-          g.rawStatus == 'COMPLETED' ||
-          g.rawStatus == 'PAYMENT_WORKER_CONFIRMED' ||
-          g.rawStatus == 'GIG_COMPLETED';
-      return !isCompleted && g.rawStatus != 'CANCELLED';
-    }).toList();
-    final activeCount = activeGigs.length;
+    final gigsState = ref.watch(customerGigsProvider);
+    final activeGigs = gigsState.activeGigs;
+    final activeCount = gigsState.activeCount;
+    final isLoading = gigsState.isLoading && gigsState.allGigs.isEmpty;
 
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: _loadData,
+        onRefresh: () => ref.read(customerGigsProvider.notifier).loadGigs(),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
           children: [
             // Top Header with Dynamic Name
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Good morning,',
-                      style: TextStyle(color: AppColors.muted),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      displayName,
-                      style: const TextStyle(
-                        fontSize: 27,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
+                const Text(
+                  'Good morning,',
+                  style: TextStyle(color: AppColors.muted),
                 ),
-                IconButton(
-                  onPressed: () => CustomerMainScreen.switchTab(context, 2),
-                  icon: const Icon(Icons.notifications_none_rounded, size: 27),
+                const SizedBox(height: 3),
+                Text(
+                  displayName,
+                  style: const TextStyle(
+                    fontSize: 27,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ],
             ),
@@ -140,7 +89,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             MaterialPageRoute<void>(
                               builder: (_) => const CreateGigScreen(),
                             ),
-                          ).then((_) => _loadData()),
+                          ).then((_) => ref.read(customerGigsProvider.notifier).loadGigs()),
                           icon: const Icon(Icons.add, size: 18),
                           label: const Text('Create a gig'),
                           style: FilledButton.styleFrom(
@@ -204,14 +153,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             const SizedBox(height: 8),
 
             // Real Gigs List or Clean Empty State
-            if (_isLoading && _gigs.isEmpty)
+            if (isLoading)
               const Column(
                 children: [
                   GigCardSkeleton(),
                   GigCardSkeleton(),
                 ],
               )
-            else if (activeGigs.isEmpty && !_isLoading)
+            else if (activeGigs.isEmpty && !isLoading)
               SurfaceCard(
                 padding: const EdgeInsets.symmetric(
                   vertical: 32,
@@ -249,7 +198,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _GigCard(
                     gig: gig,
-                    onRefresh: _loadData,
+                    onRefresh: () =>
+                        ref.read(customerGigsProvider.notifier).loadGigs(),
                   ),
                 ),
               ),

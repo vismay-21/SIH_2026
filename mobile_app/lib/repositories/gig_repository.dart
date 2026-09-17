@@ -138,4 +138,114 @@ class GigRepository {
 
     return apiResponse.data;
   }
+
+  /// Retrieves visitation inspection state, fees, and proposals.
+  Future<VisitationResponseDto> getVisitationDetails(String gigId) async {
+    final response = await _client.get('/gigs/$gigId/visitation');
+
+    final apiResponse = ApiResponse<VisitationResponseDto>.fromJson(
+      response.data as Map<String, dynamic>,
+      (data) => VisitationResponseDto.fromJson(data as Map<String, dynamic>),
+    );
+
+    return apiResponse.data;
+  }
+
+  /// Worker submits task proposal following on-site visitation inspection.
+  Future<VisitationProposalDto> submitVisitationProposal({
+    required String gigId,
+    required List<String> taskIds,
+  }) async {
+    final response = await _client.post(
+      '/gigs/$gigId/visitation/proposals',
+      data: {'task_ids': taskIds},
+    );
+
+    final apiResponse = ApiResponse<VisitationProposalDto>.fromJson(
+      response.data as Map<String, dynamic>,
+      (data) => VisitationProposalDto.fromJson(data as Map<String, dynamic>),
+    );
+
+    return apiResponse.data;
+  }
+
+  /// Customer accepts worker's proposed task scope.
+  Future<VisitationProposalDto> acceptVisitationProposal({
+    required String gigId,
+    required String proposalId,
+  }) async {
+    final response = await _client.post(
+      '/gigs/$gigId/visitation/proposals/$proposalId/accept',
+    );
+
+    final apiResponse = ApiResponse<VisitationProposalDto>.fromJson(
+      response.data as Map<String, dynamic>,
+      (data) => VisitationProposalDto.fromJson(data as Map<String, dynamic>),
+    );
+
+    return apiResponse.data;
+  }
+
+  /// Customer rejects worker's proposed task scope.
+  Future<VisitationProposalDto> rejectVisitationProposal({
+    required String gigId,
+    required String proposalId,
+  }) async {
+    final response = await _client.post(
+      '/gigs/$gigId/visitation/proposals/$proposalId/reject',
+    );
+
+    final apiResponse = ApiResponse<VisitationProposalDto>.fromJson(
+      response.data as Map<String, dynamic>,
+      (data) => VisitationProposalDto.fromJson(data as Map<String, dynamic>),
+    );
+
+    return apiResponse.data;
+  }
+
+  /// Cancels an active gig before commencement.
+  Future<GigCancelResponseDto> cancelGig({
+    required String gigId,
+    required String reason,
+  }) async {
+    final response = await _client.post(
+      '/gigs/$gigId/cancel',
+      data: {'reason': reason},
+    );
+
+    final apiResponse = ApiResponse<GigCancelResponseDto>.fromJson(
+      response.data as Map<String, dynamic>,
+      (data) => GigCancelResponseDto.fromJson(data as Map<String, dynamic>),
+    );
+
+    return apiResponse.data;
+  }
+
+  /// Directly updates gig schedule before worker assignment.
+  Future<GigDto> updateGigSchedule({
+    required String gigId,
+    required String scheduledDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+  }) async {
+    final payload = GigScheduleUpdateRequestDto(
+      scheduledDate: scheduledDate,
+      scheduledStartTime: scheduledStartTime,
+      scheduledEndTime: scheduledEndTime,
+    );
+
+    final response = await _client.patch(
+      '/gigs/$gigId/schedule',
+      data: payload.toJson(),
+    );
+
+    final apiResponse = ApiResponse<GigDto>.fromJson(
+      response.data as Map<String, dynamic>,
+      (data) => GigDto.fromJson(data as Map<String, dynamic>),
+    );
+
+    return apiResponse.data;
+  }
 }
+
+

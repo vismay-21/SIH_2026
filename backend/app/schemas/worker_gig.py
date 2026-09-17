@@ -19,7 +19,11 @@ class WorkerGigListItem(BaseModel):
     customer_id: uuid.UUID
     customer_name: Optional[str] = None
     address_line: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    google_maps_link: Optional[str] = None
     emergency: bool = False
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+

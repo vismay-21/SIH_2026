@@ -2,441 +2,462 @@
 
 ## Current State
 
-Sahakaar Seva is a comprehensive Flutter frontend for a cooperative household-services marketplace. The app provides end-to-end, production-ready UI workflows for both Customer and Worker personas, styled authentication/registration flows, role dashboards, customer gig creation & lifecycle tracking, mutual in-app chat, alerts, multi-tier verification, rookie progression, and complete post-completion audit chains.
+Sahakaar Seva is a comprehensive, production-grade cooperative household-services marketplace engineered for the Smart India Hackathon (SIH 2026). The platform features an ultra-responsive Flutter mobile application (serving Customer and Worker personas) backed by a high-performance FastAPI/SQLAlchemy REST backend operating on PostgreSQL (Supabase session pooler in production / local PostgreSQL with sub-5ms latency over ADB reverse proxy in development).
 
-The implementation is frontend-only and uses Flutter's existing dependencies with zero third-party packages. Mock data models represent real cooperative gig lifecycles, transparent pricing, material bills, worker opportunities, schedule conflicts, multi-worker invitations, and structured evaluations per the System Requirements Specification (SRS).
+The system enforces strict cooperative principles: guaranteed algorithmic tariffs, zero worker bidding, zero platform commission on worker payouts, multi-tier guild verification, apprentice/rookie mentorship progression, structured objective two-way reviews with Bayesian scoring, authoritative cancellation state enforcement, itemized material receipt audits, and job-scoped real-time chat with mutual status tracking.
 
-Latest documented implementation: 2026-09-07, contributor Vismay.
+Latest documented implementation: 2026-09-15, contributors Vismay & Antigravity.
 
 ## Design System
 
-- Theme: Material 3 with centralized tokens in `mobile_app/lib/theme/app_theme.dart`.
-- Palette: primary cooperative green `#245B52`, dark green `#173B36`, amber `#E8B84A`, warm off-white `#F7F8F5`, white surfaces, dark text `#17211F`, muted text `#737C78`, border `#D8DDDA`, success `#3D8B68`, and danger `#C85C5C`.
-- Shared primitives: `BrandMark`, `SurfaceCard`, `SectionTitle`, `StatTile`, `StatusPill`, `PrimaryAction`, shared login layout, and shared registration layout in `mobile_app/lib/widgets/common/shared_widgets.dart`.
-- Action buttons: filled/elevated/outlined Material action buttons use the cooperative square white button treatment with black border, square corners, and hard black offset shadow (`boxShadow: [BoxShadow(color: Colors.black, offset: Offset(3, 3))]`).
-- Navigation Shells: Both `CustomerMainScreen` and `WorkerMainScreen` implement persistent bottom navigation using per-tab nested `Navigator` widgets inside an `IndexedStack`. Sub-screens push within the active tab's viewport, keeping the bottom `NavigationBar` permanently visible at all times.
+- **Theme**: Material 3 with centralized tokens in `mobile_app/lib/theme/app_theme.dart`.
+- **Palette**: Primary cooperative green `#245B52`, dark green `#173B36`, amber attention `#E8B84A`, warm off-white canvas `#F7F8F5`, surface white `#FFFFFF`, dark text `#17211F`, muted text `#737C78`, border `#D8DDDA`, success `#3D8B68`, and danger `#C85C5C`.
+- **Shimmer Loading**: Continuous horizontal linear gradient highlight sweeping left-to-right via `ShimmerEffect` in `skeleton_loaders.dart` (soft base `#E8ECE9` → bright highlight `#FFFFFF` → soft base `#E8ECE9`), replacing blank flashes and opacity pulsing during data fetches.
+- **Shared Primitives**: `BrandMark`, `SurfaceCard`, `SectionTitle`, `StatTile`, `StatusPill`, `PrimaryAction`, `AuthLoginLayout`, `AuthRegisterLayout` in `shared_widgets.dart`.
+- **Signature Action Buttons**: Cooperative square white button treatment with black border, square corners, and hard black offset shadow (`boxShadow: [BoxShadow(color: Colors.black, offset: Offset(3, 3))]`).
+- **Navigation Shells & Tab Switching**: Both `CustomerMainScreen` and `WorkerMainScreen` implement persistent bottom navigation using per-tab nested `Navigator` widgets inside an `IndexedStack`. Sub-screens push within the active tab's viewport, keeping the bottom `NavigationBar` permanently visible. Native tab switching is exposed via static methods `CustomerMainScreen.switchTab(context, index)` and `WorkerMainScreen.switchTab(context, index)`, preventing duplicate navigation bars or nested scaffolds.
+- **Fullscreen Overlays**: Screens that require full-screen focus (such as `ChatScreen`) are pushed via `Navigator.of(context, rootNavigator: true).push(...)` so they cleanly cover the entire viewport without bottom navigation bar interference.
+
+## State Management Architecture (Riverpod)
+
+The Flutter mobile application uses Flutter Riverpod (`flutter_riverpod: ^2.6.1`) for unified, reactive, single-source-of-truth state management across both personas:
+
+1. **Customer State (`customerGigsProvider`)**:
+   - Manages `CustomerGigsState` with computed getters: `activeGigs`, `completedGigs`, `activeNow` (seeking/in-progress), `upcoming` (scheduled), `allGigs`, and `activeCount`.
+   - `CustomerHomeScreen`: Watches `customerGigsProvider` to reactively render the active gigs list, empty states, and dynamic header badge count.
+   - `CustomerNavigation2Screen` (My Gigs): Directly binds the `Active`, `Upcoming`, and `Completed` tabs to `gigsState.activeNow`, `gigsState.upcoming`, and `gigsState.completedGigs`, eliminating duplicate network calls and custom polling timers.
+   - `CustomerNavigation3Screen` (Alerts): Derives action notifications and candidate alerts directly from `gigsState.allGigs` with zero extra API overhead.
+   - **Cross-Screen Mutations**: Gig creation (`LabourPricePreviewScreen`), cancellation (`CancelGigScreen`), and rescheduling (`RescheduleGigScreen`) automatically trigger provider invalidation/reloads, updating all customer tabs instantaneously without manual refresh.
+
+2. **Worker State (`workerOpportunitiesProvider` & `workerJobsProvider`)**:
+   - `WorkerHomeScreen`: Watches `workerJobsProvider` for active job workspace entry and `workerOpportunitiesProvider` for new dispatch opportunities.
+   - `WorkerNavigation2Screen` (Opportunities): Shares the cached `workerOpportunitiesProvider`, enabling instant, zero-flicker tab switching and reactive filtering ("All", "Emergency", "Conflicts").
+   - `WorkerNavigation3Screen` (My Jobs): Watches `workerJobsProvider` to separate active and completed jobs.
+
+3. **Real-Time Job Sync (`activeGigSyncProvider`)**:
+   - Auto-disposed stream family provider (`activeGigSyncProvider(gigId)`) that streams status transitions in real time during job execution and safely tears down timers when the user leaves the screen.
 
 ## Implemented User Flows
 
-### App entry and roles
+### App Entry & Authentication Flow
 
 ```text
-Splash
-  -> Role Selection
-     -> Customer Login -> Customer Main (Persistent Bottom Nav)
-        -> Home | My Gigs | Alerts | Profile
-     -> Worker Login -> Worker Main (Persistent Bottom Nav)
-        -> Home | Opportunities | My Jobs | Profile
+SplashScreen [Animated cooperative splash & mission statement]
+  └── RoleSelectionScreen [Select between Customer and Worker portals]
+        ├── CustomerLoginScreen [Customer portal login; clears root stack via pushAndRemoveUntil]
+        │     └── CustomerMainScreen (Persistent Bottom Nav: Home | My Gigs | Alerts | Profile)
+        └── WorkerLoginScreen [Worker guild login; clears root stack via pushAndRemoveUntil]
+              └── WorkerMainScreen (Persistent Bottom Nav: Home | Opportunities | My Jobs | Profile)
 ```
 
-Login and registration actions are demo navigation, not real authentication.
+Both login screens purge pre-auth routes from the root stack upon authentication (`pushAndRemoveUntil(..., (route) => false)`), guaranteeing that popping routes inside the app will never unintentionally reveal the login or role selection screen.
 
-### Customer gig creation & management
+### Customer Gig Creation & Management
 
-- Gig details form with category dropdown, site visit first toggle directly below category, collapsible task selector with real-time keyword search (height constrained with scrollbar and chip preview when collapsed), merged optional work details & instructions field, location, date/time pickers, emergency toggle, photo uploads, and materials procurement choice.
-- Site Visit First Option (Fixed ₹100 Charge): Positioned immediately below category selection in `CreateGigScreen`, enabling customers to request an on-site scope inspection by a verified worker before committing, creating a `VISITATION` gig with a ₹100 line item.
-- Task Search & Selection: Collapsible card with instant search filtering (e.g. typing "tap" displays matching tap repair tasks), clean checkboxes showing only task names without raw rates, and compact summary chip display when collapsed.
-- Material choice: Customer purchases materials vs Worker purchases materials. Labour is shown separately from materials (`₹550 – ₹800` cooperative example range or ₹100 site visit charge).
-- Simplified Inputs: Merged "What needs to be done?" and "Additional instructions" into a single optional field. Removed expected duration dropdown to eliminate unnecessary steps.
-- Fallback tipping incentive (SRS 18.1): When a posted gig has no accepting workers, `GigDetailsScreen` displays a fallback banner allowing the customer to add a voluntary tip incentive (100% direct worker payout) and re-notify nearby workers.
-- Customer Gig Details (`GigDetailsScreen`): Compact, single-viewport layout featuring a horizontal 4-step progress tracker (`Accepted` | `In Progress` | `Evidence` | `Payment`) matching the worker side, quick action buttons (`[ Candidates / Workspace ]`, `[ Material Bill ]`, `[ Reschedule ]`), dynamic context card (prominent accepted candidates banner with count, or assigned worker card with call/chat, or broadcast radar), and location/notes card. Auto-refreshes candidate status on load and supports pull-to-refresh.
-- Candidate Visibility: `CustomerNavigation2Screen` queries live candidates via `/gigs/{gig_id}/candidates` for active gigs, badges the list tile with `"X accepted"`, and promotes the workflow stage to `GigStage.accepted`.
-- Sub-screens: `AcceptedCandidatesScreen`, `WaitingForCandidatesScreen`, `ReviewWorkerScreen` (structured 3–4 MCQs), `CancelGigScreen`, `RescheduleGigScreen`, `EmergencyTipScreen`, `PaymentScreen`, and `MaterialBillViewerScreen`.
+```text
+Customer Home Dashboard
+  └── "+ Create a gig" Action
+        ├── Step 1: CreateGigScreen [Service category, ₹100 site visit toggle, collapsible task search, instructions]
+        ├── Step 2: MaterialProcurementScreen [Customer purchases vs Worker purchases materials]
+        └── Step 3: LabourPricePreviewScreen [Algorithmic wage breakdown, deposit preview, gig confirmation]
+              └── Pop to Tab 0 Root -> CustomerHomeScreen (Gigs list reloads automatically)
+```
 
-### Worker opportunities & acceptance workflow
+- **Site Visit First Option (Fixed ₹100 Charge)**: Positioned directly below category selection in `CreateGigScreen`, enabling customers to request an on-site scope inspection by a verified worker before committing, creating a `VISITATION` gig with a ₹100 line item.
+- **Collapsible Task Search**: Searchable task catalog with instant query filtering, clean checkboxes showing only task names without raw rates, and compact summary chip display when collapsed.
+- **Dynamic Price Display**: Shows transparent price range before worker selection (`₹min – ₹max`), locking to the exact guaranteed wage once a worker is assigned.
+- **Emergency Tipping Fallback (SRS 18.1)**: When a posted gig awaits accepting workers, `GigDetailsScreen` displays a fallback banner allowing the customer to add a voluntary tip incentive (100% direct worker payout) and re-notify nearby workers.
+- **Customer Gig Details (`GigDetailsScreen`)**: Single-viewport hub featuring a horizontal 4-step progress tracker (`Accepted` | `In Progress` | `Evidence` | `Payment`), quick action buttons, live candidate count banner, assigned worker contact card, and location notes.
+- **Dynamic Quick Actions & Redundancy Removal**: 
+  - Before a worker is assigned (`!hasWorker`), only two quick action buttons are shown: `[Reschedule]` and `[Cancel Gig]`. The `[Material Bill]` button is hidden until a worker has been selected/assigned.
+  - The redundant bottom full-width `Cancel Gig Request` bar has been removed to eliminate duplication with the `Cancel Gig` quick action.
+- **Explicit Date & Time Display**: Both customer and worker interfaces now showcase live, formatted date and start time (`scheduleDisplay`, e.g., "17 Sep 2026, 11:00 AM" or "Today, 11:00 AM") fetched directly from the database rather than generic "As arranged".
+- **Pre-Worker Direct Rescheduling**: 
+  - Prior to worker assignment, `RescheduleGigScreen` presents a direct schedule update mode (`[Update Gig Schedule]`) that atomically updates `scheduled_date` and `scheduled_start_time` in PostgreSQL via `PATCH /api/v1/gigs/{gig_id}/schedule`.
+  - Only after a worker is assigned does it switch to the multi-party negotiation mode (`[Send reschedule request]`) with worker confirmation notices.
+- **Live Worker Opportunity Date & Time Synchronization**:
+  - `OpportunityDetailsScreen` is a reactive stateful screen that fetches fresh gig information from the database upon entry, with pull-to-refresh and AppBar refresh support.
+  - Workers always see the up-to-date customer-rescheduled date and time directly in the "Timing & Duration" card.
+- **SOS Emergency Dialing & Direct Calling**: In-progress gigs provide an SOS emergency dialog directly triggering native telephone dialer (`tel:112` / `tel:100` / guild dispatch). Both customer and worker profiles feature direct dialer launch buttons (`tel:...`) beside the message button.
+- **Mandatory Inline Review on Payment**: `PaymentScreen` embeds 5-star rating, compliment tags, and feedback note directly on the screen with a single `"Submit Review & Return Home"` button.
+- **Full-Stack Gig Cancellation**: `CancelGigScreen` invokes `POST /api/v1/gigs/{gig_id}/cancel`, atomically transitioning the gig to `CANCELLED` and expiring opportunities on the backend while instantly dropping the gig from both customer and worker active views.
+
+### Worker Opportunities & Acceptance Workflow
 
 ```text
 Worker Home / Opportunities Tab
-  -> Opportunity Details Screen
-     -> Fixed Guaranteed Wage (No worker bidding per SRS)
-     -> Distance, location, instructions, material preference
-     -> Conflict Detection Check (SRS 10.3)
-        -> [If schedule conflict] Conflict Warning Dialog (SRS 10.3)
-     -> Accept Gig
-        -> Status: Awaiting Customer Selection
-        -> Active Job Workspace (Waiting Banner + "Waiting for Customer to Accept You · Check Status")
-        -> [Customer Selects Worker via API] -> Status: Accepted / Scheduled
-        -> "Arrived & Start Work" Unlocks
+  └── OpportunityDetailsScreen [Guaranteed fixed wage, live DB date/time, distance, conflict warning check]
+        ├── ConflictWarningDialog [Alert modal when opportunity overlaps existing commitments]
+        └── Accept Gig
+              └── Status: Awaiting Customer Selection
+                    └── WorkerActiveJobScreen (Awaiting Banner + "Check Status")
+                          └── [Customer Selects Worker] -> Status: Accepted / Scheduled
+                                └── "Arrived & Start Work" Unlocks
 ```
 
-- Worker opportunities list with filters: "All", "Emergency", "Conflicts", populated from live API endpoints without dummy fallback data.
-- Exact guaranteed cooperative wage shown before acceptance; worker bidding is strictly prohibited to eliminate predatory undercutting.
-- Conflict Detection (SRS 10.3): Opportunities that overlap with existing jobs or off-duty hours trigger `ConflictWarningDialog`.
-- True Cooperative Acceptance Lifecycle: When a worker accepts an opportunity, they enter `WorkerJobStatus.awaitingSelection` ("Waiting for Customer to Accept You"). Work start is withheld until the customer confirms them from the candidate pool, at which point "Arrived & Start Work" unlocks.
-- Real-time Check Status: Workers can tap "Check Status" to verify if the customer has chosen them. Quick operations (co-worker invitations, material bills) are disabled during this awaiting window.
-- Zero Dummy Data: Customer and worker feeds query real repository data (`GigRepository`, `WorkerRepository`) and display clean, empty state designs when no active records exist.
-- Dynamic Profile Names: Customer and Worker greetings and profile screens derive user names from `TokenStorage.instance.currentUser` (from login/registration).
-- Customer Home Dashboard: Replaced hardcoded "Bhagya", removed separate "Accepted workers" and "Cooperative area" stat tiles, and merged the Active Gigs badge/counter beside "+ Create a gig".
+- **Guaranteed Wage & Real Schedule Visibility**: Exact cooperative wage and live database date/time displayed before acceptance; worker bidding is strictly prohibited to prevent predatory undercutting.
+- **Filterable Opportunities Feed**: `WorkerNavigation2Screen` filters by "All", "Emergency", and "Conflicts", automatically hiding already-responded or cancelled gigs.
+- **Schedule Conflict Detection (SRS 10.3)**: Overlapping commitments trigger `ConflictWarningDialog` informing the worker of conflicts prior to acceptance.
+- **True Cooperative Acceptance Lifecycle**: Accepting an opportunity places the worker in `WorkerJobStatus.awaitingSelection`. Physical work execution is locked until the customer confirms the assignment.
 
-### Worker active job execution & audit chain
+### Worker Active Job Execution & Audit Chain
 
 ```text
-Worker Active Job Workspace
-  ├── Invite Co-Worker (SRS 16.2) -> MultiWorkerInviteScreen (Rookie vs Equal Sharing)
-  ├── Material Bill (SRS 7.2) -> MaterialBillUploadScreen (Itemized receipts)
-  ├── Reschedule / Cancel (SRS 21) -> WorkerCancelRescheduleScreen
-  ├── Chat -> Common ChatScreen
+Worker Active Job Workspace [worker_active_job_screen.dart]
+  ├── Customer Contact Card [Phone call & full-screen ChatScreen]
+  ├── MultiWorkerInviteScreen [Invite colleague: Equal Sharing (50/50) vs Rookie Mentorship (0.5 credit)]
+  ├── MaterialBillUploadScreen [Itemized receipts & photo audit uploads]
+  ├── WorkerCancelRescheduleScreen [Cancellation or reschedule negotiation]
   └── Job Progression Lifecycle:
         [Accepted / Scheduled] -> "Arrived & Start Work"
         -> [In Progress] -> "Complete Work & Submit Evidence" (SRS 19)
-        -> CompletionEvidenceUploadScreen (Photo proof + work notes)
-        -> WaitingConfirmationScreen (Awaiting customer review)
-        -> WorkerPaymentConfirmationScreen (SRS 19.1: UPI Direct / Cash in Hand)
-        -> ReviewCustomerScreen (SRS 20: Structured 3–4 MCQs)
-        -> Return to My Jobs (Completed)
+        -> CompletionEvidenceUploadScreen [Work completion photo proof + notes]
+        -> WaitingConfirmationScreen [Awaiting customer review & payment approval]
+        -> WorkerPaymentConfirmationScreen [UPI Direct / Cash in Hand confirmation]
+        -> ReviewCustomerScreen [Structured 3–4 MCQ review for customer]
+        -> WorkerMainScreen.switchTab(context, 2) [Clean return to "My Jobs" with completed status]
 ```
 
-- Multi-Worker Collaboration (SRS 16): Lead technicians can invite verified colleagues as either "Equal Sharing" (50/50 split) or "Rookie Mentorship" (0.5 job credits).
-- Incoming Join Requests (SRS 16.1): Invited workers inspect join invitations, role classification, and inviter notes on `IncomingJoinRequestScreen`.
-- Rookie Progression (SRS 15.2): Apprentices track their progression towards full independent certification (0.5 credit per shadowed gig, mentor ratings & feedback notes) on `RookieProgressionScreen`.
-- Material Cost Transparency (SRS 7.2): Itemized material entry with receipts attached on `MaterialBillUploadScreen`.
-- Completion Evidence (SRS 19): Photo proof of completed work and cleaned work area with audit trail on `CompletionEvidenceUploadScreen`.
-- Customer Evaluation (SRS 20): Objective 3–4 MCQ ratings on `ReviewCustomerScreen` covering area safety, job description accuracy, and communication.
+- **Multi-Worker Collaboration (SRS 16)**: Lead technicians can invite verified colleagues as either "Equal Sharing" (50/50 split) or "Rookie Mentorship" (0.5 apprentice credits).
+- **Rookie Progression Tracker (SRS 15.2)**: Apprentices monitor shadowed gig credits and mentor evaluations towards full guild certification on `RookieProgressionScreen`.
+- **Completion Evidence (SRS 19)**: Mandatory photo evidence of finished work and cleaned work areas before payment settlement.
+- **Review Submission Stack Resolution**: Submitting a customer evaluation smoothly transitions back to the "My Jobs" tab (`WorkerMainScreen.switchTab(context, 2)`) with zero backstack leaks.
 
-### Worker profile & weekly availability
-
-- Weekly Availability Scheduler (SRS 10.1): Mon–Sun recurring schedule editor with day-by-day availability toggles, start/end time pickers, and presets ("Mon–Fri Standard", "All 7 Days", "Weekend Only") on `WorkerAvailabilityScreen`.
-- Multi-Tier Verification (SRS 22): Tier 1 (Aadhaar KYC), Tier 2 (Trade Guild Assessment), Tier 3 (Cooperative Society Shareholder), and Tier 4 (Police Antecedents) on `WorkerVerificationScreen`.
-- Cooperative Tariff Guidelines modal detailing base guild tariffs, emergency floors, and zero platform deductions.
-
-### Shared common screens
+### Shared Common Screens
 
 - `screens/common/splash_screen.dart`: Animated onboarding splash.
 - `screens/common/role_selection_screen.dart`: Customer vs Worker portal selection.
 - `screens/common/forgot_password_screen.dart`: Mobile OTP recovery and password reset flow.
-- `screens/common/chat_screen.dart`: Shared bidirectional messaging screen between customer and worker.
+- `screens/common/chat_screen.dart`: Shared bidirectional messaging screen with backend API delivery, demo simulation, and auto-scroll.
 - `screens/common/notifications_screen.dart`: Shared cooperative notifications list.
-- `screens/common/settings_screen.dart`: Shared settings screen accessible from both Customer and Worker profiles, featuring Dark Mode toggle, embedded multilingual ChoiceChips (English, Kannada, Hindi, Tamil, Telugu), notification controls, biometric lock, and cooperative data privacy pledge.
-- `screens/common/about_help_screen.dart`: Shared Help & Support screen with Cooperative Society Charter, guild FAQs, toll-free helpline, and WhatsApp helpdesk.
+- `screens/common/settings_screen.dart`: Settings screen featuring Dark Mode toggle, multilingual choice chips, notification controls, and data privacy pledge.
+- `screens/common/about_help_screen.dart`: Cooperative Society Charter, guild FAQs, toll-free helpline, and WhatsApp helpdesk.
 - `screens/common/no_internet_screen.dart`: Offline network status screen with cached mode details and retry connectivity action.
 
 ## Current Source Structure
 
 ```text
-SIH_2026/
-├── context.md
-├── history.md
-├── README.md
-├── backend/
-│   ├── alembic/
-│   │   ├── env.py
-│   │   ├── script.py.mako
-│   │   └── versions/
-│   │       ├── 7c590bb021a2_initial_foundation.py
-│   │       └── e29d3f46feb9_sprint_1_mvp_schema.py
-│   ├── alembic.ini
-│   ├── requirements.txt
-│   ├── .env.example
-│   ├── .env
-│   ├── .gitignore
-│   └── app/
-│       ├── __init__.py
-│       ├── main.py
-│       ├── core/
-│       │   ├── config.py
-│       │   ├── logging.py
-│       │   ├── security.py
-│       │   └── exceptions.py
-│       ├── db/
-│       │   ├── base.py
-│       │   ├── session.py
-│       │   └── models/
-│       │       ├── __init__.py
-│       │       ├── enums.py
-│       │       ├── cooperative.py
-│       │       ├── user.py
-│       │       ├── service.py
-│       │       ├── gig.py
-│       │       ├── experience.py
-│       │       ├── review.py
-│       │       ├── completion.py
-│       │       ├── payment.py
-│       │       ├── multi_worker.py
-│       │       ├── visitation.py
-│       │       ├── cancellation.py
-│       │       └── communication.py
-│       ├── api/
-│       │   └── v1/
-│       │       ├── router.py
-│       │       └── endpoints/
-│       │           ├── health.py
-│       │           ├── me.py
-│       │           ├── customer.py
-│       │           └── worker.py
-│       ├── schemas/
-│       │   ├── common.py
-│       │   ├── user.py
-│       │   └── worker.py
-│       ├── repositories/
-│       ├── services/
-│       │   ├── user_service.py
-│       │   ├── worker_service.py
-│       │   └── score_service.py
-│       └── tests/
-│           ├── conftest.py
-│           ├── test_config.py
-│           ├── test_health.py
-│           ├── test_models.py
-│           ├── test_verification.py
-│           ├── test_auth_and_profiles.py
-│           └── test_sprint2_verification.py
-├── docs/
-│   ├── 04_DATABASE_DESIGN.md
-│   ├── 05_API_DESIGN.md
-│   ├── 06_BACKEND_SPRINTS.md
-│   ├── ALGORITHM_RECOMMENDATION_DEVELOPMENT_ROADMAP.md
-│   ├── FRONTEND_DESIGN_SYSTEM.md
-│   ├── FRONTEND_DEVELOPMENT_ROADMAP.md
-│   ├── SRS_Final.md
-│   ├── WAGES.md
-│   └── .gitkeep
-└── mobile_app/
-    ├── pubspec.yaml
-    ├── pubspec.lock
-    ├── analysis_options.yaml
-    ├── .gitignore
-    ├── lib/
-    │   ├── main.dart
-    │   ├── localization/
-    │   │   └── .gitkeep
-    │   ├── models/
-    │   │   ├── api/
-    │   │   │   ├── api_response.dart
-    │   │   │   └── api_models.dart
-    │   │   ├── gig_draft.dart
-    │   │   ├── customer_gig_workflow.dart
-    │   │   └── worker_job_workflow.dart
-    │   ├── providers/
-    │   │   └── .gitkeep
-    │   ├── repositories/
-    │   │   ├── auth_repository.dart
-    │   │   ├── catalogue_repository.dart
-    │   │   ├── gig_repository.dart
-    │   │   ├── worker_repository.dart
-    │   │   ├── payment_repository.dart
-    │   │   ├── review_repository.dart
-    │   │   ├── chat_repository.dart
-    │   │   └── notification_repository.dart
-    │   ├── services/
-    │   │   ├── api_client.dart
-    │   │   └── token_storage.dart
-    │   ├── theme/
-    │   │   ├── .gitkeep
-    │   │   └── app_theme.dart
-    │   ├── widgets/common/
-    │   │   ├── .gitkeep
-    │   │   └── shared_widgets.dart
-    │   └── screens/
-    │       ├── common/
-    │       │   ├── .gitkeep
-    │       │   ├── splash_screen.dart
-    │       │   ├── role_selection_screen.dart
-    │       │   ├── forgot_password_screen.dart
-    │       │   ├── chat_screen.dart
-    │       │   ├── notifications_screen.dart
-    │       │   ├── settings_screen.dart
-    │       │   ├── about_help_screen.dart
-    │       │   └── no_internet_screen.dart
-    │       ├── customer/
-    │       │   ├── .gitkeep
-    │       │   ├── customer_login_screen.dart
-    │       │   ├── customer_register_screen.dart
-    │       │   ├── customer_main_screen.dart
-    │       │   ├── home/
-    │       │   │   ├── customer_home_screen.dart
-    │       │   │   ├── create_gig_screen.dart
-    │       │   │   ├── material_procurement_screen.dart
-    │       │   │   ├── labour_price_preview_screen.dart
-    │       │   │   └── emergency_tip_screen.dart
-    │       │   ├── my_jobs/
-    │       │   │   ├── customer_navigation_2_screen.dart
-    │       │   │   ├── gig_details_screen.dart
-    │       │   │   ├── waiting_for_candidates_screen.dart
-    │       │   │   ├── review_worker_screen.dart
-    │       │   │   ├── cancel_gig_screen.dart
-    │       │   │   ├── reschedule_gig_screen.dart
-    │       │   │   ├── customer_workflow_screens.dart
-    │       │   │   ├── accepted_candidates_screen.dart
-    │       │   │   ├── worker_comparison_screen.dart
-    │       │   │   ├── worker_profile_screen.dart
-    │       │   │   ├── final_worker_selected_screen.dart
-    │       │   │   ├── previous_worker_request_screen.dart
-    │       │   │   ├── active_job_screen.dart
-    │       │   │   ├── completion_evidence_review_screen.dart
-    │       │   │   ├── completion_confirmation_screen.dart
-    │       │   │   ├── payment_screen.dart
-    │       │   │   └── material_bill_viewer_screen.dart
-    │       │   ├── alerts/
-    │       │   │   └── customer_navigation_3_screen.dart
-    │       │   └── profile/
-    │       │       ├── customer_navigation_4_screen.dart
-    │       │       └── customer_account_screens.dart
-    │       └── worker/
-    │           ├── .gitkeep
-    │           ├── worker_login_screen.dart
-    │           ├── worker_register_screen.dart
-    │           ├── worker_main_screen.dart
-    │           ├── home/
-    │           │   └── worker_home_screen.dart
-    │           ├── opportunities/
-    │           │   ├── worker_navigation_2_screen.dart
-    │           │   ├── opportunity_details_screen.dart
-    │           │   └── conflict_warning_dialog.dart
-    │           ├── my_jobs/
-    │           │   ├── worker_navigation_3_screen.dart
-    │           │   ├── worker_active_job_screen.dart
-    │           │   ├── multi_worker_invite_screen.dart
-    │           │   ├── incoming_join_request_screen.dart
-    │           │   ├── rookie_progression_screen.dart
-    │           │   ├── material_bill_upload_screen.dart
-    │           │   ├── completion_evidence_upload_screen.dart
-    │           │   ├── waiting_confirmation_screen.dart
-    │           │   ├── worker_payment_confirmation_screen.dart
-    │           │   ├── review_customer_screen.dart
-    │           │   └── worker_cancel_reschedule_screen.dart
-    │           └── profile/
-    │               ├── worker_navigation_4_screen.dart
-    │               ├── worker_earnings_screen.dart
-    │               ├── worker_availability_screen.dart
-    │               └── worker_verification_screen.dart
-    └── test/
-        ├── integration_hardening_test.dart
-        └── widget_test.dart
+SIH_2026/ [Project Root: Cooperative household-services platform]
+├── context.md [Authoritative project context, architectural overview, and file tree]
+├── history.md [Chronological changelog of all major milestones, bug fixes, and audits]
+├── README.md [Project introduction, setup instructions, and quickstart guide]
+├── .gitignore [Root Git ignore rules: ignores sensitive .env files, local databases, build artifacts, and editor files]
+├── docs/ [Comprehensive architecture specifications and sprint roadmaps]
+│   ├── 04_DATABASE_DESIGN.md [Authoritative database design: 31 tables, foreign keys, constraints]
+│   ├── 05_API_DESIGN.md [REST API specification: endpoints, request/response envelopes, error codes]
+│   ├── 06_BACKEND_SPRINTS.md [Backend sprint roadmap: Sprints 0 through 15 checkpoints]
+│   ├── ALGORITHM_RECOMMENDATION_DEVELOPMENT_ROADMAP.md [Matching heuristics, dispatch, Bayesian scoring]
+│   ├── FRONTEND_DESIGN_SYSTEM.md [Design tokens, Material 3 styling, button shadows, color palette]
+│   ├── FRONTEND_DEVELOPMENT_ROADMAP.md [Frontend screen inventory, sprint plans, and user flow blueprints]
+│   ├── SRS_Final.md [Software Requirements Specification: cooperative model, zero bidding, fair wages]
+│   ├── WAGES.md [Cooperative wage formulas, experience tier modifiers, zero commission rules]
+│   └── backend_plus_frontend_integration_testing.md [E2E test suite, seed credentials, cancellation matrix, ADB reverse proxy guide]
+│
+├── backend/ [FastAPI / SQLAlchemy backend service]
+│   ├── alembic/ [Database migration environment]
+│   │   ├── env.py [Alembic migration runtime environment]
+│   │   ├── script.py.mako [Template for generating new Alembic migration scripts]
+│   │   └── versions/ [Versioned database migration scripts]
+│   │       ├── 7c590bb021a2_initial_foundation.py [Initial baseline migration]
+│   │       ├── e29d3f46feb9_sprint_1_mvp_schema.py [Sprint 1 core schema migration]
+│   │       └── 76b9636a889b_add_payment_type_and_cancellation_id_to_.py [Cancellation & payment schema additions]
+│   ├── alembic.ini [Alembic database migration configuration]
+│   ├── requirements.txt [Python dependencies: FastAPI, SQLAlchemy, Pydantic, Uvicorn, etc.]
+│   ├── Procfile [Railway production deployment startup command]
+│   ├── .env [Local environment configuration]
+│   ├── .env.example [Template for environment variables]
+│   ├── .gitignore [Git ignore rules for Python, cache, and virtual environments]
+│   └── app/ [FastAPI application package]
+│       ├── __init__.py [Backend app package initialization]
+│       ├── main.py [FastAPI application factory, lifespan seeding, CORS, exception handlers]
+│       ├── core/ [Core system infrastructure]
+│       │   ├── config.py [Pydantic settings: database URL, JWT secret, CORS origins, constants]
+│       │   ├── catalogue_data.py [Static catalogue data: 5 guild categories, ~115 standardized tasks]
+│       │   ├── exceptions.py [Domain exceptions: NotFound, Conflict, Forbidden, BadRequest, and error handlers]
+│       │   ├── logging.py [Centralized application logging configuration]
+│       │   └── security.py [Password hashing, JWT creation/decoding, get_current_user dependencies]
+│       ├── db/ [Database layer]
+│       │   ├── base.py [Declarative Base and BaseModel with UUID, timestamp audit columns]
+│       │   ├── session.py [SQLAlchemy engine, connection pool, SessionLocal factory, get_db dependency]
+│       │   └── models/ [SQLAlchemy entity models (31 tables)]
+│       │       ├── __init__.py [Exports all 31 database models and enums for Alembic and runtime]
+│       │       ├── cancellation.py [GigCancellation, RescheduleRequest, PreviousWorkerRequest models]
+│       │       ├── communication.py [Conversation, Message, Notification, GigEvent audit models]
+│       │       ├── completion.py [CompletionSubmission, CompletionEvidence, CompletionConfirmation models]
+│       │       ├── cooperative.py [Cooperative society registry model: legal name, registration number]
+│       │       ├── enums.py [Database enums: UserRole, GigStatus, GigType, PaymentMethod, etc.]
+│       │       ├── experience.py [WorkerExperienceRecord model tracking apprentice credits and guild history]
+│       │       ├── gig.py [Gig, GigTask, GigWorkerOpportunity marketplace transaction models]
+│       │       ├── multi_worker.py [WorkerParticipation model for multi-worker collaboration & rookie mentorship]
+│       │       ├── payment.py [Payment and MaterialReceipt models for escrow, payouts, and receipts]
+│       │       ├── review.py [Review, ReviewQuestion, ReviewAnswer models for two-way objective evaluation]
+│       │       ├── service.py [ServiceCategory, ServiceTask, WorkerCategory, WorkerAvailability models]
+│       │       ├── user.py [User, CustomerProfile, WorkerProfile, WorkerMetric models]
+│       │       └── visitation.py [VisitationProposal, VisitationProposalTask models for on-site scope inspection]
+│       ├── api/ [API Routing Layer]
+│       │   ├── __init__.py [API package initialization]
+│       │   └── v1/ [API Version 1 package]
+│       │       ├── __init__.py [API v1 package initialization]
+│       │       ├── router.py [Master v1 router registering all 13 domain endpoint modules]
+│       │       └── endpoints/ [REST API domain endpoint controllers]
+│       │           ├── __init__.py [Endpoints package initialization]
+│       │           ├── auth.py [Development auth: pre-seeded demo accounts retrieval, JWT login, refresh]
+│       │           ├── cancellation.py [Gig cancellation and rescheduling enforcing authoritative fee policies]
+│       │           ├── catalogue.py [Service catalogue: categories, standardized tasks, duration baselines]
+│       │           ├── chat.py [Job-scoped chat thread initialization and messaging endpoints]
+│       │           ├── customer.py [Customer profile management and past gig history endpoints]
+│       │           ├── gigs.py [Gig lifecycle: price preview, creation, candidate listing, worker selection]
+│       │           ├── health.py [System health and database connectivity check endpoint]
+│       │           ├── materials.py [Material procurement mode and itemized receipt audit upload endpoints]
+│       │           ├── me.py [Current authenticated user profile inspection and session retrieval]
+│       │           ├── notifications.py [User notification feed, unread counters, and mark-as-read endpoints]
+│       │           ├── participations.py [Multi-worker collaboration and rookie mentorship invitation endpoints]
+│       │           ├── reviews.py [Two-way structured MCQ review submission, questions, and public metrics]
+│       │           └── worker.py [Worker profile, multi-tier verification, availability schedule, earnings]
+│       ├── schemas/ [Pydantic request & response validation schemas]
+│       │   ├── __init__.py [Schemas package initialization]
+│       │   ├── auth.py [TokenResponse, LoginRequest, DemoUserResponse schemas]
+│       │   ├── cancellation.py [Cancellation request, fee calculation preview, and reschedule schemas]
+│       │   ├── candidate.py [Worker candidate response schemas: wage, score, ratings, matching factors]
+│       │   ├── catalogue.py [ServiceCategoryResponse, ServiceTaskResponse schemas]
+│       │   ├── chat.py [Conversation thread, message create request, message list response schemas]
+│       │   ├── common.py [ResponseEnvelope, PaginatedEnvelope, and shared pagination query schemas]
+│       │   ├── completion.py [Completion evidence upload, submission detail, customer confirmation schemas]
+│       │   ├── gig.py [Gig create request, task item, and detailed gig response schemas]
+│       │   ├── material.py [Material procurement mode and receipt upload response schemas]
+│       │   ├── multi_worker.py [Worker participation request and invite status schemas]
+│       │   ├── notification.py [Notification item and unread count response schemas]
+│       │   ├── opportunity.py [Worker opportunity feed item and dispatch status schemas]
+│       │   ├── payment.py [Payment recording, UPI reconciliation, and receipt confirmation schemas]
+│       │   ├── pricing.py [Dynamic price preview request and tariff breakdown schemas]
+│       │   ├── review.py [Review create request, answer item, question list, public metrics schemas]
+│       │   ├── user.py [User profile, registration, and role management schemas]
+│       │   ├── visitation.py [Visitation proposal, task quotation, customer approval schemas]
+│       │   ├── worker.py [Worker verification, experience tier, and availability schedule schemas]
+│       │   └── worker_gig.py [Worker job detail and active gig execution schemas]
+│       ├── repositories/ [Repository abstraction package reserved for specialized data query builders]
+│       │   └── __init__.py [Repositories package initialization]
+│       ├── services/ [Core business logic & domain services]
+│       │   ├── __init__.py [Services package initialization]
+│       │   ├── cancellation_service.py [Authoritative cancellation policy enforcement, fee calculation, worker re-open]
+│       │   ├── catalogue_service.py [Service catalogue query and initial database seeding service]
+│       │   ├── chat_service.py [Job-scoped chat initialization, message delivery, audit event logging]
+│       │   ├── completion_service.py [Work completion evidence verification, photo submission, customer sign-off]
+│       │   ├── experience_service.py [Apprentice credit progression and shadow gig verification service]
+│       │   ├── financial_guard.py [Escrow integrity and zero-commission fee guard validations]
+│       │   ├── gig_service.py [Gig creation, status lifecycle transitions, candidate assignment service]
+│       │   ├── material_service.py [Itemized material claims, receipt verification, bill audit service]
+│       │   ├── multi_worker_service.py [Multi-worker invite dispatch, equal sharing split, rookie mentorship tracking]
+│       │   ├── notification_service.py [Notification event dispatch, counterparty alerting, read-state service]
+│       │   ├── opportunity_service.py [Opportunity dispatch engine, geographic matching, schedule conflict checks]
+│       │   ├── payment_service.py [Escrow settlement, UPI Direct/Cash reconciliation, payout confirmation]
+│       │   ├── pricing_service.py [Transparent labour wage computation, duration estimates, visitation tariffs]
+│       │   ├── review_service.py [Two-way structured review processing, Bayesian rating calculation, metrics updates]
+│       │   ├── score_service.py [Worker final reliability score computation and rookie initial metrics]
+│       │   ├── user_service.py [User account lifecycle, authentication, profile management service]
+│       │   ├── visitation_service.py [Fixed ₹100 visitation workflow, on-site scope estimation, proposal approval]
+│       │   ├── wage_service.py [Cooperative guild tariff lookup, emergency floor rules, experience multiplier]
+│       │   └── worker_service.py [Worker verification tier checking, weekly schedule availability management]
+│       └── tests/ [Comprehensive automated pytest suite (198 tests)]
+│           ├── __init__.py [Tests package initialization]
+│           ├── conftest.py [Pytest test fixtures, in-memory SQLite engine, authenticated client setups]
+│           ├── test_auth_and_profiles.py [Authentication and profile endpoints test suite]
+│           ├── test_config.py [Configuration and environment variables validation tests]
+│           ├── test_health.py [Health check endpoint and DB connectivity tests]
+│           ├── test_models.py [SQLAlchemy models and database constraints validation tests]
+│           ├── test_sprint2_verification.py [Sprint 2 multi-tier verification test suite]
+│           ├── test_sprint3_pricing_and_wages.py [Sprint 3 pricing formulas and guild tariff tests]
+│           ├── test_sprint4_gig_creation.py [Sprint 4 customer gig creation and validation tests]
+│           ├── test_sprint5_opportunity_engine.py [Sprint 5 worker opportunity dispatch and conflict tests]
+│           ├── test_sprint6_worker_selection.py [Sprint 6 candidate ranking and worker selection tests]
+│           ├── test_sprint7_job_execution.py [Sprint 7 active job progression and evidence submission tests]
+│           ├── test_sprint8_payment.py [Sprint 8 payment reconciliation and receipt confirmation tests]
+│           ├── test_sprint9_visitation.py [Sprint 9 fixed ₹100 visitation and proposal tests]
+│           ├── test_sprint10_multi_worker.py [Sprint 10 multi-worker collaboration and rookie mentorship tests]
+│           ├── test_sprint11_cancellation_rescheduling.py [Sprint 11 cancellation fee policy and reschedule tests]
+│           ├── test_sprint12_materials.py [Sprint 12 itemized material receipt upload and audit tests]
+│           ├── test_sprint13_reviews.py [Sprint 13 two-way review submission and Bayesian rating tests]
+│           ├── test_sprint14_chat_notifications.py [Sprint 14 job chat messaging and notifications tests]
+│           ├── test_sprint15_dev_auth.py [Sprint 15 development demo accounts and authentication tests]
+│           └── test_verification.py [General verification and security integrity tests]
+│
+└── mobile_app/ [Flutter Mobile Application]
+    ├── pubspec.yaml [Flutter package dependencies and asset configuration]
+    ├── pubspec.lock [Locked dependency versions]
+    ├── analysis_options.yaml [Dart analyzer rules and linter configuration]
+    ├── .gitignore [Flutter-specific Git ignore rules]
+    ├── lib/ [Flutter application source code]
+    │   ├── main.dart [App entry point: theme configuration and initial SplashScreen route]
+    │   ├── theme/ [Styling & Visual Design]
+    │   │   ├── .gitkeep [Theme directory marker]
+    │   │   └── app_theme.dart [Centralized Material 3 theme tokens, color palette, typography, button styles]
+    │   ├── services/ [Core application services]
+    │   │   ├── .gitkeep [Services directory marker]
+    │   │   ├── api_client.dart [Centralized Dio HTTP client: base URL, dynamic bearer auth, error unwrapping, mock test handler]
+    │   │   └── token_storage.dart [Secure session persistence: JWT tokens, active user model, baseUrl switcher]
+    │   ├── repositories/ [Frontend API repository abstractions]
+    │   │   ├── .gitkeep [Repositories directory marker]
+    │   │   ├── auth_repository.dart [Authentication API calls: login, register, token refresh, demo accounts]
+    │   │   ├── catalogue_repository.dart [Service catalogue API calls: categories, sub-services, standardized tasks]
+    │   │   ├── chat_repository.dart [Job-scoped chat API calls: get or create conversation, messages, send text]
+    │   │   ├── gig_repository.dart [Customer gig lifecycle API calls: create, price preview, candidates, select worker]
+    │   │   ├── notification_repository.dart [User notifications API calls: fetch alerts, mark read, unread counter]
+    │   │   ├── payment_repository.dart [Payment reconciliation API calls: record payment, confirm receipt, breakdown]
+    │   │   ├── review_repository.dart [Structured review API calls: fetch questions, submit ratings, public metrics]
+    │   │   └── worker_repository.dart [Worker workflow API calls: fetch opportunities, accept/decline, start work, complete]
+    │   ├── models/ [Data models & transfer objects]
+    │   │   ├── gig_draft.dart [Customer gig creation state model: category, tasks, visitation toggle, location, notes]
+    │   │   ├── customer_gig_workflow.dart [Customer gig lifecycle model: GigStage enum, GigCandidate, CustomerGig mapper from DTO]
+    │   │   ├── worker_job_workflow.dart [Worker job domain model: WorkerOpportunity, WorkerJob, WorkerJobStatus, DayAvailability]
+    │   │   └── api/ [API Data Transfer Objects (DTOs)]
+    │   │       ├── api_models.dart [Strongly typed backend DTOs: User, Gig, Candidate, Task, Payment, Review, Chat, Notification]
+    │   │       └── api_response.dart [Generic API envelope models: ApiResponse, PaginatedResponse, ApiError]
+    │   ├── providers/ [Riverpod state management & cross-screen synchronizers]
+    │   │   ├── .gitkeep [Providers directory marker]
+    │   │   ├── active_job_sync_provider.dart [Synchronizes active gig lifecycle between Customer and Worker state stores]
+    │   │   ├── customer_gigs_provider.dart [Customer active, upcoming, and past gigs state management with cancellation filtering]
+    │   │   └── worker_jobs_provider.dart [Worker opportunities, active jobs, and scheduled gigs state management with cancellation filtering]
+    │   ├── utils/ [Shared utility helpers]
+    │   │   └── phone_dialer_helper.dart [Standardized cross-platform telephone dialer launcher (tel:...) via url_launcher]
+    │   ├── widgets/ [Reusable UI widgets]
+    │   │   └── common/ [Common cross-cutting widgets]
+    │   │       ├── .gitkeep [Common widgets directory marker]
+    │   │       ├── location_picker_dialog.dart [Interactive location map picker and address selector]
+    │   │       ├── shared_widgets.dart [Core UI primitives: BrandMark, SurfaceCard, StatusPill, PrimaryAction, shared auth layouts]
+    │   │       ├── skeleton_loaders.dart [Shining horizontal shimmer animation, GigCardSkeleton, OpportunityCardSkeleton]
+    │   │       └── sos_dialog.dart [Emergency assistance dialog triggering native telephone dialer (tel:112 / tel:100 / guild dispatch)]
+    │   └── screens/ [UI Screen controllers & views]
+    │       ├── common/ [Shared cross-role screens]
+    │       │   ├── .gitkeep [Common screens directory marker]
+    │       │   ├── about_help_screen.dart [Cooperative Society Charter, FAQs, toll-free helpline, WhatsApp helpdesk]
+    │       │   ├── chat_screen.dart [Shared fullscreen chat interface: live backend messaging, demo fallback, auto-scrolling]
+    │       │   ├── forgot_password_screen.dart [Mobile OTP recovery and password reset verification]
+    │       │   ├── no_internet_screen.dart [Offline network error screen with cached mode and retry action]
+    │       │   ├── notifications_screen.dart [Shared cooperative notifications feed and status alerts]
+    │       │   ├── role_selection_screen.dart [Entry gate: select between Customer and Worker portals]
+    │       │   ├── settings_screen.dart [Settings screen: dark mode toggle, multilingual picker, privacy controls]
+    │       │   └── splash_screen.dart [Animated onboarding splash with cooperative mission statement]
+    │       ├── customer/ [Customer-facing screens & navigation]
+    │       │   ├── .gitkeep [Customer directory marker]
+    │       │   ├── customer_login_screen.dart [Customer portal login with demo credentials and root stack clearing]
+    │       │   ├── customer_main_screen.dart [Customer bottom navigation shell: 4 tab navigators, switchTab static helper]
+    │       │   ├── customer_register_screen.dart [Customer account registration with cooperative onboarding]
+    │       │   ├── alerts/ [Customer Alerts Tab]
+    │       │   │   └── customer_navigation_3_screen.dart [Customer Alerts tab: system notifications and job updates]
+    │       │   ├── home/ [Customer Home Tab]
+    │       │   │   ├── create_gig_screen.dart [Step 1: Category dropdown, ₹100 site visit toggle, collapsible task search, instructions]
+    │       │   │   ├── customer_home_screen.dart [Customer dashboard: dynamic greeting, active gig counter, quick create]
+    │       │   │   ├── emergency_tip_screen.dart [Emergency voluntary tipping fallback when posted gig awaits accepting workers]
+    │       │   │   ├── labour_price_preview_screen.dart [Step 3: Algorithmic wage breakdown, deposit calculation, gig confirmation]
+    │       │   │   └── material_procurement_screen.dart [Step 2: Material choice: customer purchase vs worker purchase]
+    │       │   ├── my_jobs/ [Customer My Gigs Tab]
+    │       │   │   ├── accepted_candidates_screen.dart [Convenience re-export for accepted candidate review list]
+    │       │   │   ├── active_job_screen.dart [Convenience re-export for live customer job monitoring screen]
+    │       │   │   ├── cancel_gig_screen.dart [Customer gig cancellation with policy fees disclaimer]
+    │       │   │   ├── completion_confirmation_screen.dart [Convenience re-export for customer work sign-off]
+    │       │   │   ├── completion_evidence_review_screen.dart [Convenience re-export for reviewing worker completion photos]
+    │       │   │   ├── customer_navigation_2_screen.dart [Customer My Gigs tab: Active, Upcoming, Completed gig lists with live candidate badge]
+    │       │   │   ├── customer_workflow_screens.dart [Customer workflow suite: candidates review, active tracking, payment, evidence viewer]
+    │       │   │   ├── final_worker_selected_screen.dart [Convenience re-export for worker assignment confirmation]
+    │       │   │   ├── gig_details_screen.dart [Customer gig hub: 4-step horizontal tracker, candidates banner, quick actions, location]
+    │       │   │   ├── material_bill_viewer_screen.dart [Convenience re-export for inspecting worker material receipts]
+    │       │   │   ├── payment_screen.dart [Convenience re-export for UPI/Cash payment settlement]
+    │       │   │   ├── previous_worker_request_screen.dart [Convenience re-export for requesting previous trusted worker]
+    │       │   │   ├── reschedule_gig_screen.dart [Customer gig rescheduling with worker approval notice]
+    │       │   │   ├── review_worker_screen.dart [Post-completion structured 3–4 MCQ review for assigned worker]
+    │       │   │   ├── waiting_for_candidates_screen.dart [Live broadcasting radar screen awaiting worker responses]
+    │       │   │   ├── worker_comparison_screen.dart [Convenience re-export for side-by-side candidate comparison]
+    │       │   │   └── worker_profile_screen.dart [Convenience re-export for candidate profile and trust signals]
+    │       │   └── profile/ [Customer Profile Tab]
+    │       │       ├── customer_account_screens.dart [Customer account screens: job history, support chat, FAQs]
+    │       │       └── customer_navigation_4_screen.dart [Customer Profile tab: account details, history, settings, help]
+    │       └── worker/ [Worker-facing screens & navigation]
+    │           ├── .gitkeep [Worker directory marker]
+    │           ├── worker_login_screen.dart [Worker portal login with role verification and root stack clearing]
+    │           ├── worker_main_screen.dart [Worker bottom navigation shell: 4 tab navigators, switchTab static helper]
+    │           ├── worker_register_screen.dart [Worker guild registration and skill onboarding]
+    │           ├── home/ [Worker Home Tab]
+    │           │   └── worker_home_screen.dart [Worker dashboard: availability toggle, active job card, new opportunities]
+    │           ├── opportunities/ [Worker Opportunities Tab]
+    │           │   ├── conflict_warning_dialog.dart [Conflict alert modal when opportunity overlaps existing commitments]
+    │           │   ├── opportunity_details_screen.dart [Guaranteed wage, distance, conflict warning check, accept/decline actions]
+    │           │   └── worker_navigation_2_screen.dart [Worker Opportunities tab: filterable feed (Emergency, Conflicts, All)]
+    │           ├── my_jobs/ [Worker My Jobs Tab]
+    │           │   ├── completion_evidence_upload_screen.dart [Work completion photo proof upload and handover notes]
+    │           │   ├── incoming_join_request_screen.dart [Inspect incoming collaboration invites from lead technicians]
+    │           │   ├── material_bill_upload_screen.dart [Itemized material cost claims and photo receipt audit uploads]
+    │           │   ├── multi_worker_invite_screen.dart [Invite verified colleague as Equal Sharing (50/50) or Rookie Mentorship (0.5 credit)]
+    │           │   ├── review_customer_screen.dart [Worker structured 3–4 MCQ review for customer, resetting to My Jobs]
+    │           │   ├── rookie_progression_screen.dart [Apprentice progression tracker towards full trade guild certification]
+    │           │   ├── visitation_proposal_dialog.dart [Fixed ₹100 on-site visitation scope assessment and quotation modal]
+    │           │   ├── waiting_confirmation_screen.dart [Live awaiting customer review and payment approval screen]
+    │           │   ├── worker_active_job_screen.dart [Central job execution workspace: status stepper, contact actions, co-worker invite]
+    │           │   ├── worker_cancel_reschedule_screen.dart [Worker gig cancellation or reschedule request with policy checks]
+    │           │   ├── worker_navigation_3_screen.dart [Worker My Jobs tab: Active/Upcoming and Completed lists, invitations, rookie track]
+    │           │   └── worker_payment_confirmation_screen.dart [Reconciliation confirmation (UPI Direct / Cash) with zero deductions]
+    │           └── profile/ [Worker Profile Tab]
+    │               ├── worker_availability_screen.dart [Weekly recurring availability schedule editor (Mon–Sun toggles & time pickers)]
+    │               ├── worker_earnings_screen.dart [Worker transparent earnings breakdown, gig payouts, zero-commission ledger]
+    │               ├── worker_navigation_4_screen.dart [Worker Profile tab: credentials, guild tariff guidelines, earnings, settings]
+    │               └── worker_verification_screen.dart [Multi-tier verification viewer: KYC, Guild Trade, Shareholder, Police Antecedents]
+    └── test/ [Flutter Automated Tests (35 tests passing)]
+        ├── cancellation_workflow_test.dart [5 comprehensive unit & workflow tests for gig cancellation and status consistency]
+        ├── integration_hardening_test.dart [23 comprehensive integration hardening tests covering API models, serialization, and repositories]
+        └── widget_test.dart [7 comprehensive widget tests covering Customer/Worker flows, navigation shells, and authentication layouts]
 ```
+
+---
 
 ## Important File Responsibilities
 
 ### Frontend (`mobile_app/`)
-- `lib/main.dart`: app entry point; starts `SplashScreen` and applies `buildAppTheme()`.
-- `lib/theme/app_theme.dart`: color tokens, Material 3 theme, input/card/navigation themes, and global button style.
-- `lib/widgets/common/shared_widgets.dart`: shared visual primitives and reusable authentication layouts.
-- `lib/models/worker_job_workflow.dart`: worker models (`WorkerOpportunity`, `WorkerJob`, `WorkerJobStatus`, `WorkerJoinRequest`, `JoinRoleType`, `DayAvailability`) and demo datasets.
-- `lib/screens/worker/worker_main_screen.dart`: Worker shell with persistent bottom navigation using per-tab navigators.
-- `lib/screens/worker/opportunities/`: opportunity browsing, guaranteed wage inspection, and conflict warning dialog.
-- `lib/screens/worker/my_jobs/`: active job workspace, multi-worker invite, incoming join request, rookie progression, material bills, completion evidence, payment confirmation, customer rating, and cancellation/reschedule.
-- `lib/screens/worker/profile/`: worker profile hub, weekly recurring availability editor, multi-tier verification status, and worker earnings/patronage dividend breakdown.
-- `lib/screens/common/`: shared `ForgotPasswordScreen`, `SettingsScreen`, `AboutHelpScreen`, `NoInternetScreen`, `ChatScreen`, and `NotificationsScreen`.
-- `test/integration_hardening_test.dart`: 21 comprehensive integration hardening tests covering API envelopes, error serialization, DTO deserialization, Decimal/null parsing, repository requests, token storage, chat, reviews, payments, opportunities, and workflow adapters.
-- `test/widget_test.dart`: 7 comprehensive widget test flows covering Customer navigation, registration, Worker destination navigation, Worker profile & availability, Worker opportunity details & workspace acceptance, Login layout & Forgot Password reset flow, and Worker profile navigation into Earnings, Settings, and Help screens.
+- `lib/main.dart`: App entry point; launches `SplashScreen` and configures Material 3 app theme.
+- `lib/theme/app_theme.dart`: Color tokens, Material 3 styling, component themes, and global square offset-shadow button styling.
+- `lib/services/api_client.dart`: Centralized Dio HTTP client wrapper with automatic base URL syncing, bearer token injection, structured error transformation (`ApiError`), and mock handler hook for unit tests.
+- `lib/services/token_storage.dart`: Session manager persisting JWT access tokens and user profile state in memory and storage, notifying listeners on auth changes.
+- `lib/widgets/common/shared_widgets.dart`: Standard UI building blocks (`BrandMark`, `SurfaceCard`, `StatusPill`, `PrimaryAction`, `AuthLoginLayout`, `AuthRegisterLayout`).
+- `lib/widgets/common/skeleton_loaders.dart`: Continuous left-to-right shining shimmer animations and card skeletons (`GigCardSkeleton`, `OpportunityCardSkeleton`) providing smooth, flicker-free data loading.
+- `lib/widgets/common/sos_dialog.dart`: Emergency assistance dialog triggering native telephone dialer (`tel:112` / `tel:100` / guild dispatch) during active job execution.
+- `lib/widgets/common/location_picker_dialog.dart`: Interactive map picker and address selector for customer gig creation and location updates.
+- `lib/utils/phone_dialer_helper.dart`: Unified cross-platform telephone dialer utility invoking `tel:...` via `url_launcher`.
+- `lib/providers/customer_gigs_provider.dart` & `worker_jobs_provider.dart`: Riverpod state stores keeping active/scheduled gigs in sync across tabs, strictly filtering out cancelled or expired items.
+- `lib/models/worker_job_workflow.dart`: Worker domain models (`WorkerOpportunity`, `WorkerJob`, `WorkerJobStatus`, `WorkerJoinRequest`, `DayAvailability`, `demoWeekAvailability`).
+- `lib/models/customer_gig_workflow.dart`: Customer domain models (`GigStage` enum, `GigCandidate`, `CustomerGig` mapper from DTO).
+- `lib/models/api/api_models.dart`: Full suite of backend DTO models matching FastAPI responses.
+- `lib/screens/worker/worker_main_screen.dart`: Worker shell with persistent bottom navigation using per-tab navigators and static `switchTab` helper.
+- `lib/screens/customer/customer_main_screen.dart`: Customer shell with persistent bottom navigation and static `switchTab` helper.
+- `lib/screens/common/chat_screen.dart`: Fullscreen chat interface supporting both live backend messaging (`_chatRepo.sendMessage`) and interactive demo simulation with automatic scroll to bottom.
+- `test/cancellation_workflow_test.dart`: 5 unit and workflow tests validating `GigCancelResponseDto` parsing, `GigRepository` cancel contract, and CustomerGig/WorkerJob cancellation status filtering.
+- `test/integration_hardening_test.dart`: 23 integration hardening tests validating API models, JSON serialization, DTO mapping, and edge-case handling.
+- `test/widget_test.dart`: 7 widget test flows validating Customer/Worker navigation, registration, profiles, opportunity details, and settings.
 
 ### Backend (`backend/`)
-- `app/main.py`: FastAPI application entrypoint, CORS middleware, centralized exception handlers, startup catalogue auto-seeding, and `/api/v1` router mount.
-- `app/core/config.py`: Pydantic settings loading environment variables with fallback defaults, CORS origin parsing, Supabase parameters, rookie metric defaults, and wage/visitation policy constants (`WAGE_PREMIUM_MAX_FACTOR=0.30`, `VISITATION_FEE=100.00`).
-- `app/core/catalogue_data.py`: Complete static catalogue dataset for all 5 guild categories (Plumbing, Carpentry, Electrician, Painter, House Help) and ~115 tasks with durations and base prices from `docs/WAGES.md`.
-- `app/core/logging.py`: Centralized logging format and level configuration.
-- `app/core/exceptions.py`: Custom `AppException` hierarchy and standardized JSON error handlers conforming to `docs/05_API_DESIGN.md`.
-- `app/core/security.py`: Supabase Auth HS256 JWT decoding, claim extraction, user resolution, and role-based access control dependencies.
-- `app/db/base.py`: Declarative `Base` and abstract `BaseModel` with UUID primary keys and timezone-aware timestamps.
-- `app/db/session.py`: SQLAlchemy engine, session maker, `get_db` FastAPI dependency, and live connectivity check.
-- `app/schemas/common.py`: Standard response envelopes (`ResponseEnvelope[T]`, `PaginatedResponse[T]`, `ErrorResponse`, `HealthResponse`).
-- `app/schemas/user.py` & `app/schemas/worker.py`: Authentication, user initialization, and profile request/response schemas.
-- `app/schemas/catalogue.py`: `ServiceCategoryResponse`, `ServiceTaskResponse` (with complexity score and bucket).
-- `app/schemas/pricing.py`: `PricePreviewRequest`, `PricePreviewTaskItem`, `EstimatedWageRange`, and `PricePreviewResponse`.
-- `app/schemas/gig.py`: `GigCreateRequest`, `GigTaskItemResponse`, and `GigResponse`.
-- `app/services/score_service.py`: Centralized final score computation and rookie default metric generation.
-- `app/services/user_service.py` & `app/services/worker_service.py`: User lifecycle, role enforcement, and worker profile management.
-- `app/services/catalogue_service.py`: Database seeding with bulk prefetching and catalogue retrieval.
-- `app/services/pricing_service.py`: Multi-task duration summing, 45-minute minimum billable enforcement, base price calculation, and single-category validation.
-- `app/services/wage_service.py`: Exact wage formula `base_price * (1 + final_score * factor)` with configurable `WAGE_PREMIUM_MAX_FACTOR`, clamping, rounding, and wage range estimation.
-- `app/services/experience_service.py`: Logarithmic task complexity normalization `(ln(t) - ln(t_min)) / (ln(t_max) - ln(t_min))`, exact buckets (`0-0.33 LOW`, `0.34-0.66 MID`, `0.67-1.0 HIGH`), rolling window experience score ($N=50$) with rookie 0.5x contribution and no decay factor, and Bayesian rating aggregation.
-- `app/services/gig_service.py`: Customer gig creation in DRAFT status with pricing snapshots, atomic task association, GIG_CREATED and GIG_POSTED audit events, gig retrieval, customer gig collection filtering/pagination, and automatic trigger of the Opportunity Engine on post.
-- `app/services/opportunity_service.py`: Worker Opportunity Engine, schedule conflict detection, weekly availability checking, exact guaranteed wage snapshots, and atomic accept/reject transaction workflows.
-- `app/services/visitation_service.py`: In-person visitation inspection, task proposals, catalogue pricing calculations, customer accept (₹100 fee absorbed) / reject (₹100 fee payable) workflows, and immutable snapshot preservation.
-- `app/services/multi_worker_service.py`: Multi-worker collaboration and rookie mentorship service, same-cooperative validation, explicit consent, rookie 0.5x complexity contribution, audit event logging, and in-app notifications.
-- `app/services/cancellation_service.py`: Cancellation fee computation, penalty payments, gig reopening, and slot negotiation service.
-- `app/services/financial_guard.py`: Customer financial integrity guard preventing new gig creation with outstanding cancellation debt.
-- `app/services/material_service.py`: Procurement mode enforcement, multipart/json upload, privacy gating, and itemized billing service.
-- `app/services/review_service.py`: Structured question seeding, directional participant authorization, answer validation, 2-decimal overall rating calculation, Bayesian rating aggregation and worker metric updates, audit logging, and notification dispatch.
-- `app/schemas/multi_worker.py`: `WorkerParticipationCreateRequest` and `WorkerParticipationResponse` (strictly excluding private worker splits).
-- `app/schemas/cancellation.py`: `GigCancelRequest`, `GigCancelResponse`, `GigReopenResponse`, `RescheduleRequestCreate`, and negotiation responses.
-- `app/schemas/material.py`: `MaterialReceiptCreateRequest`, `MaterialReceiptResponse`, and `MaterialReceiptListResponse`.
-- `app/schemas/review.py`: `ReviewQuestionResponse`, `ReviewAnswerItem`, `ReviewCreateRequest`, `ReviewAnswerResponse`, `ReviewResponse`, and `WorkerPublicMetricsResponse`.
-- `app/api/v1/router.py`: API v1 router aggregator.
-- `app/api/v1/endpoints/`: Health, authentication (`/me`), customer (`/customer/profile`, `/customer/gigs`), worker (`/worker/profile`, `/worker/categories`, `/worker/availability`, `/worker/opportunities`, `/worker/gigs`), catalogue (`/service-categories`), gig operations (`/gigs`), multi-worker collaboration (`/participations`), cancellation & reschedule (`/gigs/{id}/cancel`, `/reschedule`), material receipts (`/gigs/{id}/material-receipts`), and reviews & metrics (`/review-questions`, `/gigs/{id}/reviews`, `/workers/{id}/metrics`).
-- `alembic/`: Database migration environment managing all models live on Supabase PostgreSQL.
-- `app/tests/`: Comprehensive pytest suite with 182 automated unit and integration tests covering Sprints 0 through 13.
+- `app/main.py`: FastAPI application entrypoint, CORS middleware, centralized exception handlers, startup database verification and catalogue/review auto-seeding, and `/api/v1` router mount.
+- `app/core/config.py`: Pydantic settings loading environment variables, Supabase credentials, and wage/visitation policy constants (`VISITATION_FEE=100.00`, `CANCELLATION_FEE_AFTER_SELECTION=50.00`).
+- `app/core/catalogue_data.py`: Static catalogue dataset for all 5 guild categories (Plumbing, Carpentry, Electrician, Painter, House Help) and ~115 standardized tasks.
+- `app/core/security.py`: Password hashing, JWT creation/decoding, user resolution, and role-based access control dependencies.
+- `app/db/session.py`: Database engine, connection pooling, SessionLocal factory, and `get_db` dependency.
+- `app/db/models/__init__.py`: Exports all 31 database models and enums for Alembic and application runtime.
+- `app/services/cancellation_service.py`: Enforces authoritative cancellation policy (₹0 pre-selection, ₹50 post-selection, lock once `IN_PROGRESS`).
+- `app/services/visitation_service.py`: Fixed ₹100 on-site visitation inspection workflow, task proposals, and fee absorption/payment rules.
+- `app/services/chat_service.py`: Job-scoped conversation thread initialization, message delivery, unread counter management, and audit events.
+- `app/services/review_service.py`: Two-way structured MCQ review processing, Bayesian rating calculation, and worker metrics updates.
+- `app/services/opportunity_service.py`: Worker opportunity dispatch, geographic matching, schedule conflict checks, and atomic acceptance transactions.
+- `app/services/pricing_service.py` & `app/services/wage_service.py`: Cooperative wage formulas, experience tier modifiers, duration summing, and 45-min billable minimum enforcement.
+- `app/tests/`: Comprehensive pytest suite with 198 automated unit and integration tests across Sprints 0 through 15.
 
-## Validation
+---
 
-The latest completed validation passed:
+## Validation Summary
+
+The entire stack has been verified and passes all tests:
 
 ```text
 # Frontend Validation
-dart format lib test
-flutter analyze (0 issues found)
-flutter test (7/7 tests passed)
+flutter analyze -> 0 issues found!
+flutter test -> All 35 tests passed! (5 cancellation tests + 23 integration tests + 7 widget tests)
 
-# Backend Validation (Sprint 0 through Sprint 13 + Supabase PostgreSQL)
-cd backend
-pytest -v (182/182 tests passed in 12.59s)
-alembic current (76b9636a889b head, live on Supabase PostgreSQL)
+# Backend Validation
+pytest app/tests/ -> 198 passed in 14.8s
 GET /api/v1/health -> 200 OK {"status": "ok", "database": "connected"}
-POST /api/v1/me/initialize -> 201 Created (Customer/Worker initialization)
-GET /api/v1/me -> 200 OK
-GET /api/v1/customer/profile -> 200 OK
-GET /api/v1/worker/profile -> 200 OK
-GET /api/v1/service-categories -> 200 OK (5 guild categories)
-GET /api/v1/service-categories/{id}/tasks -> 200 OK (tasks with complexity metrics)
-POST /api/v1/gigs/price-preview -> 200 OK (45-min minimum, single-category check, wage range)
-POST /api/v1/gigs -> 201 Created (Draft gig, pricing snapshots, location, GIG_CREATED event, financial guard)
-POST /api/v1/gigs/{id}/post -> 200 OK (Transition to POSTED, GIG_POSTED event, opportunities generated)
-GET /api/v1/gigs/{id} -> 200 OK (Detailed gig view)
-GET /api/v1/customer/gigs -> 200 OK (Filtered, paginated customer gigs)
-GET /api/v1/worker/opportunities -> 200 OK (Personalized exact wages per worker)
-GET /api/v1/worker/opportunities/{id} -> 200 OK (Detailed opportunity view)
-POST /api/v1/worker/opportunities/{id}/accept -> 200 OK (Conflict check, atomic ACCEPTED transition)
-POST /api/v1/worker/opportunities/{id}/reject -> 200 OK (Permanent REJECTED transition)
-GET /api/v1/gigs/{id}/candidates -> 200 OK (Accepted worker candidates with transparent metrics & wages)
-POST /api/v1/gigs/{id}/select-worker -> 200 OK (WORKER_SELECTED transition, closes other candidates, notifications)
-GET /api/v1/worker/gigs -> 200 OK (Worker assigned gigs with lifecycle tabs & exact agreed wage)
-POST /api/v1/gigs/{id}/start -> 200 OK (Worker 'Arrived & Start Work', moves to IN_PROGRESS, WORK_STARTED event)
-POST /api/v1/gigs/{id}/completion -> 200 OK (Worker submits notes & photo proof, COMPLETION_SUBMITTED)
-GET /api/v1/gigs/{id}/completion -> 200 OK (Customer & worker inspection of completion proof & feedback)
-POST /api/v1/gigs/{id}/completion/confirm -> 200 OK (Customer confirms -> CUSTOMER_CONFIRMED, or rejects -> IN_PROGRESS rework loop)
-GET /api/v1/gigs/{id}/payment -> 200 OK (Authoritative decimal wage/cancellation fee snapshot, status, UPI deep link)
-POST /api/v1/gigs/{id}/payment -> 200 OK (Customer marks CASH/UPI -> PAYMENT_CUSTOMER_PAID or stays CANCELLED, immutable method)
-POST /api/v1/gigs/{id}/payment/confirm-receipt -> 200 OK (Worker confirms -> COMPLETED or stays CANCELLED, fully idempotent)
-POST /api/v1/gigs/{id}/visitation/request -> 200 OK (Customer initiates visitation, fixed ₹100 fee)
-GET /api/v1/gigs/{id}/visitation -> 200 OK (Visitation overview, active proposal, action flags)
-POST /api/v1/gigs/{id}/visitation/proposals -> 201 Created (Worker submits catalogue tasks, backend prices)
-POST /api/v1/gigs/{id}/visitation/proposals/{id}/accept -> 200 OK (Customer accepts, ₹100 fee absorbed, base price updated)
-POST /api/v1/gigs/{id}/visitation/proposals/{id}/reject -> 200 OK (Customer rejects, ₹100 fee payable, moves to CUSTOMER_CONFIRMED)
-POST /api/v1/gigs/{gig_id}/participations -> 201 Created (Primary invites peer/rookie, checks coop & active profile)
-GET /api/v1/gigs/{gig_id}/participations -> 200 OK (Visible to participants/customer, zero private split leakage)
-POST /api/v1/participations/{id}/accept -> 200 OK (Invited co-worker explicitly accepts collaboration)
-POST /api/v1/participations/{id}/reject -> 200 OK (Invited co-worker explicitly rejects collaboration)
-POST /api/v1/gigs/{gig_id}/cancel -> 200 OK (Customer/worker cancels, ₹50 fee after selection, payment created)
-POST /api/v1/gigs/{gig_id}/reopen -> 200 OK (Customer reopens worker-cancelled gig, resets to POSTED)
-POST /api/v1/gigs/{gig_id}/reschedule -> 200 OK (Initiate reschedule negotiation, validates slot & availability)
-GET /api/v1/gigs/{gig_id}/reschedule -> 200 OK (Fetch reschedule negotiation history)
-POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/accept -> 200 OK (Counterparty accepts, updates gig schedule)
-POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/reject -> 200 OK (Counterparty rejects, preserves schedule)
-POST /api/v1/gigs/{gig_id}/reschedule/{request_id}/alternative -> 200 OK (Counterparty counter-proposes slot)
-POST /api/v1/gigs/{gig_id}/material-receipts -> 201 Created (Worker uploads receipt, dual multipart/json support, strict RBAC)
-GET /api/v1/gigs/{gig_id}/material-receipts -> 200 OK (Itemized receipts and authoritative total material cost, privacy gated)
-DELETE /api/v1/gigs/{gig_id}/material-receipts/{receipt_id} -> 200 OK (Uploader deletes receipt before completion submission)
-GET /api/v1/review-questions -> 200 OK (Filtered list of active standard questions by target_role)
-POST /api/v1/gigs/{gig_id}/reviews -> 201 Created (Participant submits completed gig review, recalculates Bayesian & final scores)
-GET /api/v1/gigs/{gig_id}/reviews -> 200 OK (Participant views submitted gig reviews and answers)
-GET /api/v1/workers/{worker_id}/metrics -> 200 OK (Public worker rating average, rating count, and final score)
-GET /api/v1/gigs/{gig_id}/conversation -> 200 OK (Job-scoped conversation overview, lazy initialization, unread count, 409 before worker selection)
-POST /api/v1/gigs/{gig_id}/conversation/messages -> 201 Created (Send message, 1–2000 chars, emits CHAT_MESSAGE notification and CHAT_MESSAGE_SENT event)
-GET /api/v1/gigs/{gig_id}/conversation/messages -> 200 OK (Chronological message pagination, auto marks retrieved counterparty messages as read)
-GET /api/v1/notifications -> 200 OK (User notifications with is_read and type filtering, pagination, newest-first, unread_count)
-POST /api/v1/notifications/{notification_id}/read -> 200 OK (Marks single notification as read, sets read_at, ownership enforced)
-POST /api/v1/notifications/read-all -> 200 OK (Marks all user's unread notifications as read, returns marked_read_count)
 ```
-
-## Pending Backend/Product Work
-
-- Sprint 14: Mutual In-App Chat & Notifications (COMPLETE - 193/193 tests passing).
-- Sprint 15: Flutter-to-FastAPI Integration Hardening (COMPLETE & VERIFIED - 198 backend tests passing, Flutter analyze 0 issues, 30 Flutter tests passing).
-- Sprint 16: End-to-End Testing & Live Deployment.
-
-
-
-
-
-
-
-

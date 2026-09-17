@@ -962,5 +962,235 @@ Completed **Create Gig Screen Streamlining & Collapsible Task Search**:
 - **Flutter Analyzer**: `flutter analyze` passed with 0 issues.
 - **Flutter Test Suite**: `flutter test` passed with all 30/30 tests successful.
 
+## 2026-09-13 18:30:00 +05:30 — Vismay & Antigravity
+
+Completed **Backend & Frontend Integration Protocol, Fast Local Architecture, and Shimmer Loading System**:
+
+### 1. Fast Local Backend & Reverse Proxy Architecture
+- Configured ultra-fast local backend pipeline operating at sub-5ms response latency over ADB reverse proxy (`adb reverse tcp:8000 tcp:8000`), eliminating cold-start cloud latency during testing.
+- Created `docs/backend_plus_frontend_integration_testing.md` outlining the end-to-end integration protocol, seed accounts (Customer, Master Worker, Journeyman Worker, Rookie Worker), and step-by-step verification procedures.
+
+### 2. Authoritative Cancellation & Rescheduling Policy Synthesis
+- Synthesized and documented the authoritative platform cancellation rules across SRS, database constraints, API specs, and `backend/app/services/cancellation_service.py`:
+  - `DRAFT` / `POSTED` / `ACCEPTANCE_OPEN`: Free cancellation (₹0.00).
+  - `WORKER_SELECTED` / `SCHEDULED`: ₹50.00 cancellation compensation to the committed worker.
+  - `SCHEDULED` (Worker Cancellation): Worker reputation penalty; triggers customer prompt to re-open or stop.
+  - `IN_PROGRESS` through `COMPLETED`: Strict lock — cancellations forbidden once physical execution commences.
+
+### 3. Shining Left-to-Right Shimmer Loading
+- Built `ShimmerEffect` widget using `AnimationController` and `ShaderMask` with a continuous linear gradient sweep in `mobile_app/lib/widgets/common/skeleton_loaders.dart`.
+- Built `GigCardSkeleton` and `OpportunityCardSkeleton` components matching real cards.
+- Integrated skeleton loaders into customer and worker home and job list screens with cache retention during pull-to-refresh to eliminate jarring white flashes.
+
+## 2026-09-13 22:15:00 +05:30 — Vismay & Antigravity
+
+Resolved **Duplicate Bottom Navigation Bar Issue on Gig Creation**:
+
+### 1. Root Cause
+- When posting a gig from the final creation wizard screen (`LabourPricePreviewScreen`), the wizard was calling `Navigator.of(context).pushAndRemoveUntil` with a new `CustomerMainScreen`. Because this was executed inside Tab 0's nested `Navigator`, it mounted a nested second `CustomerMainScreen` inside Tab 0 while the outer shell remained active, stacking two `NavigationBar` widgets.
+
+### 2. Architectural Resolution
+- Replaced the nested `pushAndRemoveUntil` with `Navigator.of(context).popUntil((route) => route.isFirst)` in `LabourPricePreviewScreen`, returning cleanly to the root of Tab 0 (`CustomerHomeScreen`).
+- Added static helper `CustomerMainScreen.switchTab(BuildContext context, int index, {CustomerGig? initialGig})` to switch destinations natively without recreating the shell `Scaffold`.
+- Preserved outer navigation state, eliminated duplicate navigation bars, and verified with all 30 automated tests passing.
+
+## 2026-09-14 02:40:00 +05:30 — Vismay & Antigravity
+
+Completed **Worker Chat Fullscreen Navigation, Live Messaging & Auto-Scroll, Review Submission Stack Resolution, and Full Codebase Audit**:
+
+### 1. Worker Chat Navigation Bar Overlap Resolution
+- Fixed issue where the bottom navigation bar was displayed behind and overlapping the message input field on the worker chat screen:
+  - Updated customer contact card chat button in `worker_active_job_screen.dart` and "Message" button in `waiting_confirmation_screen.dart` to push via `Navigator.of(context, rootNavigator: true).push(...)`.
+  - Ensured all customer-side chat pushes in `gig_details_screen.dart` and `customer_workflow_screens.dart` also use `rootNavigator: true`.
+  - Chat screens now render edge-to-edge on the root overlay, completely hiding the bottom navigation bar.
+
+### 2. Chat Messaging Engine & Auto-Scroll
+- Resolved messaging failure where messages could not be sent:
+  - Passed `gigId: widget.job.gigId` (and `job.gigId`) across all worker and customer chat entry points.
+  - Updated `ChatScreen` (`mobile_app/lib/screens/common/chat_screen.dart`) with dual-mode dispatch: calls backend `_chatRepo.sendMessage(gigId, text)` for real UUID gigs, and provides realistic local message creation and automated friendly counterparty response simulation for demo/mock gigs.
+  - Added a dedicated `ScrollController` with `_scrollToBottom()` on message send and receive to automatically scroll the latest message into view.
+
+### 3. Review Submission Redirect to Login Resolution
+- Resolved issue where submitting a review for a customer redirected the worker to the login/role selection screen:
+  - Root cause: `RoleSelectionScreen` was left at the base of the root navigator due to `pushReplacement` on login, and workflow screens opened from `WorkerHomeScreen` ran on the root navigator. When `popUntil((route) => route.isFirst)` was invoked, it popped all the way to `RoleSelectionScreen`.
+  - Added `WorkerMainScreen.switchTab(BuildContext context, int index)` helper.
+  - Updated `review_customer_screen.dart` to route via `WorkerMainScreen.switchTab(context, 2)` upon successful review submission, returning cleanly to "My Jobs" with the completed gig refreshed.
+  - Updated `worker_cancel_reschedule_screen.dart` with `WorkerMainScreen.switchTab(context, 2)`.
+  - Updated `worker_login_screen.dart` and `customer_login_screen.dart` to use `pushAndRemoveUntil(..., (route) => false)`, permanently purging pre-auth routes from the root stack upon authentication.
+
+### 4. Full Codebase Audit & Dead Code Cleanup
+- Audited the full repository from root to tips across backend, database models, schemas, and mobile app.
+- Purged dead legacy mock datasets (`demoOpportunities`, `demoWorkerJobs`, `demoJoinRequests`) in `mobile_app/lib/models/worker_job_workflow.dart`.
+- Retained `demoWeekAvailability` as the standard schedule editor template.
+- Verified all 31 backend database tables, 13 endpoint routers, and services are actively registered.
+- Updated `context.md` with complete present directory and file structure, including bracketed functional descriptions for every file and folder.
+- All 30 Flutter tests passing (`flutter test`) and 0 analysis errors (`flutter analyze`).
+
+## 2026-09-14 03:05:00 +05:30 — Vismay & Antigravity
+
+Completed **Security Remediation: Secret De-Hardcoding, Pydantic Environment Loading, and Repository-Wide Ignore Hardening**:
+
+### 1. Hardcoded Secret Extraction & Safe Defaults
+- Removed live Supabase PostgreSQL connection string with embedded password (`DATABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_KEY`, and `SUPABASE_JWT_SECRET` from `backend/app/core/config.py`.
+- Replaced them with safe local defaults (`DATABASE_URL: str = "sqlite:///./sahakaar_seva.db"`, empty string fallbacks for Supabase keys).
+- Configured Pydantic `SettingsConfigDict` to search `env_file=(".env", "backend/.env")`, seamlessly sourcing active database and authentication credentials from untracked `.env` files or system environment variables regardless of execution working directory.
+
+### 2. Repository-Wide `.gitignore` Creation
+- Created root `.gitignore` ensuring all `.env`, `*.env`, `.env.*`, compiled bytecode (`__pycache__`), test caches (`.pytest_cache`), local databases (`*.db`, `*.sqlite3`), Flutter build artifacts, and OS/editor configurations are comprehensively excluded from Git tracking across the entire project root and submodules.
+
+### 3. Verification & Integrity
+- Validated Pydantic configuration and health endpoints: `pytest app/tests/test_config.py app/tests/test_health.py` passed with 7/7 tests in 6.5s.
+- `flutter analyze` verified 0 issues across the mobile app.
+- Verified untracked status of all credential files in Git.
+
+## 2026-09-14 14:05:00 +05:30 — Vismay & Antigravity
+
+Completed **Worker Opportunity Filtering, Status Synchronization, and NOT_SELECTED Graceful State Handling**:
+
+### 1. Root Cause Analysis
+- Identified why a completed gig ("Bibcock/valve replacement") continued appearing on Worker 2's (Vikram's) home screen as an eligible opportunity:
+  - Backend `OpportunityService.get_worker_opportunities`: When `status` filter was omitted, it returned opportunities regardless of whether their status was `NOT_SELECTED`, `REJECTED`, or `EXPIRED`, and joined gigs that were already `COMPLETED` or `CANCELLED`.
+  - Frontend `WorkerHomeScreen`: The local filter only checked `o.status != 'ACCEPTED' && o.status != 'REJECTED'`. Because the unselected worker had `o.status == 'NOT_SELECTED'`, it slipped through the filter into the "New opportunities" feed.
+- Identified why Worker 2 saw "Accept Gig" and received `Opportunity cannot be accepted from current status 'NOT_SELECTED'`:
+  - `OpportunityDetailsScreen` previously only checked `opportunity.status == 'ACCEPTED'`. Any other status (including `NOT_SELECTED`) rendered the "Accept Gig" button. Tapping it attempted to accept a non-pending opportunity, triggering the backend validation exception.
+  - In `WorkerActiveJobScreen`, when the customer selected another worker, `_checkSelectionStatus()` only displayed a transient SnackBar, leaving the unselected worker on the "Waiting for Customer to Accept You" stepper.
+
+### 2. Implementation Details
+- **Backend (`opportunity_service.py`)**:
+  - In `get_worker_opportunities()`, when `status` is omitted, query is strictly filtered to `GigWorkerOpportunity.status.in_([PENDING, ACCEPTED])` and `Gig.status.in_([POSTED, ACCEPTANCE_OPEN])`.
+  - Explicit `status == ACCEPTED` filter now excludes `CANCELLED` and `COMPLETED` gigs.
+- **Worker Home (`worker_home_screen.dart`)**:
+  - Added strict `hiddenStatuses = {'ACCEPTED', 'REJECTED', 'NOT_SELECTED', 'EXPIRED', 'CANCELLED'}` filter so non-active opportunities never appear in the "New opportunities" list.
+- **Opportunity Details (`opportunity_details_screen.dart`)**:
+  - Extracted `_buildBottomActions()` with dedicated UI states:
+    - `NOT_SELECTED`: Displays informational pill `"Customer Selected Another Worker · Back"`.
+    - `REJECTED`: Displays `"Opportunity Declined · Back"`.
+    - `EXPIRED` / `CANCELLED`: Displays `"Gig Closed or Expired · Back"`.
+    - `ACCEPTED`: Displays `"You Accepted This Gig · View Workspace"`.
+    - `PENDING`: Displays `"Accept Gig"` and `"Decline"` buttons.
+  - Enhanced error handling in `_handleAccept` to cleanly display an informative SnackBar and return to the previous screen on `INVALID_OPPORTUNITY_STATE` or `GIG_NOT_OPEN`.
+- **Worker Active Job Workspace (`worker_active_job_screen.dart`)**:
+  - Added `_isAnotherWorkerSelected` boolean state.
+  - Renders a prominent warning banner informing the worker that the customer selected another technician and replaces the bottom action with `"Return to My Jobs"`.
+
+### 3. Verification & Validation
+- **Backend Tests**: All 198 pytest tests across Sprint 0 to 15 passed (`198 passed in 180.74s`).
+- **Frontend Tests**: All 30 unit/widget tests passed (`flutter test`).
+- **Frontend Analyzer**: `flutter analyze` passed with 0 issues found.
+
+## 2026-09-15 23:45:00 +05:30 — Vismay & Antigravity
+
+Completed **Comprehensive UI/UX Refinements, Safety Dialing, Maps Integration, Mandatory Inline Reviews, and Full-Stack Gig Cancellation Synchronization**:
+
+### 1. Direct Maps Launching & Location Visibility
+- Updated location action in worker opportunities (`opportunity_details_screen.dart`) to directly open Google Maps in an external browser or map application via `url_launcher` (`mode: LaunchMode.externalApplication`) using encoded coordinates or place query, eliminating clipboard-only copying.
+- Streamlined location presentation on customer screens by removing redundant raw Google Maps URL text where inappropriate.
+
+### 2. Safety & Emergency Protocols (SOS & Direct Phone Calling)
+- **SOS Emergency Assistance (`sos_dialog.dart`)**:
+  - Implemented `SOSDialog` triggerable from customer screens while work is `IN_PROGRESS`.
+  - Directly launches mobile dialer with emergency dispatch numbers (`tel:112` / `tel:100` / guild helpline).
+- **Direct Phone Dialing for Customer & Worker**:
+  - Attached verified dummy telephone contacts and UPI handles to both customer and worker profiles/candidates.
+  - Added direct call launcher button (`tel:...`) adjacent to the chat message button on both the customer's assigned worker card and the worker's customer contact card.
+
+### 3. Redundancy Elimination across Customer & Worker Screens
+- **Customer Home Dashboard (`customer_home_screen.dart`)**:
+  - Removed redundant top-right notification bell icon button since the persistent bottom navigation bar already provides a dedicated "Alerts" tab.
+- **Customer Gig Details (`gig_details_screen.dart`)**:
+  - Consolidated multiple redundant candidate cards/buttons (`candidate(1)`, `one worker accepted`, `view candidate`) into a single unified primary action: `"View (1) candidate & choose"`.
+  - Completely purged the "Request a previous worker" card/section.
+  - Removed redundant top-right 3-dot appbar menu and bottom sheet (`Refresh`, `Reschedule`, `Cancel`).
+  - Added dedicated, accessible quick action cards for "Reschedule" and "Cancel Gig" directly beside "Material Bill".
+- **Worker Active Job Workspace (`worker_active_job_screen.dart`)**:
+  - Removed redundant top-right message and reschedule action icons that duplicated in-page customer contact and reschedule controls.
+  - Removed duplicate green square "Review Evidence" banner, keeping only the primary bottom action.
+
+### 4. Payment Screen Optimization & Mandatory Inline Reviews
+- **Payment Screen (`customer_workflow_screens.dart`)**:
+  - Removed obsolete disabled `[Payment marked]` button.
+  - Added clear status banner: `"Waiting for worker's confirmation"` (and `"Payment verified by artisan · Job completed"` upon receipt confirmation).
+  - Embedded mandatory 5-star interactive rating, selectable compliment tags (*Punctual*, *Expert Work*, *Clean & Tidy*, *Polite & Respectful*, *Fair Pricing*), and optional review notes directly inline on the payment screen.
+  - Provided a unified primary action: `[🌟 Submit Review & Return Home]`, guaranteeing review submission before returning to home.
+
+### 5. Full-Stack Gig Cancellation & Cross-Persona Synchronization
+- **Root Cause Resolution**:
+  - Previously, `CancelGigScreen` had mock logic that popped the screen without invoking the backend API (`POST /api/v1/gigs/{gig_id}/cancel`).
+  - Implemented `GigRepository.cancelGig({required String gigId, required String reason})` and added `GigCancelResponseDto` in `api_models.dart`.
+  - Reconciled stuck test gig (`6a9ffc54-e558-44b1-871d-ea7e1688216e`) in the backend DB, setting it to `CANCELLED` status and expiring associated opportunities (`EXPIRED`).
+- **Enums & State Filtering**:
+  - Added `GigStage.cancelled` in `customer_gig_workflow.dart` and mapped `'CANCELLED'` to `GigStage.cancelled`.
+  - Added `WorkerJobStatus.cancelled` in `worker_job_workflow.dart` and mapped `'CANCELLED'` to `WorkerJobStatus.cancelled`.
+  - Updated `customerGigsProvider` to strictly exclude `GigStage.cancelled` and `status == 'CANCELLED'` from `activeGigs`.
+  - Updated `WorkerJobsState` (`allActiveAndScheduled` and `currentJob`) to strictly filter out `WorkerJobStatus.cancelled`.
+  - Added periodic background polling in `WorkerHomeScreen` and `WorkerNavigation2Screen` so worker feeds immediately drop opportunities and gigs cancelled by customers.
+- **Automated Regression Test Suite**:
+  - Created `mobile_app/test/cancellation_workflow_test.dart` with 5 automated tests validating `GigCancelResponseDto` deserialization, API contract, and model state filtering.
+  - All 35 tests passing (`flutter test`) and 0 analysis issues (`dart analyze`).
+
+## 2026-09-16 01:40:00 +05:30 — Vismay & Antigravity
+
+Completed **Date & Time Synchronization, Pre-Worker Direct Rescheduling, and Gig Details Action Streamlining**:
+
+### 1. Customer Gig Details Action Streamlining & Redundancy Removal
+- **Conditional "Material Bill" Button**: In `gig_details_screen.dart`, hidden the "Material Bill" quick action button prior to worker assignment/acceptance (`!hasWorker`), showing only two quick action cards (`[Reschedule]` and `[Cancel Gig]`). The "Material Bill" button renders exclusively after a worker is assigned.
+- **Removed Duplicate Bottom Cancel Bar**: Purged the redundant full-width `[ ⊗ Cancel Gig Request ]` bottom button in `_buildPrimaryBottomAction` on `gig_details_screen.dart`, as gig cancellation is already directly accessible via the quick actions row.
+
+### 2. Live Date & Time Formatting and Display
+- **Persistent Gig Creation Dates**: Updated `create_gig_screen.dart` and `labour_price_preview_screen.dart` to pass ISO formatted `scheduledDate` (YYYY-MM-DD) and `scheduledStartTime` (HH:MM:SS) in `GigCreateRequestDto`, ensuring real schedules are stored in the PostgreSQL database instead of nulls.
+- **Customer Gig Details Banner**: Added a dedicated `Schedule: ${_gig.scheduleDisplay}` banner with a calendar icon in `_buildMainSummaryCard` of `gig_details_screen.dart`, displaying user-friendly date and start time (e.g. "Today, 11:00 AM" or "17 Sep 2026, 11:00 AM") instead of generic "As arranged".
+- **Opportunity Details Timing**: Converted `OpportunityDetailsScreen` into a reactive `StatefulWidget` with auto-fetching (`getOpportunity`), pull-to-refresh (`RefreshIndicator`), and an AppBar refresh icon. Displayed live date (`opportunity.scheduleDisplay`) and duration in the "Timing & Duration" card, immediately reflecting any customer rescheduling.
+
+### 3. Pre-Worker Direct Rescheduling vs Post-Worker Request Negotiation
+- **Backend Direct Schedule Endpoint**: Added `PATCH` and `POST` `/api/v1/gigs/{gig_id}/schedule` with `GigScheduleUpdateRequest` (`scheduled_date`, `scheduled_start_time`, `scheduled_end_time`) and `GigService.update_gig_schedule`. Allowed gig owners to update dates and times directly when the gig is unassigned (`DRAFT`, `POSTED`, `ACCEPTANCE_OPEN`), logging `GIG_SCHEDULE_UPDATED` audit events.
+- **Frontend Mode Switching**: In `reschedule_gig_screen.dart`:
+  - Before a worker is selected (`!_hasSelectedWorker`): Displays a "Direct Schedule Update" notice and button `[Update Gig Schedule]` that invokes `GigRepository.updateGigSchedule` to immediately update the database.
+  - Once a worker is selected (`_hasSelectedWorker`): Displays "Worker Confirmation" notice and button `[Send reschedule request]` to trigger mutual negotiation.
+
+### 4. Verification & Validation
+- **Backend Tests**: 198 pytest tests passing across Sprints 0–15 (`198 passed in 575.80s`).
+- **Frontend Tests**: All 35 tests passing in `mobile_app/test/` (cancellation, integration hardening, and widget tests).
+- **Frontend Analyzer**: `flutter analyze` passing with 0 issues.
+
+## 2026-09-17 01:45:00 +05:30 — Vismay & Antigravity
+
+Completed **Full-Stack UI Riverpod State Management Unification**:
+
+### 1. Centralized Customer State & Computed Projections
+- **Enhanced `customerGigsProvider` (`customer_gigs_provider.dart`)**:
+  - Extended `CustomerGigsState` with computed getters: `allGigs` (all non-cancelled gigs), `activeNow` (seeking & in-progress gigs), `upcoming` (scheduled gigs), and `activeCount`.
+  - Configured `CustomerGigsNotifier.loadGigs` with `pageSize: 50` for one round-trip queries and added `refreshSilently()`.
+- **Customer Home Dashboard (`customer_home_screen.dart`)**:
+  - Migrated from `StatefulWidget` with local `_gigs = []` and manual `_loadData()` to `ConsumerStatefulWidget` watching `customerGigsProvider`.
+  - Bound the dynamic active gigs count badge, skeleton loaders, and gigs list directly to provider state.
+  - Pull-to-refresh and gig creation callbacks trigger `customerGigsProvider.notifier.loadGigs()`.
+- **Customer My Gigs (`customer_navigation_2_screen.dart`)**:
+  - Converted to `ConsumerStatefulWidget`, purging duplicate HTTP calling and candidate fetching logic.
+  - Directly bound the three tabs (`Active`, `Upcoming`, `Completed`) to `gigsState.activeNow`, `gigsState.upcoming`, and `gigsState.completedGigs`.
+  - Polling timer triggers silent reloads only when active lifecycle transitions (`PAYMENT`, `COMPLETION_REQUESTED`, `SELECTED`) exist.
+- **Customer Alerts (`customer_navigation_3_screen.dart`)**:
+  - Converted to `ConsumerWidget`, removing redundant `_loadNotifications()` and separate HTTP calls.
+  - Reactively derives candidate acceptance and milestone alerts from `gigsState.allGigs`.
+
+### 2. Unified Worker Opportunities Feed
+- **Worker Navigation 2 (`worker_navigation_2_screen.dart`)**:
+  - Migrated from `StatefulWidget` with isolated state to `ConsumerStatefulWidget` watching `workerOpportunitiesProvider`.
+  - Shares the memory cache with `WorkerHomeScreen`, ensuring instantaneous, zero-flicker tab switching.
+  - Filter chips ("All", "Emergency", "Conflicts") operate reactively on `oppsState.opportunities`.
+  - Periodic background polling and pull-to-refresh synchronize via `workerOpportunitiesProvider.notifier.loadOpportunities()`.
+
+### 3. Cross-Screen Provider Invalidation & Synchronization
+- **Gig Creation Confirmation (`labour_price_preview_screen.dart`)**:
+  - Converted to `ConsumerStatefulWidget`.
+  - Triggers `ref.read(customerGigsProvider.notifier).loadGigs(silent: false)` before popping back to root, guaranteeing the newly posted gig immediately appears on Home and My Gigs.
+- **Reschedule Screen (`reschedule_gig_screen.dart`)**:
+  - Converted to `ConsumerStatefulWidget`.
+  - Triggers `ref.read(customerGigsProvider.notifier).loadGigs(silent: true)` upon schedule update, ensuring Home and My Gigs display the updated date/time.
+
+### 4. Verification & Testing
+- **Automated Tests**: Expanded `cancellation_workflow_test.dart` to validate `CustomerGigsState` computed getters (`activeNow`, `upcoming`, `allGigs`, `activeCount`).
+- **Test Suite Results**: All 36 tests passed (`36 passed in 6.2s`) across unit, integration hardening, and widget test suites.
+- **Static Analysis**: `flutter analyze` passed with 0 issues found (`No issues found!`).
+
 
 

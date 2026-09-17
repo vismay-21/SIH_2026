@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'screens/common/splash_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -12,16 +13,19 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: appThemeMode,
-      builder: (context, themeMode, _) => MaterialApp(
-        title: 'Sahakaar Seva',
-        debugShowCheckedModeBanner: false,
-        theme: buildAppTheme(),
-        darkTheme: buildAppTheme(darkMode: true),
-        themeMode: themeMode,
-        home: const SplashScreen(),
+    return ProviderScope(
+      child: ValueListenableBuilder<ThemeMode>(
+        valueListenable: appThemeMode,
+        builder: (context, themeMode, _) => MaterialApp(
+          title: 'Sahakaar Seva',
+          debugShowCheckedModeBanner: false,
+          theme: buildAppTheme(),
+          darkTheme: buildAppTheme(darkMode: true),
+          themeMode: themeMode,
+          home: const SplashScreen(),
+        ),
       ),
     );
   }
 }
+

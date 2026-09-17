@@ -9,7 +9,7 @@ from app.db.models.enums import UserRole
 from app.core.security import get_current_active_user, require_role
 from app.schemas.common import ResponseEnvelope
 from app.schemas.pricing import PricePreviewRequest, PricePreviewResponse
-from app.schemas.gig import GigCreateRequest, GigResponse
+from app.schemas.gig import GigCreateRequest, GigResponse, GigScheduleUpdateRequest
 from app.schemas.candidate import (
     GigCandidateResponse,
     SelectWorkerRequest,
@@ -126,6 +126,35 @@ async def post_gig(
         db=db,
     )
     return ResponseEnvelope(data=gig)
+
+
+@router.patch(
+    "/gigs/{gig_id}/schedule",
+    response_model=ResponseEnvelope[GigResponse],
+    summary="Directly update gig schedule before worker selection",
+)
+@router.post(
+    "/gigs/{gig_id}/schedule",
+    response_model=ResponseEnvelope[GigResponse],
+    summary="Directly update gig schedule before worker selection (POST alias)",
+)
+async def update_gig_schedule(
+    gig_id: uuid.UUID,
+    request: GigScheduleUpdateRequest,
+    current_user: User = Depends(require_role(UserRole.CUSTOMER)),
+    db: Session = Depends(get_db),
+) -> ResponseEnvelope[GigResponse]:
+    """Directly update the scheduled date and time of an unassigned gig (DRAFT, POSTED, ACCEPTANCE_OPEN)."""
+    gig = GigService.update_gig_schedule(
+        customer_user=current_user,
+        gig_id=gig_id,
+        scheduled_date=request.scheduled_date,
+        scheduled_start_time=request.scheduled_start_time,
+        scheduled_end_time=request.scheduled_end_time,
+        db=db,
+    )
+    return ResponseEnvelope(data=GigService._map_to_response(gig))
+
 
 
 @router.get(

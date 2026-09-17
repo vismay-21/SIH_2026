@@ -1,33 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../models/api/api_models.dart';
 import '../../../models/worker_job_workflow.dart';
-import '../../../theme/app_theme.dart';
-import '../../../widgets/common/shared_widgets.dart';
-import '../../../repositories/worker_repository.dart';
+import '../../../providers/active_job_sync_provider.dart';
 import '../../../repositories/gig_repository.dart';
+import '../../../repositories/worker_repository.dart';
 import '../../../services/token_storage.dart';
+import '../../../theme/app_theme.dart';
+import '../../../utils/phone_dialer_helper.dart';
+import '../../../widgets/common/location_picker_dialog.dart';
+import '../../../widgets/common/shared_widgets.dart';
 import '../../common/chat_screen.dart';
 import 'completion_evidence_upload_screen.dart';
 import 'material_bill_upload_screen.dart';
 import 'multi_worker_invite_screen.dart';
+import 'visitation_proposal_dialog.dart';
 import 'waiting_confirmation_screen.dart';
 import 'worker_cancel_reschedule_screen.dart';
 import 'worker_payment_confirmation_screen.dart';
 
-class WorkerActiveJobScreen extends StatefulWidget {
+class WorkerActiveJobScreen extends ConsumerStatefulWidget {
   const WorkerActiveJobScreen({super.key, required this.job});
 
   final WorkerJob job;
 
   @override
-  State<WorkerActiveJobScreen> createState() => _WorkerActiveJobScreenState();
+  ConsumerState<WorkerActiveJobScreen> createState() => _WorkerActiveJobScreenState();
 }
 
-class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
+class _WorkerActiveJobScreenState extends ConsumerState<WorkerActiveJobScreen> {
   late WorkerJobStatus _status;
   int? _materialClaim;
   String? _invitedCoWorker;
   bool _isCheckingStatus = false;
+  bool _isAnotherWorkerSelected = false;
+  VisitationResponseDto? _visitationDetails;
 
   @override
   void initState() {
@@ -73,8 +81,20 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
           }
 
           setState(() {
+            _isAnotherWorkerSelected = false;
             _status = newStatus;
           });
+
+          if (gig.gigType == 'VISITATION' ||
+              widget.job.gigType == 'VISITATION' ||
+              widget.job.category.toLowerCase().contains('visit')) {
+            try {
+              final vis = await GigRepository().getVisitationDetails(gigId);
+              if (mounted) {
+                setState(() => _visitationDetails = vis);
+              }
+            } catch (_) {}
+          }
           if (mounted && !silent) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -87,6 +107,9 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
             );
           }
         } else {
+          setState(() {
+            _isAnotherWorkerSelected = true;
+          });
           if (mounted && !silent) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -158,6 +181,44 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final gigId = widget.job.gigId ?? widget.job.id;
+    if (!gigId.startsWith('job-') && !gigId.startsWith('opp-')) {
+      ref.listen<AsyncValue<GigDto?>>(activeGigSyncProvider(gigId), (prev, next) {
+        final gig = next.asData?.value;
+        if (gig != null) {
+          final currentUserId = TokenStorage.instance.currentUser?.id;
+          if (gig.selectedWorkerId != null) {
+            if (currentUserId == null || gig.selectedWorkerId == currentUserId) {
+              final s = gig.status.toUpperCase();
+              WorkerJobStatus newStatus = WorkerJobStatus.accepted;
+              if (s == 'IN_PROGRESS') {
+                newStatus = WorkerJobStatus.active;
+              } else if (s == 'COMPLETION_SUBMITTED' || s == 'WORKER_COMPLETED') {
+                newStatus = WorkerJobStatus.evidenceSubmitted;
+              } else if (s == 'CUSTOMER_CONFIRMED' ||
+                  s == 'PAYMENT_PENDING' ||
+                  s == 'PAYMENT_CUSTOMER_PAID') {
+                newStatus = WorkerJobStatus.paymentPending;
+              } else if (s == 'COMPLETED' || s == 'PAYMENT_WORKER_CONFIRMED') {
+                newStatus = WorkerJobStatus.completed;
+              }
+
+              if (mounted && (_status != newStatus || _isAnotherWorkerSelected)) {
+                setState(() {
+                  _status = newStatus;
+                  _isAnotherWorkerSelected = false;
+                });
+              }
+            } else {
+              if (mounted && !_isAnotherWorkerSelected) {
+                setState(() => _isAnotherWorkerSelected = true);
+              }
+            }
+          }
+        }
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -176,31 +237,6 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
             tooltip: 'Refresh Status',
             onPressed: _isCheckingStatus ? null : () => _checkSelectionStatus(),
           ),
-          IconButton(
-            icon: const Icon(Icons.chat_outlined),
-            tooltip: 'Job Chat',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ChatScreen(
-                    title: 'Chat with ${widget.job.customerName}',
-                    subtitle: widget.job.title,
-                    gigId: widget.job.gigId,
-                  ),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert_rounded),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => WorkerCancelRescheduleScreen(job: widget.job),
-                ),
-              );
-            },
-          ),
         ],
       ),
       body: ListView(
@@ -210,8 +246,56 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
           _buildStatusTracker(),
           const SizedBox(height: 16),
 
-          // Waiting for Customer Banner if awaitingSelection
-          if (_status == WorkerJobStatus.awaitingSelection) ...[
+          // Unselected Warning Banner if customer chose another worker
+          if (_isAnotherWorkerSelected) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.orange.withValues(alpha: 0.5),
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    color: Colors.deepOrange,
+                    size: 26,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Gig Assigned to Another Worker',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: Colors.deepOrange,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Thank you for applying. The customer has reviewed the candidate pool and selected another technician for this request. You can check for other new opportunities.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.text.withValues(alpha: 0.85),
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ] else if (_status == WorkerJobStatus.awaitingSelection) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -479,13 +563,11 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
                         Icons.call_rounded,
                         color: AppColors.primary,
                       ),
+                      tooltip: 'Call Customer',
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Calling ${widget.job.customerName}...',
-                            ),
-                          ),
+                        PhoneDialerHelper.launchDialer(
+                          context,
+                          widget.job.customerPhone,
                         );
                       },
                     ),
@@ -495,11 +577,12 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
                         color: AppColors.primary,
                       ),
                       onPressed: () {
-                        Navigator.of(context).push(
+                        Navigator.of(context, rootNavigator: true).push(
                           MaterialPageRoute<void>(
                             builder: (_) => ChatScreen(
                               title: widget.job.customerName,
                               subtitle: 'Customer · ${widget.job.title}',
+                              gigId: widget.job.gigId,
                             ),
                           ),
                         );
@@ -535,6 +618,44 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
                       ),
                     ),
                   ],
+                ),
+                Builder(
+                  builder: (context) {
+                    final hasMapsLink = widget.job.googleMapsLink != null &&
+                        widget.job.googleMapsLink!.isNotEmpty;
+                    final mapUrl = hasMapsLink
+                        ? widget.job.googleMapsLink!
+                        : (widget.job.latitude != null && widget.job.longitude != null
+                            ? PickedLocation.generateGoogleMapsLink(
+                                widget.job.latitude!, widget.job.longitude!)
+                            : (widget.job.location.isNotEmpty &&
+                                    widget.job.location != 'Assigned location'
+                                ? 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(widget.job.location)}'
+                                : null));
+
+                    if (mapUrl == null) return const SizedBox.shrink();
+
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                        ),
+                        onPressed: () => launchGoogleMaps(context, mapUrl),
+                        icon: const Icon(Icons.map_rounded, size: 18),
+                        label: const Text(
+                          'Open in Google Maps',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -677,6 +798,21 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
   }
 
   Widget _buildBottomActionButton() {
+    if (_isAnotherWorkerSelected) {
+      return SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: FilledButton.icon(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back_rounded),
+          label: const Text(
+            'Return to My Jobs',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+          ),
+        ),
+      );
+    }
+
     if (_status == WorkerJobStatus.awaitingSelection) {
       return SizedBox(
         width: double.infinity,
@@ -714,6 +850,94 @@ class _WorkerActiveJobScreenState extends State<WorkerActiveJobScreen> {
         ),
       );
     } else if (_status == WorkerJobStatus.active) {
+      final isVisitation = widget.job.gigType == 'VISITATION' ||
+          widget.job.category == 'VISITATION' ||
+          _visitationDetails?.isVisitation == true;
+
+      if (isVisitation) {
+        final hasPendingProposal =
+            _visitationDetails?.activeProposal?.status == 'PENDING';
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasPendingProposal) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.schedule_rounded,
+                        size: 16, color: AppColors.primaryDark),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Proposal Pending Customer Approval (₹${_visitationDetails!.activeProposal!.basePrice.toInt()})',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                onPressed: () async {
+                  final proposed = await VisitationProposalDialog.show(
+                    context,
+                    gigId: widget.job.gigId ?? widget.job.id,
+                    categoryId: widget.job.categoryId ?? '',
+                    categoryName: widget.job.category,
+                  );
+                  if (proposed == true) {
+                    _checkSelectionStatus(silent: true);
+                  }
+                },
+                icon: const Icon(Icons.assignment_add),
+                label: Text(
+                  hasPendingProposal
+                      ? 'Update Proposed Tasks & Quote'
+                      : 'Propose Diagnostic Tasks & Quote',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          CompletionEvidenceUploadScreen(job: widget.job),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                label: const Text(
+                  'Complete Visitation & Submit Evidence',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+
       return SizedBox(
         width: double.infinity,
         height: 50,

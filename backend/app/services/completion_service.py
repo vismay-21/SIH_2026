@@ -107,6 +107,9 @@ class CompletionService:
                     customer_id=g.customer_id,
                     customer_name=g.customer.full_name if g.customer else None,
                     address_line=g.address,
+                    latitude=float(g.latitude) if g.latitude is not None else None,
+                    longitude=float(g.longitude) if g.longitude is not None else None,
+                    google_maps_link=g.google_maps_link,
                     emergency=g.is_emergency,
                     created_at=g.created_at,
                 )

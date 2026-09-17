@@ -81,8 +81,9 @@ class _WorkerLoginScreenState extends State<WorkerLoginScreen> {
         return;
       }
 
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(builder: (_) => const WorkerMainScreen()),
+        (route) => false,
       );
     } on ApiError catch (e) {
       if (mounted) {

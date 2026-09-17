@@ -1,52 +1,51 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
-import '../../../models/worker_job_workflow.dart';
-import '../../../repositories/worker_repository.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../providers/worker_jobs_provider.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
 import 'opportunity_details_screen.dart';
 
-class WorkerNavigation2Screen extends StatefulWidget {
+class WorkerNavigation2Screen extends ConsumerStatefulWidget {
   const WorkerNavigation2Screen({super.key});
 
   @override
-  State<WorkerNavigation2Screen> createState() =>
+  ConsumerState<WorkerNavigation2Screen> createState() =>
       _WorkerNavigation2ScreenState();
 }
 
-class _WorkerNavigation2ScreenState extends State<WorkerNavigation2Screen> {
-  final _workerRepo = WorkerRepository();
+class _WorkerNavigation2ScreenState extends ConsumerState<WorkerNavigation2Screen> {
   String _activeFilter = 'All';
-  List<WorkerOpportunity> _opportunities = [];
-  bool _isLoading = true;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadOpportunities();
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted) {
+        ref.read(workerOpportunitiesProvider.notifier).loadOpportunities(silent: true);
+      }
+    });
   }
 
-  Future<void> _loadOpportunities() async {
-    setState(() => _isLoading = true);
-    try {
-      final resp = await _workerRepo.getOpportunities();
-      final mapped = resp.data.map(WorkerOpportunity.fromDto).toList();
-      if (!mounted) return;
-      setState(() {
-        _opportunities = mapped;
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-    }
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredOpportunities = _opportunities.where((opp) {
-      if (opp.status == 'ACCEPTED' || opp.status == 'REJECTED') return false;
+    final oppsState = ref.watch(workerOpportunitiesProvider);
+    final opportunities = oppsState.opportunities;
+
+    final filteredOpportunities = opportunities.where((opp) {
+      // Hide already-responded or gig-filled opportunities
+      final hiddenStatuses = {'ACCEPTED', 'REJECTED', 'NOT_SELECTED', 'EXPIRED', 'CANCELLED'};
+      if (hiddenStatuses.contains(opp.status.toUpperCase())) return false;
       if (_activeFilter == 'Emergency') return opp.isEmergency;
       if (_activeFilter == 'Conflicts') return opp.hasScheduleConflict;
       return true;
@@ -62,7 +61,8 @@ class _WorkerNavigation2ScreenState extends State<WorkerNavigation2Screen> {
           automaticallyImplyLeading: false,
         ),
         body: RefreshIndicator(
-          onRefresh: _loadOpportunities,
+          onRefresh: () =>
+              ref.read(workerOpportunitiesProvider.notifier).loadOpportunities(),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
             children: [
@@ -101,7 +101,7 @@ class _WorkerNavigation2ScreenState extends State<WorkerNavigation2Screen> {
 
               const SizedBox(height: 16),
 
-              if (_isLoading && _opportunities.isEmpty)
+              if (oppsState.isLoading && opportunities.isEmpty)
                 const Column(
                   children: [
                     OpportunityCardSkeleton(),
@@ -109,7 +109,7 @@ class _WorkerNavigation2ScreenState extends State<WorkerNavigation2Screen> {
                     OpportunityCardSkeleton(),
                   ],
                 )
-              else if (filteredOpportunities.isEmpty && !_isLoading)
+              else if (filteredOpportunities.isEmpty && !oppsState.isLoading)
                 SurfaceCard(
                   padding: const EdgeInsets.symmetric(
                     vertical: 40,
@@ -133,9 +133,10 @@ class _WorkerNavigation2ScreenState extends State<WorkerNavigation2Screen> {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          'New household repair requests matching your trade will appear here.',
+                          'New community gig requests in your area will appear here automatically.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: AppColors.muted, fontSize: 13),
+                          style:
+                              TextStyle(color: AppColors.muted, fontSize: 13),
                         ),
                       ],
                     ),
@@ -152,7 +153,9 @@ class _WorkerNavigation2ScreenState extends State<WorkerNavigation2Screen> {
                             builder: (_) =>
                                 OpportunityDetailsScreen(opportunity: opp),
                           ),
-                        ).then((_) => _loadOpportunities());
+                        ).then((_) => ref
+                            .read(workerOpportunitiesProvider.notifier)
+                            .loadOpportunities(silent: true));
                       },
                       borderRadius: BorderRadius.circular(16),
                       child: SurfaceCard(

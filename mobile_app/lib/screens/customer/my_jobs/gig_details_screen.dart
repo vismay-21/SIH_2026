@@ -1,20 +1,21 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../../models/api/api_models.dart';
 import '../../../models/customer_gig_workflow.dart';
 import '../../../repositories/gig_repository.dart';
 import '../../../theme/app_theme.dart';
+import '../../../utils/phone_dialer_helper.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../../widgets/common/sos_dialog.dart';
 import '../../common/chat_screen.dart';
 import 'accepted_candidates_screen.dart';
-import 'active_job_screen.dart';
 import 'cancel_gig_screen.dart';
 import 'completion_evidence_review_screen.dart';
 import 'material_bill_viewer_screen.dart';
 import 'payment_screen.dart';
 import 'reschedule_gig_screen.dart';
 import 'review_worker_screen.dart';
-import 'waiting_for_candidates_screen.dart';
 
 class GigDetailsScreen extends StatefulWidget {
   const GigDetailsScreen({super.key, required this.gig});
@@ -30,6 +31,7 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
   late CustomerGig _gig;
   bool _isRefreshing = false;
   Timer? _statusPollingTimer;
+  VisitationResponseDto? _visitationDetails;
 
   @override
   void initState() {
@@ -47,9 +49,10 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
 
   void _startStatusPollingIfNeeded() {
     _statusPollingTimer?.cancel();
-    // When waiting for worker confirmation, poll every 2.5s so screen auto-completes
-    if (_gig.rawStatus == 'PAYMENT_CUSTOMER_PAID' && _gig.stage != GigStage.completed) {
-      _statusPollingTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) async {
+    // While gig is active (seeking workers, in progress, awaiting evidence/payment), poll every 3.5s so screen auto-updates
+    if (_gig.stage != GigStage.completed) {
+      _statusPollingTimer = Timer.periodic(const Duration(milliseconds: 3500), (_) async {
+        if (!mounted) return;
         await _refreshGig();
         if (_gig.stage == GigStage.completed) {
           _statusPollingTimer?.cancel();
@@ -68,12 +71,25 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
       List<GigCandidate> candidates = [];
       try {
         final candidateDtos = await _gigRepo.getCandidates(gigId);
-        candidates = candidateDtos.map(GigCandidate.fromDto).toList();
+        candidates = candidateDtos
+            .map((dto) =>
+                GigCandidate.fromDto(dto, categoryName: gigDto.categoryName))
+            .toList();
       } catch (_) {}
+
+      VisitationResponseDto? vis;
+      if (gigDto.gigType == 'VISITATION' ||
+          _gig.gigType == 'VISITATION' ||
+          _gig.category.toLowerCase().contains('visit')) {
+        try {
+          vis = await _gigRepo.getVisitationDetails(gigId);
+        } catch (_) {}
+      }
 
       if (!mounted) return;
       setState(() {
         _gig = CustomerGig.fromDto(gigDto, candidates: candidates);
+        _visitationDetails = vis;
         _isRefreshing = false;
       });
       _startStatusPollingIfNeeded();
@@ -116,11 +132,6 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
             onPressed: _isRefreshing ? null : _refreshGig,
             tooltip: 'Refresh',
           ),
-          IconButton(
-            icon: const Icon(Icons.more_vert_rounded),
-            onPressed: () => _showMoreMenu(context),
-            tooltip: 'More options',
-          ),
         ],
       ),
       body: RefreshIndicator(
@@ -145,9 +156,14 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
             _buildContextCard(context),
             const SizedBox(height: 12),
 
-            // Location & Instructions Card
-            _buildLocationCard(),
-            const SizedBox(height: 18),
+            // Incoming Visitation Proposal Card if any
+            if (_visitationDetails?.activeProposal != null &&
+                _visitationDetails!.activeProposal!.status == 'PENDING') ...[
+              _buildVisitationProposalCard(),
+              const SizedBox(height: 12),
+            ],
+
+            const SizedBox(height: 14),
 
             // Primary Bottom Action
             _buildPrimaryBottomAction(context),
@@ -225,8 +241,35 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            '${_gig.category} · ${_gig.when} · ${_gig.duration}',
+            '${_gig.category} · ${_gig.duration}',
             style: const TextStyle(color: AppColors.muted, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.event_available_rounded, size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Schedule: ${_gig.scheduleDisplay}',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           const Divider(height: 1),
@@ -263,140 +306,35 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
     );
   }
 
-  /// 3 compact icon cards side by side
+  /// Utility cards: Reschedule & Cancel Gig (plus Material Bill once worker is assigned)
   Widget _buildQuickActionCards(BuildContext context) {
-    final hasCandidates = _gig.candidates.isNotEmpty;
-    final hasSelectedWorker = _gig.selectedWorker != null;
-
-    IconData card1Icon;
-    String card1Label;
-    bool card1Highlighted = false;
-    VoidCallback card1OnTap;
-
-    if (!hasSelectedWorker) {
-      if (hasCandidates) {
-        card1Icon = Icons.people_alt_rounded;
-        card1Label = 'Candidates (${_gig.candidates.length})';
-        card1Highlighted = true;
-        card1OnTap = () => Navigator.of(context)
-            .push(
-              MaterialPageRoute<void>(
-                builder: (_) => AcceptedCandidatesScreen(gig: _gig),
-              ),
-            )
-            .then((_) => _refreshGig());
-      } else {
-        card1Icon = Icons.radar_rounded;
-        card1Label = 'Worker Radar';
-        card1OnTap = () => Navigator.of(context)
-            .push(
-              MaterialPageRoute<void>(
-                builder: (_) => WaitingForCandidatesScreen(gig: _gig),
-              ),
-            )
-            .then((_) => _refreshGig());
-      }
-    } else {
-      switch (_gig.stage) {
-        case GigStage.selected:
-        case GigStage.scheduled:
-          card1Icon = Icons.chat_bubble_outline_rounded;
-          card1Label = 'Chat with Artisan';
-          card1OnTap = () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ChatScreen(
-                title: _gig.selectedWorker?.name ?? 'Assigned Worker',
-                subtitle: _gig.title,
-                gigId: _gig.id,
-              ),
-            ),
-          );
-          break;
-        case GigStage.active:
-          card1Icon = Icons.engineering_rounded;
-          card1Label = 'In Progress';
-          card1OnTap = () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ActiveJobScreen(gig: _gig),
-            ),
-          ).then((_) => _refreshGig());
-          break;
-        case GigStage.completionRequested:
-          card1Icon = Icons.fact_check_rounded;
-          card1Label = 'Review Evidence';
-          card1Highlighted = true;
-          card1OnTap = () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => CompletionEvidenceReviewScreen(gig: _gig),
-            ),
-          ).then((_) => _refreshGig());
-          break;
-        case GigStage.payment:
-          card1Icon = Icons.payment_rounded;
-          card1Label = _gig.rawStatus == 'PAYMENT_CUSTOMER_PAID' ? 'Paid' : 'Payment';
-          card1Highlighted = _gig.rawStatus != 'PAYMENT_CUSTOMER_PAID';
-          card1OnTap = () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => PaymentScreen(gig: _gig),
-            ),
-          ).then((_) => _refreshGig());
-          break;
-        case GigStage.completed:
-          card1Icon = Icons.rate_review_outlined;
-          card1Label = 'Review Worker';
-          card1Highlighted = true;
-          card1OnTap = () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ReviewWorkerScreen(
-                workerName: _gig.selectedWorker?.name ?? 'Worker',
-                gigTitle: _gig.title,
-              ),
-            ),
-          ).then((_) => _refreshGig());
-          break;
-        default:
-          card1Icon = Icons.chat_bubble_outline_rounded;
-          card1Label = 'Chat';
-          card1OnTap = () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ChatScreen(
-                title: _gig.selectedWorker?.name ?? 'Assigned Worker',
-                subtitle: _gig.title,
-                gigId: _gig.id,
-              ),
-            ),
-          );
-      }
-    }
+    final hasWorker = _gig.selectedWorker != null ||
+        _gig.stage == GigStage.selected ||
+        _gig.stage == GigStage.scheduled ||
+        _gig.stage == GigStage.active ||
+        _gig.stage == GigStage.completionRequested ||
+        _gig.stage == GigStage.payment ||
+        _gig.stage == GigStage.completed;
 
     return Row(
       children: [
-        // Card 1: State-driven primary entry
-        Expanded(
-          child: _QuickCard(
-            icon: card1Icon,
-            label: card1Label,
-            isHighlighted: card1Highlighted,
-            onTap: card1OnTap,
-          ),
-        ),
-        const SizedBox(width: 8),
-
-        // Card 2: Material Bill
-        Expanded(
-          child: _QuickCard(
-            icon: Icons.receipt_long_rounded,
-            label: 'Material Bill',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const MaterialBillViewerScreen(),
+        // Card 1: Material Bill (only visible once worker is assigned)
+        if (hasWorker) ...[
+          Expanded(
+            child: _QuickCard(
+              icon: Icons.receipt_long_rounded,
+              label: 'Material Bill',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const MaterialBillViewerScreen(),
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
+          const SizedBox(width: 8),
+        ],
 
-        // Card 3: Reschedule
+        // Card 2: Reschedule
         Expanded(
           child: _QuickCard(
             icon: Icons.edit_calendar_rounded,
@@ -412,7 +350,44 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
                 MaterialPageRoute<void>(
                   builder: (_) => RescheduleGigScreen(gig: _gig),
                 ),
-              );
+              ).then((_) => _refreshGig());
+            },
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // Card 3: Cancel Gig
+        Expanded(
+          child: _QuickCard(
+            icon: Icons.cancel_outlined,
+            label: 'Cancel Gig',
+            isDanger: true,
+            onTap: () {
+              final canCancel = _gig.stage == GigStage.seeking ||
+                  _gig.stage == GigStage.responding ||
+                  _gig.stage == GigStage.accepted ||
+                  _gig.stage == GigStage.selected ||
+                  _gig.stage == GigStage.scheduled;
+              if (!canCancel) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Cannot cancel a gig after work has started or completed.'),
+                  ),
+                );
+                return;
+              }
+              final nav = Navigator.of(context);
+              nav.push<bool>(
+                MaterialPageRoute<bool>(
+                  builder: (_) => CancelGigScreen(gig: _gig),
+                ),
+              ).then((cancelled) {
+                if (cancelled == true && mounted) {
+                  nav.pop(true);
+                } else {
+                  _refreshGig();
+                }
+              });
             },
           ),
         ),
@@ -422,6 +397,39 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
 
   /// Context-aware status card
   Widget _buildContextCard(BuildContext context) {
+    if (_gig.stage == GigStage.cancelled) {
+      return SurfaceCard(
+        color: AppColors.danger.withValues(alpha: 0.08),
+        padding: const EdgeInsets.all(14),
+        child: const Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: AppColors.danger, size: 28),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Gig Cancelled',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.danger,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'This gig was cancelled. It is no longer active.',
+                    style: TextStyle(color: AppColors.muted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final hasCandidates = _gig.candidates.isNotEmpty;
     final selectedWorker = _gig.selectedWorker;
 
@@ -473,9 +481,11 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
                 ),
                 IconButton.filledTonal(
                   icon: const Icon(Icons.phone_rounded, size: 18),
+                  tooltip: 'Call Artisan',
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Calling ${selectedWorker.name}...')),
+                    PhoneDialerHelper.launchDialer(
+                      context,
+                      selectedWorker.phoneNumber,
                     );
                   },
                 ),
@@ -483,7 +493,7 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
                 IconButton.filledTonal(
                   icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
                   onPressed: () {
-                    Navigator.of(context).push(
+                    Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute<void>(
                         builder: (_) => ChatScreen(
                           title: selectedWorker.name,
@@ -541,7 +551,7 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${_gig.candidates.length} worker${_gig.candidates.length > 1 ? 's' : ''} accepted!',
+                      'View ${_gig.candidates.length} Candidate${_gig.candidates.length > 1 ? 's' : ''} & Choose',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
@@ -614,52 +624,161 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
     );
   }
 
-  /// Compact location & details card
-  Widget _buildLocationCard() {
+
+
+  /// Incoming Visitation Proposal Review Card
+  Widget _buildVisitationProposalCard() {
+    final proposal = _visitationDetails!.activeProposal!;
+
     return SurfaceCard(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.location_on_rounded,
-                color: AppColors.primary,
-                size: 20,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.assignment_turned_in_rounded,
+                    color: AppColors.primary, size: 20),
               ),
               const SizedBox(width: 10),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _gig.location,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
+                      'Artisan Proposed Repair Scope',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: AppColors.primary,
                       ),
                     ),
-                    if (_gig.instructions.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Instructions: ${_gig.instructions}',
-                        style: const TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 4),
                     Text(
-                      'Materials: ${_gig.materials}',
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 12,
-                      ),
+                      'On-site inspection completed. Review diagnosed tasks below.',
+                      style: TextStyle(fontSize: 11, color: AppColors.muted),
                     ),
                   ],
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 20),
+          ...proposal.tasks.map((t) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '• ${t.taskName} (${t.standardDurationMinutesSnapshot} min)',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Text(
+                      '₹${t.basePriceSnapshot.toInt()}',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ],
+                ),
+              )),
+          const Divider(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Labour Quote',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+              ),
+              Text(
+                '₹${proposal.basePrice.toInt()}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.check_circle_outline, size: 14, color: AppColors.success),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '₹100 diagnostic visit charge is absorbed into this total upon acceptance.',
+                    style: TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () async {
+                    try {
+                      await _gigRepo.rejectVisitationProposal(
+                        gigId: _gig.id!,
+                        proposalId: proposal.id,
+                      );
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Scope declined. Fixed ₹100 visit charge remains payable.'),
+                        ),
+                      );
+                      _refreshGig();
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    }
+                  },
+                  child: const Text('Decline Scope'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
+                  onPressed: () async {
+                    try {
+                      await _gigRepo.acceptVisitationProposal(
+                        gigId: _gig.id!,
+                        proposalId: proposal.id,
+                      );
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Scope accepted! Worker will now execute the tasks.'),
+                          backgroundColor: AppColors.success,
+                        ),
+                      );
+                      _refreshGig();
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    }
+                  },
+                  child: const Text('Accept Scope'),
                 ),
               ),
             ],
@@ -672,17 +791,7 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
   /// Single primary context-aware action button
   Widget _buildPrimaryBottomAction(BuildContext context) {
     if (_gig.candidates.isNotEmpty && _gig.selectedWorker == null) {
-      return PrimaryAction(
-        label: 'View ${_gig.candidates.length} Candidate${_gig.candidates.length > 1 ? 's' : ''} & Choose',
-        icon: Icons.check_circle_outline_rounded,
-        onPressed: () => Navigator.of(context)
-            .push(
-              MaterialPageRoute<void>(
-                builder: (_) => AcceptedCandidatesScreen(gig: _gig),
-              ),
-            )
-            .then((_) => _refreshGig()),
-      );
+      return const SizedBox.shrink();
     }
 
     if (_gig.stage == GigStage.completionRequested) {
@@ -811,19 +920,29 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          PrimaryAction(
-            label: 'Chat with Artisan',
-            icon: Icons.chat_bubble_outline_rounded,
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => ChatScreen(
-                  title: _gig.selectedWorker?.name ?? 'Assigned Worker',
-                  subtitle: _gig.title,
-                  gigId: _gig.id,
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: () => SosEmergencyDialog.show(context),
+              icon: const Icon(Icons.emergency_rounded, color: Colors.white),
+              label: const Text(
+                '🚨 SOS Emergency Assist',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  letterSpacing: 0.3,
                 ),
               ),
-            ).then((_) => _refreshGig()),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
         ],
       );
@@ -868,100 +987,33 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => CancelGigScreen(gig: _gig),
-                ),
-              ).then((_) => _refreshGig()),
-              icon: const Icon(Icons.cancel_outlined, size: 16),
-              label: const Text('Cancel Gig (₹50 fee applies)'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red.shade700,
-                side: BorderSide(color: Colors.red.shade200),
-              ),
-            ),
-          ),
         ],
       );
     }
 
-    // Pre-matching seeking/responding: Cancel option (₹0 fee)
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CancelGigScreen(gig: _gig),
-          ),
-        ).then((_) => _refreshGig()),
-        icon: const Icon(Icons.cancel_outlined, size: 18),
-        label: const Text('Cancel Gig Request'),
-      ),
-    );
-  }
-
-  void _showMoreMenu(BuildContext context) {
-    // Per SRS Section 21 & Backend Ground Truth, cancellation is strictly prohibited once work has started
-    final canCancel = _gig.stage == GigStage.seeking ||
-        _gig.stage == GigStage.responding ||
-        _gig.stage == GigStage.accepted ||
-        _gig.stage == GigStage.selected ||
-        _gig.stage == GigStage.scheduled;
-
-    showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.refresh_rounded),
-                title: const Text('Refresh gig status'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _refreshGig();
-                },
+    if (_gig.stage == GigStage.cancelled) {
+      return SurfaceCard(
+        color: AppColors.danger.withValues(alpha: 0.08),
+        child: const Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: AppColors.danger),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'This gig has been cancelled.',
+                style: TextStyle(
+                  color: AppColors.danger,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-              if (_gig.stage != GigStage.completed && _gig.stage != GigStage.payment)
-                ListTile(
-                  leading: const Icon(Icons.edit_calendar_rounded),
-                  title: const Text('Reschedule gig'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => RescheduleGigScreen(gig: _gig),
-                      ),
-                    );
-                  },
-                ),
-              if (canCancel)
-                ListTile(
-                  leading: const Icon(Icons.cancel_outlined, color: Colors.red),
-                  title: const Text('Cancel gig', style: TextStyle(color: Colors.red)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => CancelGigScreen(gig: _gig),
-                      ),
-                    ).then((_) => _refreshGig());
-                  },
-                ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-    );
+      );
+    }
+
+    // Pre-matching seeking/responding: Cancel option is already in the quick actions row above
+    return const SizedBox.shrink();
   }
 }
 
@@ -971,30 +1023,32 @@ class _QuickCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.isHighlighted = false,
+    this.isDanger = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final bool isHighlighted;
+  final bool isDanger;
 
   @override
   Widget build(BuildContext context) {
+    final color = isDanger ? AppColors.danger : AppColors.primary;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
         decoration: BoxDecoration(
-          color: isHighlighted
-              ? AppColors.primary.withValues(alpha: 0.1)
+          color: isDanger
+              ? AppColors.danger.withValues(alpha: 0.06)
               : AppColors.surface,
           border: Border.all(
-            color: isHighlighted
-                ? AppColors.primary
+            color: isDanger
+                ? AppColors.danger.withValues(alpha: 0.3)
                 : AppColors.border.withValues(alpha: 0.6),
-            width: isHighlighted ? 1.5 : 1,
+            width: 1,
           ),
           borderRadius: BorderRadius.circular(12),
         ),
@@ -1003,7 +1057,7 @@ class _QuickCard extends StatelessWidget {
             Icon(
               icon,
               size: 22,
-              color: isHighlighted ? AppColors.primary : AppColors.text,
+              color: color,
             ),
             const SizedBox(height: 6),
             Text(
@@ -1013,8 +1067,8 @@ class _QuickCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w600,
-                color: isHighlighted ? AppColors.primary : AppColors.text,
+                fontWeight: FontWeight.w600,
+                color: isDanger ? AppColors.danger : AppColors.text,
               ),
             ),
           ],

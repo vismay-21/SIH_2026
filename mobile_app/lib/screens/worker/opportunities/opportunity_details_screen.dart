@@ -3,19 +3,53 @@ import 'package:flutter/material.dart';
 import '../../../models/worker_job_workflow.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../../widgets/common/location_picker_dialog.dart';
 import '../my_jobs/worker_active_job_screen.dart';
 import 'conflict_warning_dialog.dart';
 
 import '../../../models/api/api_response.dart';
 import '../../../repositories/worker_repository.dart';
 
-class OpportunityDetailsScreen extends StatelessWidget {
+class OpportunityDetailsScreen extends StatefulWidget {
   const OpportunityDetailsScreen({super.key, required this.opportunity});
 
   final WorkerOpportunity opportunity;
 
+  @override
+  State<OpportunityDetailsScreen> createState() => _OpportunityDetailsScreenState();
+}
+
+class _OpportunityDetailsScreenState extends State<OpportunityDetailsScreen> {
+  final _workerRepo = WorkerRepository();
+  late WorkerOpportunity _opp = widget.opportunity;
+  bool _isRefreshing = false;
+
+  WorkerOpportunity get opportunity => _opp;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOpportunity();
+  }
+
+  Future<void> _fetchOpportunity() async {
+    if (_opp.id.isEmpty || _opp.id.startsWith('opp-')) return;
+    setState(() => _isRefreshing = true);
+    try {
+      final dto = await _workerRepo.getOpportunity(_opp.id);
+      if (!mounted) return;
+      setState(() {
+        _opp = WorkerOpportunity.fromDto(dto);
+        _isRefreshing = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isRefreshing = false);
+    }
+  }
+
   Future<void> _handleAccept(BuildContext context) async {
-    final workerRepo = WorkerRepository();
+    final workerRepo = _workerRepo;
 
     try {
       if (opportunity.id.isNotEmpty && !opportunity.id.startsWith('opp-')) {
@@ -31,22 +65,7 @@ class OpportunityDetailsScreen extends StatelessWidget {
         ),
       );
 
-      final newJob = WorkerJob(
-        id: opportunity.gigId ?? opportunity.id,
-        gigId: opportunity.gigId ?? opportunity.id,
-        title: opportunity.title,
-        category: opportunity.category,
-        description: opportunity.description,
-        wage: opportunity.wage,
-        when: opportunity.when,
-        location: opportunity.location,
-        duration: opportunity.duration,
-        status: WorkerJobStatus.awaitingSelection,
-        customerName: 'Verified Customer',
-        materials: opportunity.materials,
-        instructions: opportunity.instructions,
-        isEmergency: opportunity.isEmergency,
-      );
+      final newJob = WorkerJob.fromOpportunity(opportunity);
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
@@ -63,6 +82,15 @@ class OpportunityDetailsScreen extends StatelessWidget {
         if (proceed == true) {
           // Worker acknowledged conflict
         }
+      } else if (e.code == 'INVALID_OPPORTUNITY_STATE' || e.code == 'GIG_NOT_OPEN') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This opportunity is no longer open for acceptance.'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.of(context).pop();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -107,6 +135,17 @@ class OpportunityDetailsScreen extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         actions: [
+          IconButton(
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded),
+            onPressed: _isRefreshing ? null : _fetchOpportunity,
+            tooltip: 'Refresh',
+          ),
           if (opportunity.isEmergency)
             Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -147,9 +186,12 @@ class OpportunityDetailsScreen extends StatelessWidget {
             ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-        children: [
+      body: RefreshIndicator(
+        onRefresh: _fetchOpportunity,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+          children: [
           // Conflict Warning Banner if any
           if (opportunity.hasScheduleConflict) ...[
             Container(
@@ -196,6 +238,88 @@ class OpportunityDetailsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+          ],
+
+          if (opportunity.isEmergency) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.danger.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.danger.withValues(alpha: 0.5),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.bolt_rounded, color: AppColors.danger),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '🚨 Priority Emergency Dispatch',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.danger,
+                            fontSize: 13,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Immediate arrival requested by customer. Emergency priority rates apply.',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          if (opportunity.gigType == 'VISITATION' ||
+              opportunity.category == 'VISITATION' ||
+              opportunity.title.toLowerCase().contains('visit')) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.4),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.home_repair_service_rounded, color: AppColors.primary),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Site Visit & Diagnostic Inspection',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                            fontSize: 13,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Guaranteed ₹100 visit charge. Inspect on-site and propose repair tasks to the customer.',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
           ],
 
           // Title & Category
@@ -291,11 +415,15 @@ class OpportunityDetailsScreen extends StatelessWidget {
                       size: 16,
                       color: AppColors.primary,
                     ),
-                    SizedBox(width: 6),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Zero commission deduction. Payout confirmed immediately after customer completion approval.',
-                        style: TextStyle(fontSize: 11, color: AppColors.muted),
+                        'Cooperative Rate · 0% commission deducted',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -327,8 +455,40 @@ class OpportunityDetailsScreen extends StatelessWidget {
                     'Timing & Duration',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                   ),
-                  subtitle: Text(
-                    '${opportunity.when} · ${opportunity.duration}',
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.event_available_rounded, size: 15, color: AppColors.primary),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                opportunity.scheduleDisplay,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(Icons.schedule_rounded, size: 15, color: AppColors.muted),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Estimated Duration: ${opportunity.duration}',
+                              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const Divider(height: 12),
@@ -349,7 +509,64 @@ class OpportunityDetailsScreen extends StatelessWidget {
                     'Location',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                   ),
-                  subtitle: Text(opportunity.location),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(opportunity.location),
+                      Builder(
+                        builder: (context) {
+                          final hasMapsLink = opportunity.googleMapsLink != null &&
+                              opportunity.googleMapsLink!.isNotEmpty;
+                          final mapUrl = hasMapsLink
+                              ? opportunity.googleMapsLink!
+                              : (opportunity.latitude != null &&
+                                      opportunity.longitude != null
+                                  ? PickedLocation.generateGoogleMapsLink(
+                                      opportunity.latitude!, opportunity.longitude!)
+                                  : (opportunity.location.isNotEmpty &&
+                                          opportunity.location != 'Customer location'
+                                      ? 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(opportunity.location)}'
+                                      : null));
+
+                          if (mapUrl == null) return const SizedBox.shrink();
+
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: InkWell(
+                              onTap: () => launchGoogleMaps(context, mapUrl),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                      color: AppColors.primary.withValues(alpha: 0.3)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.map_rounded,
+                                        size: 14, color: AppColors.primary),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Open in Google Maps',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -437,7 +654,8 @@ class OpportunityDetailsScreen extends StatelessWidget {
           ),
         ],
       ),
-      bottomSheet: Container(
+    ),
+    bottomSheet: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
@@ -449,61 +667,115 @@ class OpportunityDetailsScreen extends StatelessWidget {
             ),
           ],
         ),
-        child: opportunity.status == 'ACCEPTED'
-            ? SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    final job = WorkerJob.fromOpportunity(
-                      opportunity,
-                      status: WorkerJobStatus.accepted,
-                    );
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute<void>(
-                        builder: (_) => WorkerActiveJobScreen(job: job),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Text(
-                    'You Accepted This Gig · Open Workspace',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                  ),
-                ),
-              )
-            : Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _handleDecline(context),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(50),
-                      ),
-                      child: const Text('Decline'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: () => _handleAccept(context),
-                      icon: const Icon(Icons.check_circle_outline_rounded),
-                      label: const Text(
-                        'Accept Gig',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(50),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+        child: _buildBottomActions(context),
       ),
+    );
+  }
+
+  Widget _buildBottomActions(BuildContext context) {
+    final status = opportunity.status.toUpperCase();
+
+    if (status == 'ACCEPTED') {
+      return SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: FilledButton.icon(
+          onPressed: () {
+            final job = WorkerJob.fromOpportunity(
+              opportunity,
+              status: WorkerJobStatus.awaitingSelection,
+            );
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute<void>(
+                builder: (_) => WorkerActiveJobScreen(job: job),
+              ),
+            );
+          },
+          icon: const Icon(Icons.hourglass_top_rounded),
+          label: const Text(
+            'You Accepted This Gig · View Workspace',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+          ),
+        ),
+      );
+    }
+
+    if (status == 'NOT_SELECTED') {
+      return SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: FilledButton.tonalIcon(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.info_outline_rounded),
+          label: const Text(
+            'Customer Selected Another Worker · Back',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+        ),
+      );
+    }
+
+    if (status == 'REJECTED') {
+      return SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: FilledButton.tonalIcon(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close_rounded),
+          label: const Text(
+            'Opportunity Declined · Back',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+          ),
+        ),
+      );
+    }
+
+    if (status == 'EXPIRED' || status == 'CANCELLED') {
+      return SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: FilledButton.tonalIcon(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.block_rounded),
+          label: const Text(
+            'Gig Closed or Expired · Back',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+          ),
+        ),
+      );
+    }
+
+    // Default / PENDING status: worker can accept or decline
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: () => _handleDecline(context),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+            ),
+            child: const Text('Decline'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: FilledButton.icon(
+            onPressed: () => _handleAccept(context),
+            icon: const Icon(Icons.check_circle_outline_rounded),
+            label: const Text(
+              'Accept Gig',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              ),
+            ),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

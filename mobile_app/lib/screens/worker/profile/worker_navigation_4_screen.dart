@@ -93,43 +93,84 @@ class WorkerNavigation4Screen extends StatelessWidget {
 
           // Profile Summary Card
           SurfaceCard(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  child: Text(
-                    initial,
-                    style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
-                  ),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      child: Text(
+                        initial,
+                        style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fullName,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Cooperative Artisan · Verified Member',
+                            style: TextStyle(color: AppColors.muted),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            '4.8 ★ · Verified Skill Badge',
+                            style: TextStyle(fontSize: 12, color: AppColors.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const StatusPill('Verified'),
+                  ],
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        fullName,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Cooperative Artisan · Verified Member',
-                        style: TextStyle(color: AppColors.muted),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        '4.8 ★ · Verified Skill Badge',
-                        style: TextStyle(fontSize: 12, color: AppColors.muted),
-                      ),
-                    ],
-                  ),
+                const Divider(height: 24),
+                const Row(
+                  children: [
+                    Icon(Icons.phone_outlined, size: 18, color: AppColors.primary),
+                    SizedBox(width: 10),
+                    Text(
+                      'Registered Phone:',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
+                    Spacer(),
+                    Text(
+                      '+91 98765 43210',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ],
                 ),
-                const StatusPill('Verified'),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.account_balance_wallet_outlined, size: 18, color: AppColors.success),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Settlement UPI:',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${fullName.toLowerCase().split(' ').first}@oksbi',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

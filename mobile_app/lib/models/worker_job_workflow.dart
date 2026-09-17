@@ -8,6 +8,7 @@ enum WorkerJobStatus {
   evidenceSubmitted,
   paymentPending,
   completed,
+  cancelled,
 }
 
 extension WorkerJobStatusLabel on WorkerJobStatus {
@@ -19,6 +20,7 @@ extension WorkerJobStatusLabel on WorkerJobStatus {
     WorkerJobStatus.evidenceSubmitted => 'Evidence Submitted',
     WorkerJobStatus.paymentPending => 'Payment Pending',
     WorkerJobStatus.completed => 'Completed',
+    WorkerJobStatus.cancelled => 'Cancelled',
   };
 }
 
@@ -48,6 +50,14 @@ class WorkerOpportunity {
     this.status = 'PENDING',
     this.isEmergency = false,
     this.hasScheduleConflict = false,
+    this.googleMapsLink,
+    this.latitude,
+    this.longitude,
+    this.categoryId,
+    this.gigType = 'STANDARD',
+    this.scheduledDate,
+    this.scheduledStartTime,
+    this.scheduledEndTime,
   });
 
   final String id;
@@ -65,6 +75,73 @@ class WorkerOpportunity {
   final String status;
   final bool isEmergency;
   final bool hasScheduleConflict;
+  final String? googleMapsLink;
+  final double? latitude;
+  final double? longitude;
+  final String? categoryId;
+  final String gigType;
+  final String? scheduledDate;
+  final String? scheduledStartTime;
+  final String? scheduledEndTime;
+
+  static String formatDateTimeDisplay(String? dateStr, String? timeStr) {
+    if (dateStr == null || dateStr.isEmpty) {
+      return 'Today';
+    }
+
+    String formattedDate = dateStr;
+    try {
+      final parsedDate = DateTime.tryParse(dateStr);
+      if (parsedDate != null) {
+        final now = DateTime.now();
+        final isToday = parsedDate.year == now.year &&
+            parsedDate.month == now.month &&
+            parsedDate.day == now.day;
+        final tomorrow = now.add(const Duration(days: 1));
+        final isTomorrow = parsedDate.year == tomorrow.year &&
+            parsedDate.month == tomorrow.month &&
+            parsedDate.day == tomorrow.day;
+
+        const months = [
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ];
+        final monthName = months[parsedDate.month - 1];
+
+        if (isToday) {
+          formattedDate = 'Today, ${parsedDate.day} $monthName';
+        } else if (isTomorrow) {
+          formattedDate = 'Tomorrow, ${parsedDate.day} $monthName';
+        } else {
+          formattedDate = '${parsedDate.day} $monthName ${parsedDate.year}';
+        }
+      }
+    } catch (_) {}
+
+    if (timeStr == null || timeStr.isEmpty) {
+      return formattedDate;
+    }
+
+    String formattedTime = timeStr;
+    try {
+      final parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        int hour = int.parse(parts[0]);
+        final minute = parts[1].padLeft(2, '0');
+        final ampm = hour >= 12 ? 'PM' : 'AM';
+        if (hour == 0) {
+          hour = 12;
+        } else if (hour > 12) {
+          hour -= 12;
+        }
+        formattedTime = '$hour:$minute $ampm';
+      }
+    } catch (_) {}
+
+    return '$formattedDate at $formattedTime';
+  }
+
+  String get scheduleDisplay => formatDateTimeDisplay(scheduledDate, scheduledStartTime);
 
   factory WorkerOpportunity.fromDto(OpportunityDto dto) {
     final gig = dto.gig;
@@ -77,7 +154,7 @@ class WorkerOpportunity {
       category: gig.categoryName,
       description: gig.description ?? '',
       wage: '₹${dto.exactWage.toInt()}',
-      when: gig.scheduledDate ?? 'Today',
+      when: formatDateTimeDisplay(gig.scheduledDate, gig.scheduledStartTime),
       distance: '2.5 km away',
       location: gig.address ?? 'Customer location',
       duration: gig.expectedDurationMinutes != null
@@ -90,6 +167,14 @@ class WorkerOpportunity {
       status: dto.status,
       isEmergency: gig.isEmergency,
       hasScheduleConflict: false,
+      googleMapsLink: gig.googleMapsLink,
+      latitude: gig.latitude,
+      longitude: gig.longitude,
+      categoryId: gig.categoryId,
+      gigType: gig.gigType,
+      scheduledDate: gig.scheduledDate,
+      scheduledStartTime: gig.scheduledStartTime,
+      scheduledEndTime: gig.scheduledEndTime,
     );
   }
 }
@@ -113,6 +198,12 @@ class WorkerJob {
     this.isEmergency = false,
     this.isRookieParticipation = false,
     this.additionalWorkerName,
+    this.googleMapsLink,
+    this.latitude,
+    this.longitude,
+    this.categoryId,
+    this.gigType = 'STANDARD',
+    this.customerPhone = '+91 98765 43211',
   });
 
   final String id;
@@ -127,11 +218,17 @@ class WorkerJob {
   final String duration;
   final WorkerJobStatus status;
   final String customerName;
+  final String customerPhone;
   final String materials;
   final String instructions;
   final bool isEmergency;
   final bool isRookieParticipation;
   final String? additionalWorkerName;
+  final String? googleMapsLink;
+  final double? latitude;
+  final double? longitude;
+  final String? categoryId;
+  final String gigType;
 
   factory WorkerJob.fromDto(WorkerGigListItemDto dto) {
     final status = switch (dto.status.toUpperCase()) {
@@ -143,6 +240,7 @@ class WorkerJob {
       'PAYMENT_CUSTOMER_PAID' =>
         WorkerJobStatus.paymentPending,
       'PAYMENT_WORKER_CONFIRMED' || 'COMPLETED' => WorkerJobStatus.completed,
+      'CANCELLED' => WorkerJobStatus.cancelled,
       _ => WorkerJobStatus.accepted,
     };
 
@@ -166,6 +264,11 @@ class WorkerJob {
       materials: 'Cooperative verified',
       instructions: '',
       isEmergency: dto.isEmergency,
+      googleMapsLink: dto.googleMapsLink,
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      categoryId: dto.categoryId,
+      gigType: dto.gigType,
     );
   }
 
@@ -184,10 +287,15 @@ class WorkerJob {
       location: opp.location,
       duration: opp.duration,
       status: status,
-      customerName: 'Verified Customer',
+      customerName: 'Customer',
       materials: opp.materials,
       instructions: opp.instructions,
       isEmergency: opp.isEmergency,
+      googleMapsLink: opp.googleMapsLink,
+      latitude: opp.latitude,
+      longitude: opp.longitude,
+      categoryId: opp.categoryId,
+      gigType: opp.gigType,
     );
   }
 }
@@ -245,145 +353,8 @@ class DayAvailability {
 }
 
 // ----------------------------------------------------------------------
-// Mock Data Baseline
+// Default Template Availability
 // ----------------------------------------------------------------------
-
-final demoOpportunities = [
-  const WorkerOpportunity(
-    id: 'opp-1',
-    title: 'Kitchen sink leak repair',
-    category: 'Plumbing repair',
-    description:
-        'Drain pipe leak under kitchen sink. Replace seal and check faucet connections.',
-    wage: '₹680',
-    when: 'Today · 5:00 PM',
-    distance: '3.2 km away',
-    location: 'Indiranagar 100ft Road, Bengaluru',
-    duration: 'Estimated · 2 hrs',
-    materials: 'Customer purchases materials',
-    instructions: 'Please call security gate before entering.',
-  ),
-  const WorkerOpportunity(
-    id: 'opp-2',
-    title: 'Emergency bathroom clog',
-    category: 'Emergency plumbing',
-    description:
-        'Urgent main drain clog in ground floor flat. Immediate clearing needed.',
-    wage: '₹760',
-    when: 'Immediate · Within 30 min',
-    distance: '2.1 km away',
-    location: 'Ulsoor Main Road, Bengaluru',
-    duration: 'Estimated · 60–90 min',
-    materials: 'Worker purchases materials',
-    instructions: 'Ring bell 2B directly. Bring drain auger.',
-    isEmergency: true,
-  ),
-  const WorkerOpportunity(
-    id: 'opp-3',
-    title: 'Balcony tap installation',
-    category: 'Plumbing',
-    description:
-        'Install new brass bib tap for washing machine in utility balcony.',
-    wage: '₹520',
-    when: 'Tomorrow · 10:00 AM',
-    distance: '4.5 km away',
-    location: 'Domlur Layout, Bengaluru',
-    duration: 'Estimated · 1 hr',
-    materials: 'Customer purchases materials',
-    instructions: 'Tap and teflon tape already bought.',
-    hasScheduleConflict: true,
-  ),
-  const WorkerOpportunity(
-    id: 'opp-4',
-    title: 'Bathroom pipe joint sealing',
-    category: 'Plumbing repair',
-    description:
-        'Water seepage near overhead shower joint. Seal threads and test pressure.',
-    wage: '₹590',
-    when: 'Tomorrow · 3:30 PM',
-    distance: '1.8 km away',
-    location: 'Koramangala 4th Block, Bengaluru',
-    duration: 'Estimated · 90 min',
-    materials: 'Customer purchases materials',
-    instructions: 'Water supply cutoff valve is inside the bathroom.',
-  ),
-];
-
-final demoWorkerJobs = [
-  const WorkerJob(
-    id: 'job-1',
-    title: 'Ceiling fan installation',
-    category: 'Electrical work',
-    description:
-        'Install high-speed ceiling fan in master bedroom and wire the wall regulator.',
-    wage: '₹520',
-    when: 'Today · In Progress',
-    location: 'Koramangala 5th Block, Bengaluru',
-    duration: 'Estimated · 1 hr',
-    status: WorkerJobStatus.active,
-    customerName: 'Bhagya Rao',
-    materials: 'Customer purchases materials',
-    instructions: 'Fan box is in the hall. Ladder available.',
-  ),
-  const WorkerJob(
-    id: 'job-2',
-    title: 'Main pipeline valve replacement',
-    category: 'Plumbing',
-    description:
-        'Replace rusted 1-inch gate valve with quarter-turn ball valve.',
-    wage: '₹750',
-    when: 'Tomorrow · 11:00 AM',
-    location: 'Jayanagar 4th Block, Bengaluru',
-    duration: 'Estimated · 2 hrs',
-    status: WorkerJobStatus.scheduled,
-    customerName: 'Karthik Nair',
-    materials: 'Worker purchases materials',
-    instructions: 'Please call 15 min before reaching.',
-    additionalWorkerName: 'Suresh Kumar (Rookie)',
-  ),
-  const WorkerJob(
-    id: 'job-3',
-    title: 'Living room deep clean',
-    category: 'Cleaning',
-    description:
-        'Complete deep cleaning of living room tiles, windows, and upholstery vacuuming.',
-    wage: '₹950',
-    when: 'Completed · 18 Aug',
-    location: 'Jayanagar, Bengaluru',
-    duration: 'Estimated · 3 hrs',
-    status: WorkerJobStatus.completed,
-    customerName: 'Ananya Sharma',
-    materials: 'Customer purchases materials',
-    instructions: 'Use the cleaning supplies in the utility room.',
-  ),
-];
-
-final demoJoinRequests = [
-  const WorkerJoinRequest(
-    id: 'req-1',
-    jobTitle: 'Commercial kitchen drainage overhaul',
-    category: 'Plumbing',
-    invitingWorkerName: 'Amit Sharma',
-    invitingWorkerInitials: 'AS',
-    roleType: JoinRoleType.rookie,
-    when: 'This Saturday · 9:00 AM',
-    location: 'Indiranagar 12th Main, Bengaluru',
-    notes:
-        'Heavy drainage task. Great learning opportunity for commercial pipe fittings. 0.5 job experience credited on completion.',
-  ),
-  const WorkerJoinRequest(
-    id: 'req-2',
-    jobTitle: 'Apartment dual-motor wiring',
-    category: 'Electrical',
-    invitingWorkerName: 'Rekha Patel',
-    invitingWorkerInitials: 'RP',
-    roleType: JoinRoleType.equalSharing,
-    when: 'Tomorrow · 2:00 PM',
-    location: 'HSR Layout Sector 2, Bengaluru',
-    notes:
-        'Dual motor control panel setup. Equal division of labour compensation.',
-  ),
-];
 
 final demoWeekAvailability = [
   const DayAvailability(

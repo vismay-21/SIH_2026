@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../models/worker_job_workflow.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../worker_main_screen.dart';
 
 class WorkerCancelRescheduleScreen extends StatefulWidget {
   const WorkerCancelRescheduleScreen({super.key, required this.job});
@@ -60,7 +61,7 @@ class _WorkerCancelRescheduleScreenState
       );
     }
 
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    WorkerMainScreen.switchTab(context, 2);
   }
 
   @override

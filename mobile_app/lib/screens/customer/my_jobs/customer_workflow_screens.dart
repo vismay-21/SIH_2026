@@ -7,10 +7,14 @@ import '../../../models/api/api_models.dart';
 import '../../../models/customer_gig_workflow.dart';
 import '../../../repositories/gig_repository.dart';
 import '../../../repositories/payment_repository.dart';
+import '../../../repositories/review_repository.dart';
 import '../../../theme/app_theme.dart';
+import '../../../utils/phone_dialer_helper.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../../widgets/common/sos_dialog.dart';
 import '../../common/chat_screen.dart';
 import '../profile/customer_account_screens.dart';
+import 'reschedule_gig_screen.dart';
 import 'review_worker_screen.dart';
 
 class AcceptedCandidatesScreen extends StatefulWidget {
@@ -45,7 +49,10 @@ class _AcceptedCandidatesScreenState extends State<AcceptedCandidatesScreen> {
       final dtoList = await _gigRepo.getCandidates(widget.gig.id!);
       if (mounted) {
         setState(() {
-          _candidates = dtoList.map(GigCandidate.fromDto).toList();
+          _candidates = dtoList
+              .map((d) =>
+                  GigCandidate.fromDto(d, categoryName: widget.gig.category))
+              .toList();
         });
       }
     } catch (e) {
@@ -108,15 +115,6 @@ class _AcceptedCandidatesScreenState extends State<AcceptedCandidatesScreen> {
               child: _CandidateTile(candidate: candidate, gig: widget.gig),
             ),
           ),
-        const SizedBox(height: 4),
-        // Note: Previous-worker direct-booking is temporarily paused pending backend contract support (no MVP endpoint).
-        const _ActionCard(
-          icon: Icons.history_rounded,
-          title: 'Request a previous worker (Paused in MVP)',
-          subtitle:
-              'Direct re-booking is paused pending backend support. Please select from candidates who accepted.',
-          onTap: null, // Paused in MVP
-        ),
       ],
     ),
   );
@@ -393,65 +391,304 @@ class _WorkerProfileScreenState extends State<WorkerProfileScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => _WorkflowScaffold(
-    title: 'Worker profile',
-    subtitle: 'Review profile information before making your choice.',
-    child: Column(
-      children: [
-        SurfaceCard(
-          child: Column(
-            children: [
-              CircleAvatar(
-                radius: 34,
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                child: Text(
-                  widget.candidate.initials,
-                  style: const TextStyle(fontSize: 22),
+  Widget build(BuildContext context) {
+    final c = widget.candidate;
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 220,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.primaryDark, AppColors.primary],
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 32),
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            width: 2.5,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            c.initials,
+                            style: const TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        c.name,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            c.skill,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.8),
+                            ),
+                          ),
+                          if (c.isRecommended) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.auto_awesome_rounded, size: 11, color: Colors.white),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'Recommended',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 10),
-              Text(
-                widget.candidate.name,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Text(
-                widget.candidate.skill,
-                style: const TextStyle(color: AppColors.muted),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '★ ${widget.candidate.rating} · ${widget.candidate.jobs}',
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ],
+            ),
           ),
-        ),
-        const SizedBox(height: 14),
-        _InfoCard(
-          title: 'Experience',
-          body: '${widget.candidate.experience} of comparable household work.',
-        ),
-        _InfoCard(title: 'Review summary', body: widget.candidate.summary),
-        _InfoCard(
-          title: 'Relevant factors',
-          body: widget.candidate.factors.join(' · '),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // Stats Row
+                Row(
+                  children: [
+                    _StatBox(icon: Icons.star_rounded, label: 'Rating', value: '★ ${c.rating}', color: Colors.amber.shade700),
+                    const SizedBox(width: 10),
+                    _StatBox(icon: Icons.work_history_outlined, label: 'Jobs Done', value: c.jobs, color: AppColors.primary),
+                    const SizedBox(width: 10),
+                    _StatBox(icon: Icons.payments_outlined, label: 'Wage', value: c.wage, color: AppColors.success),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SurfaceCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(children: [
+                        Icon(Icons.contact_phone_outlined, color: AppColors.primary, size: 18),
+                        SizedBox(width: 8),
+                        Text('Contact & Settlement', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                      ]),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Artisan Phone', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                              const SizedBox(height: 2),
+                              Text(c.phoneNumber, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                            ],
+                          ),
+                          FilledButton.tonalIcon(
+                            onPressed: () => PhoneDialerHelper.launchDialer(context, c.phoneNumber),
+                            icon: const Icon(Icons.call_rounded, size: 16),
+                            label: const Text('Call'),
+                            style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 18),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Settlement UPI ID', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                              const SizedBox(height: 2),
+                              Text(c.upiId, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16, color: AppColors.primary),
+                            tooltip: 'Copy UPI ID',
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: c.upiId));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('UPI ID copied: ${c.upiId}')),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SurfaceCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(children: [
+                        Icon(Icons.engineering_rounded, color: AppColors.primary, size: 18),
+                        SizedBox(width: 8),
+                        Text('Experience', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                      ]),
+                      const SizedBox(height: 8),
+                      Text('${c.experience} of comparable household work.', style: const TextStyle(color: AppColors.muted, height: 1.35)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SurfaceCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(children: [
+                        Icon(Icons.format_quote_rounded, color: AppColors.primary, size: 18),
+                        SizedBox(width: 8),
+                        Text('Cooperative Assessment', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                      ]),
+                      const SizedBox(height: 8),
+                      Text(c.summary, style: const TextStyle(color: AppColors.muted, height: 1.35)),
+                    ],
+                  ),
+                ),
+                if (c.factors.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  SurfaceCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(children: [
+                          Icon(Icons.verified_rounded, color: AppColors.primary, size: 18),
+                          SizedBox(width: 8),
+                          Text('Key Strengths', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                        ]),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: c.factors.map((factor) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(factor, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                          )).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.verified_rounded, color: AppColors.success, size: 28),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Zero Commission. Guaranteed.', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                            SizedBox(height: 2),
+                            Text('Cooperative tariff — full wage to worker.', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      Text(c.wage, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.success)),
+                    ],
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
           child: PrimaryAction(
-            label: _isSelecting ? 'Selecting worker...' : 'Select this worker',
-            icon: _isSelecting
-                ? Icons.hourglass_top_rounded
-                : Icons.check_rounded,
+            label: _isSelecting ? 'Selecting worker...' : 'Select ${c.name}',
+            icon: _isSelecting ? Icons.hourglass_top_rounded : Icons.check_circle_outline_rounded,
             onPressed: _isSelecting ? null : _handleSelect,
           ),
         ),
-      ],
+      ),
+    );
+  }
+}
+
+class _StatBox extends StatelessWidget {
+  const _StatBox({required this.icon, required this.label, required this.value, required this.color});
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(height: 6),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(fontSize: 10, color: AppColors.muted), textAlign: TextAlign.center),
+        ],
+      ),
     ),
   );
 }
@@ -598,34 +835,53 @@ class ActiveJobScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final workerName = gig.selectedWorker?.name ?? 'Assigned Worker';
+    final worker = gig.selectedWorker;
+    final workerName = worker?.name ?? 'Assigned Artisan';
+    final workerPhone = worker?.phoneNumber ?? '+91 98765 43210';
+    final workerRating = worker?.rating ?? '4.0';
+    final workerInitials = worker?.initials ??
+        (workerName.isNotEmpty ? workerName[0].toUpperCase() : 'A');
+
     final isCompletionRequested = gig.stage == GigStage.completionRequested;
     final isCompleted = gig.stage == GigStage.completed;
     final isPayment = gig.stage == GigStage.payment;
     final isInProgress = gig.stage == GigStage.active;
 
-    String subtitleText;
-    String statusText;
+    String screenTitle;
+    String statusBadge;
+    String statusDescription;
+    int currentStep = 0;
+
     if (isCompleted) {
-      subtitleText = 'This gig is fully completed.';
-      statusText = 'Completed';
+      screenTitle = 'Job Completed';
+      statusBadge = 'Completed';
+      statusDescription = 'This gig has been satisfactorily completed. Thank you for using Sahakaar Seva!';
+      currentStep = 3;
     } else if (isPayment) {
-      subtitleText = 'Work has been approved. Payment release pending.';
-      statusText = 'Payment Required';
+      screenTitle = 'Payment Due';
+      statusBadge = 'Payment Required';
+      statusDescription = 'Work has been approved. Please release payment to the artisan.';
+      currentStep = 3;
     } else if (isCompletionRequested) {
-      subtitleText = 'Artisan has submitted work evidence for your review.';
-      statusText = 'Evidence Submitted · Action Required';
+      screenTitle = 'Review Evidence';
+      statusBadge = 'Evidence Submitted';
+      statusDescription = 'Artisan has completed the task and uploaded evidence photos for your approval.';
+      currentStep = 2;
     } else if (isInProgress) {
-      subtitleText = 'Artisan is actively working on the repair.';
-      statusText = 'In Progress · Work Underway';
+      screenTitle = 'Job In Progress';
+      statusBadge = 'Work Underway';
+      statusDescription = 'Artisan is actively working on the task on-site.';
+      currentStep = 1;
     } else {
-      subtitleText = 'Artisan has been assigned. Waiting for artisan to arrive and start work.';
-      statusText = 'Scheduled · Awaiting Arrival';
+      screenTitle = 'Scheduled Job';
+      statusBadge = 'Awaiting Arrival';
+      statusDescription = 'Artisan has been assigned and is en route to your service address.';
+      currentStep = 0;
     }
 
     void openChat() {
       if (gig.id != null) {
-        Navigator.of(context).push(
+        Navigator.of(context, rootNavigator: true).push(
           MaterialPageRoute<void>(
             builder: (_) => ChatScreen(
               title: workerName,
@@ -648,44 +904,304 @@ class ActiveJobScreen extends StatelessWidget {
       }
     }
 
-    return _WorkflowScaffold(
-      title: isInProgress ? 'Job in progress' : (isCompleted ? 'Job completed' : 'Scheduled job'),
-      subtitle: subtitleText,
-      child: Column(
+    final steps = ['Accepted', 'In Progress', 'Evidence', 'Payment'];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(screenTitle, style: const TextStyle(fontWeight: FontWeight.w700)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
         children: [
-          _InfoCard(
-            title: gig.title,
-            body:
-                '${gig.location}\n${gig.when}\n${gig.duration}\n${gig.instructions}',
-          ),
-          _InfoCard(
-            title: 'Selected artisan',
-            body: workerName,
-          ),
-          const SizedBox(height: 6),
-          if (isCompletionRequested) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: openChat,
-                    icon: const Icon(Icons.chat_bubble_outline_rounded),
-                    label: const Text('Chat'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => CompletionEvidenceReviewScreen(gig: gig),
+          // 1. Horizontal Status Tracker
+          Row(
+            children: List.generate(steps.length, (idx) {
+              final isDone = idx < currentStep;
+              final isCurrent = idx == currentStep;
+              final isActive = isDone || isCurrent;
+
+              return Expanded(
+                child: Column(
+                  children: [
+                    Container(
+                      height: 4,
+                      margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                      decoration: BoxDecoration(
+                        color: isActive ? AppColors.primary : AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    icon: const Icon(Icons.fact_check_rounded),
-                    label: const Text('Review evidence'),
+                    const SizedBox(height: 5),
+                    Text(
+                      steps[idx],
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w500,
+                        color: isActive ? AppColors.primary : AppColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 16),
+
+          // 2. Main Job Summary Card
+          SurfaceCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        gig.title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    StatusPill(statusBadge),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${gig.category} · ${gig.when} · ${gig.duration}',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Confirmed Labour Price',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
+                    Text(
+                      gig.priceDisplay,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 3. Quick Actions: Material Bill & Reschedule
+          Row(
+            children: [
+              Expanded(
+                child: Card(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const MaterialBillViewerScreen(),
+                      ),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.receipt_long_rounded, color: AppColors.primary, size: 22),
+                          SizedBox(height: 6),
+                          Text('Material Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Card(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      if (gig.stage == GigStage.completed || gig.stage == GigStage.payment) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Cannot reschedule a completed or paying gig.')),
+                        );
+                        return;
+                      }
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => RescheduleGigScreen(gig: gig),
+                        ),
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.edit_calendar_rounded, color: AppColors.primary, size: 22),
+                          SizedBox(height: 6),
+                          Text('Reschedule', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 4. Assigned Artisan Card
+          SurfaceCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Assigned Artisan',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.muted,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: AppColors.primary,
+                      child: Text(
+                        workerInitials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            workerName,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${gig.category} Specialist · ★ $workerRating',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton.filledTonal(
+                      icon: const Icon(Icons.phone_rounded, size: 18),
+                      tooltip: 'Call Artisan',
+                      onPressed: () => PhoneDialerHelper.launchDialer(context, workerPhone),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton.filledTonal(
+                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                      tooltip: 'Chat',
+                      onPressed: openChat,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 5. Status Banner
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        statusBadge,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        statusDescription,
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted, height: 1.3),
+                      ),
+                    ],
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 6. Action Buttons
+          if (isInProgress) ...[
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: () => SosEmergencyDialog.show(context),
+                icon: const Icon(Icons.emergency_rounded, color: Colors.white),
+                label: const Text(
+                  '🚨 SOS Emergency Assist',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.3),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.danger,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ] else if (isCompletionRequested) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => CompletionEvidenceReviewScreen(gig: gig),
+                  ),
+                ),
+                icon: const Icon(Icons.fact_check_rounded),
+                label: const Text('Review Work Evidence'),
+              ),
             ),
           ] else if (isPayment) ...[
             SizedBox(
@@ -716,18 +1232,7 @@ class ActiveJobScreen extends StatelessWidget {
                 label: const Text('Rate & Review Worker'),
               ),
             ),
-          ] else ...[
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: openChat,
-                icon: const Icon(Icons.chat_bubble_outline_rounded),
-                label: Text(gig.chatEnabled ? 'Open chat with artisan' : 'View chat history'),
-              ),
-            ),
           ],
-          const SizedBox(height: 14),
-          StatusPill(statusText),
         ],
       ),
     );
@@ -984,12 +1489,18 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   final _paymentRepo = PaymentRepository();
+  final _reviewRepo = ReviewRepository();
   String _method = 'UPI';
   bool _isProcessing = false;
   bool _paid = false;
   bool _workerConfirmed = false;
   String? _displayAmount;
   Timer? _paymentCheckTimer;
+
+  int _rating = 5;
+  final _commentController = TextEditingController();
+  final Set<String> _selectedTags = {'Punctual', 'Clean Work'};
+  bool _isSubmittingReview = false;
 
   @override
   void initState() {
@@ -999,6 +1510,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   void dispose() {
+    _commentController.dispose();
     _paymentCheckTimer?.cancel();
     super.dispose();
   }
@@ -1106,10 +1618,77 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  String _ratingDescription(int rating) {
+    switch (rating) {
+      case 5:
+        return '⭐⭐⭐⭐⭐ Excellent Service!';
+      case 4:
+        return '⭐⭐⭐⭐ Very Good Experience';
+      case 3:
+        return '⭐⭐⭐ Satisfactory Service';
+      case 2:
+        return '⭐⭐ Needs Improvement';
+      default:
+        return '⭐ Unsatisfactory';
+    }
+  }
+
+  Future<void> _submitReviewAndGoHome() async {
+    if (_isSubmittingReview) return;
+    setState(() => _isSubmittingReview = true);
+
+    try {
+      final gigId = widget.gig.id;
+      final workerId = widget.gig.selectedWorker?.workerId;
+
+      if (gigId != null && workerId != null) {
+        try {
+          final questions = await _reviewRepo.getQuestions(targetRole: 'WORKER');
+          final answers = questions
+              .map((q) => ReviewAnswerItemDto(
+                    questionId: q.id,
+                    answerValue: _rating,
+                  ))
+              .toList();
+
+          if (answers.isNotEmpty) {
+            await _reviewRepo.submitReview(
+              gigId: gigId,
+              revieweeId: workerId,
+              answers: answers,
+            );
+          }
+        } catch (e) {
+          debugPrint('Review submission through API error: $e');
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Review submitted! Thank you for supporting our artisans.'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmittingReview = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => _WorkflowScaffold(
     title: 'Payment',
-    subtitle: 'Pay the confirmed labour amount. Materials stay separate.',
+    subtitle: _paid
+        ? 'Payment recorded. Please leave a review for the artisan.'
+        : 'Pay the confirmed labour amount. Materials stay separate.',
     child: Column(
       children: [
         SurfaceCard(
@@ -1135,93 +1714,234 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(
-              value: 'UPI',
-              label: Text('UPI'),
-              icon: Icon(Icons.account_balance_wallet_outlined),
-            ),
-            ButtonSegment(
-              value: 'Cash',
-              label: Text('Cash'),
-              icon: Icon(Icons.payments_outlined),
-            ),
-          ],
-          selected: {_method},
-          onSelectionChanged: (selection) =>
-              setState(() => _method = selection.first),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          _method == 'UPI'
-              ? 'Pay using a UPI app.'
-              : 'Mark cash payment after handing it over.',
-          style: const TextStyle(color: AppColors.muted, fontSize: 12),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: PrimaryAction(
-            label: _isProcessing
-                ? 'Processing...'
-                : _paid
-                    ? 'Payment marked'
-                    : 'Pay with $_method',
-            icon: _paid ? Icons.check_rounded : Icons.lock_outline_rounded,
-            onPressed: (_paid || _isProcessing) ? null : _handlePayment,
+        if (!_paid) ...[
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'UPI',
+                label: Text('UPI'),
+                icon: Icon(Icons.account_balance_wallet_outlined),
+              ),
+              ButtonSegment(
+                value: 'Cash',
+                label: Text('Cash'),
+                icon: Icon(Icons.payments_outlined),
+              ),
+            ],
+            selected: {_method},
+            onSelectionChanged: (selection) =>
+                setState(() => _method = selection.first),
           ),
-        ),
-        if (_paid)
-          Padding(
-            padding: const EdgeInsets.only(top: 14),
-            child: Column(
+          const SizedBox(height: 8),
+          Text(
+            _method == 'UPI'
+                ? 'Pay using a UPI app.'
+                : 'Mark cash payment after handing it over.',
+            style: const TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: PrimaryAction(
+              label: _isProcessing
+                  ? 'Processing...'
+                  : 'Pay with $_method',
+              icon: Icons.lock_outline_rounded,
+              onPressed: _isProcessing ? null : _handlePayment,
+            ),
+          ),
+        ],
+        if (_paid) ...[
+          // Waiting for worker confirmation banner
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: _workerConfirmed
+                  ? AppColors.success.withValues(alpha: 0.12)
+                  : const Color(0xFFFFF8E1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _workerConfirmed
+                    ? AppColors.success.withValues(alpha: 0.3)
+                    : const Color(0xFFFFB300).withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
               children: [
-                StatusPill(
+                Icon(
                   _workerConfirmed
-                      ? 'Payment verified by artisan · Job completed'
-                      : 'Payment complete · Awaiting receipt confirmation',
-                  warning: !_workerConfirmed,
+                      ? Icons.check_circle_rounded
+                      : Icons.hourglass_top_rounded,
+                  color: _workerConfirmed ? AppColors.success : const Color(0xFFE65100),
+                  size: 22,
                 ),
-                const SizedBox(height: 12),
-                if (widget.gig.id != null) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => ReviewWorkerScreen(
-                            gigId: widget.gig.id!,
-                            workerId: widget.gig.selectedWorker?.workerId,
-                            workerName: widget.gig.selectedWorker?.name ??
-                                'Assigned Worker',
-                            gigTitle: widget.gig.title,
-                          ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _workerConfirmed
+                            ? 'Payment verified by artisan · Job completed'
+                            : 'Waiting for worker\'s confirmation',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: _workerConfirmed ? AppColors.success : const Color(0xFFE65100),
                         ),
                       ),
-                      icon: const Icon(Icons.star_outline_rounded),
-                      label: const Text('Leave a review'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).pushReplacement(
-                      MaterialPageRoute<void>(
-                        builder: (_) => ActiveJobScreen(
-                          gig: widget.gig.copyWith(stage: GigStage.completed),
-                        ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _workerConfirmed
+                            ? 'Artisan confirmed receipt of payment. Job completed successfully!'
+                            : 'Payment recorded. Waiting for artisan to verify receipt.',
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted),
                       ),
-                    ),
-                    icon: const Icon(Icons.work_outline_rounded),
-                    label: const Text('View completed job'),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Inline Mandatory Review Section
+          SurfaceCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Rate & Review ${widget.gig.selectedWorker?.name ?? "Artisan"}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Your rating ensures service quality and fair compensation across our guild.',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 14),
+
+                // Interactive 5-star rating
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) {
+                    final starIndex = index + 1;
+                    return IconButton(
+                      iconSize: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                        starIndex <= _rating
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        color: starIndex <= _rating ? Colors.amber : AppColors.muted,
+                      ),
+                      onPressed: () => setState(() => _rating = starIndex),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _ratingDescription(_rating),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Compliment chips
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    'Punctual',
+                    'Expert Work',
+                    'Clean & Tidy',
+                    'Polite & Respectful',
+                    'Fair Pricing',
+                  ].map((tag) {
+                    final selected = _selectedTags.contains(tag);
+                    return FilterChip(
+                      label: Text(
+                        tag,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                      selected: selected,
+                      showCheckmark: false,
+                      avatar: selected ? const Icon(Icons.check_rounded, size: 14) : null,
+                      onSelected: (val) {
+                        setState(() {
+                          if (val) {
+                            _selectedTags.add(tag);
+                          } else {
+                            _selectedTags.remove(tag);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+
+                // Optional feedback text
+                TextField(
+                  controller: _commentController,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    hintText: 'Add an optional note or review feedback...',
+                    hintStyle: const TextStyle(fontSize: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Combined single action: Submit Review & Go to Home Screen
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: FilledButton.icon(
+              onPressed: _isSubmittingReview ? null : _submitReviewAndGoHome,
+              icon: _isSubmittingReview
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.check_circle_outline_rounded, size: 20),
+              label: Text(
+                _isSubmittingReview
+                    ? 'Submitting Review...'
+                    : 'Submit Review & Return Home',
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
       ],
     ),
   );
@@ -1326,52 +2046,6 @@ class _WorkflowScaffold extends StatelessWidget {
   );
 }
 
-class _ActionCard extends StatelessWidget {
-  const _ActionCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.onTap,
-  });
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: Opacity(
-      opacity: onTap != null ? 1.0 : 0.6,
-      child: SurfaceCard(
-        child: Row(
-          children: [
-            Icon(icon, color: onTap != null ? AppColors.primary : AppColors.muted),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(color: AppColors.muted, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            if (onTap != null)
-              const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-          ],
-        ),
-      ),
-    ),
-  );
-}
 
 class _InfoCard extends StatelessWidget {
   const _InfoCard({required this.title, required this.body});

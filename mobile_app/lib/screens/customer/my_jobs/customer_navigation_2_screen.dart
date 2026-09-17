@@ -1,34 +1,30 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../models/api/api_response.dart';
 import '../../../models/customer_gig_workflow.dart';
-import '../../../repositories/gig_repository.dart';
+import '../../../providers/customer_gigs_provider.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
 import 'gig_details_screen.dart';
 
-class CustomerNavigation2Screen extends StatefulWidget {
+class CustomerNavigation2Screen extends ConsumerStatefulWidget {
   const CustomerNavigation2Screen({super.key, this.initialGig});
 
   final CustomerGig? initialGig;
 
   @override
-  State<CustomerNavigation2Screen> createState() =>
+  ConsumerState<CustomerNavigation2Screen> createState() =>
       _CustomerNavigation2ScreenState();
 }
 
 enum _GigFilter { active, upcoming, completed }
 
-class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
+class _CustomerNavigation2ScreenState extends ConsumerState<CustomerNavigation2Screen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  final _gigRepo = GigRepository();
-  List<CustomerGig> _gigs = [];
-  bool _isLoading = true;
-  String? _errorMessage;
   Timer? _pollingTimer;
   bool _openedInitialGig = false;
 
@@ -38,10 +34,9 @@ class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
-        _fetchGigs(silent: true);
+        ref.read(customerGigsProvider.notifier).loadGigs(silent: true);
       }
     });
-    _fetchGigs();
     _startPeriodicPolling();
   }
 
@@ -58,7 +53,7 @@ class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
                   builder: (_) => GigDetailsScreen(gig: widget.initialGig!),
                 ),
               )
-              .then((_) => _fetchGigs(silent: true));
+              .then((_) => ref.read(customerGigsProvider.notifier).loadGigs(silent: true));
         }
       });
     }
@@ -75,87 +70,30 @@ class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!mounted) return;
-      final hasActiveTransition = _gigs.any((g) =>
+      final gigsState = ref.read(customerGigsProvider);
+      final hasActiveTransition = gigsState.allGigs.any((g) =>
           g.stage == GigStage.payment ||
           g.stage == GigStage.completionRequested ||
           g.stage == GigStage.selected ||
           g.rawStatus == 'PAYMENT_CUSTOMER_PAID');
       if (hasActiveTransition) {
-        _fetchGigs(silent: true);
+        ref.read(customerGigsProvider.notifier).loadGigs(silent: true);
       }
     });
   }
 
-  Future<void> _fetchGigs({bool silent = false}) async {
-    if (!silent && mounted) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-    }
-
-    try {
-      final paginated = await _gigRepo.getCustomerGigs(pageSize: 50);
-      final mapped = await Future.wait(paginated.data.map((dto) async {
-        List<GigCandidate> candidates = [];
-        final status = dto.status.toUpperCase();
-        if (dto.selectedWorkerId == null &&
-            status != 'COMPLETED' &&
-            status != 'CANCELLED') {
-          try {
-            final cDtos = await _gigRepo
-                .getCandidates(dto.id)
-                .timeout(const Duration(seconds: 2));
-            candidates = cDtos.map(GigCandidate.fromDto).toList();
-          } catch (_) {}
-        }
-        return CustomerGig.fromDto(dto, candidates: candidates);
-      }));
-
-      if (!mounted) return;
-      setState(() {
-        _gigs = mapped;
-        _isLoading = false;
-        _errorMessage = null;
-      });
-    } on ApiError catch (e) {
-      if (!mounted) return;
-      if (!silent) {
-        setState(() {
-          _errorMessage = e.message;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      if (!silent) {
-        setState(() {
-          _errorMessage = e.toString();
-          _isLoading = false;
-        });
-      }
-    }
+  List<CustomerGig> _getFilteredGigs(CustomerGigsState state, _GigFilter filter) {
+    return switch (filter) {
+      _GigFilter.active => state.activeNow,
+      _GigFilter.upcoming => state.upcoming,
+      _GigFilter.completed => state.completedGigs,
+    };
   }
 
-  List<CustomerGig> _getFilteredGigs(_GigFilter filter) {
-    return _gigs.where((gig) {
-      final isCompleted = gig.stage == GigStage.completed ||
-          gig.rawStatus == 'COMPLETED' ||
-          gig.rawStatus == 'PAYMENT_WORKER_CONFIRMED' ||
-          gig.rawStatus == 'GIG_COMPLETED';
-      final isCancelled = gig.rawStatus == 'CANCELLED';
+  Widget _buildTabContent(CustomerGigsState state, _GigFilter filter) {
+    final filtered = _getFilteredGigs(state, filter);
 
-      return switch (filter) {
-        _GigFilter.active =>
-          !isCompleted && !isCancelled && gig.stage != GigStage.scheduled,
-        _GigFilter.upcoming => !isCancelled && gig.stage == GigStage.scheduled,
-        _GigFilter.completed => isCompleted,
-      };
-    }).toList();
-  }
-
-  Widget _buildTabContent(_GigFilter filter) {
-    if (_isLoading && _gigs.isEmpty) {
+    if (state.isLoading && filtered.isEmpty) {
       return ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
         children: const [
@@ -166,7 +104,7 @@ class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
       );
     }
 
-    if (_errorMessage != null && _gigs.isEmpty) {
+    if (state.errorMessage != null && filtered.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -180,13 +118,13 @@ class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
               ),
               const SizedBox(height: 12),
               Text(
-                _errorMessage!,
+                state.errorMessage!,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.muted),
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
-                onPressed: () => _fetchGigs(),
+                onPressed: () => ref.read(customerGigsProvider.notifier).loadGigs(),
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Retry'),
               ),
@@ -196,11 +134,9 @@ class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
       );
     }
 
-    final filtered = _getFilteredGigs(filter);
-
     if (filtered.isEmpty) {
       return RefreshIndicator(
-        onRefresh: () => _fetchGigs(),
+        onRefresh: () => ref.read(customerGigsProvider.notifier).loadGigs(),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
@@ -221,7 +157,7 @@ class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
     }
 
     return RefreshIndicator(
-      onRefresh: () => _fetchGigs(),
+      onRefresh: () => ref.read(customerGigsProvider.notifier).loadGigs(),
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
@@ -229,7 +165,7 @@ class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
         separatorBuilder: (_, index) => const SizedBox(height: 12),
         itemBuilder: (context, index) => _GigListTile(
           gig: filtered[index],
-          onRefresh: () => _fetchGigs(silent: true),
+          onRefresh: () => ref.read(customerGigsProvider.notifier).loadGigs(silent: true),
         ),
       ),
     );
@@ -237,6 +173,8 @@ class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
 
   @override
   Widget build(BuildContext context) {
+    final gigsState = ref.watch(customerGigsProvider);
+
     return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,9 +208,9 @@ class _CustomerNavigation2ScreenState extends State<CustomerNavigation2Screen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildTabContent(_GigFilter.active),
-                _buildTabContent(_GigFilter.upcoming),
-                _buildTabContent(_GigFilter.completed),
+                _buildTabContent(gigsState, _GigFilter.active),
+                _buildTabContent(gigsState, _GigFilter.upcoming),
+                _buildTabContent(gigsState, _GigFilter.completed),
               ],
             ),
           ),

@@ -1,35 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../models/api/api_models.dart';
 import '../../../models/worker_job_workflow.dart';
-import '../../../repositories/worker_repository.dart';
+import '../../../providers/worker_jobs_provider.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import 'rookie_progression_screen.dart';
 import 'worker_active_job_screen.dart';
 
-class WorkerNavigation3Screen extends StatefulWidget {
+class WorkerNavigation3Screen extends ConsumerStatefulWidget {
   const WorkerNavigation3Screen({super.key});
 
   @override
-  State<WorkerNavigation3Screen> createState() =>
+  ConsumerState<WorkerNavigation3Screen> createState() =>
       _WorkerNavigation3ScreenState();
 }
 
-class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
+class _WorkerNavigation3ScreenState extends ConsumerState<WorkerNavigation3Screen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final _workerRepo = WorkerRepository();
-
-  List<WorkerJob> _activeAndScheduled = [];
-  List<WorkerJob> _completedJobs = [];
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadJobs();
   }
 
   @override
@@ -39,66 +33,15 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
   }
 
   Future<void> _loadJobs() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final results = await Future.wait([
-        _workerRepo
-            .getWorkerGigs(tab: 'active')
-            .then((r) => r.data.map(WorkerJob.fromDto).toList())
-            .catchError((_) => <WorkerJob>[]),
-        _workerRepo
-            .getWorkerGigs(tab: 'upcoming')
-            .then((r) => r.data.map(WorkerJob.fromDto).toList())
-            .catchError((_) => <WorkerJob>[]),
-        _workerRepo
-            .getWorkerGigs(tab: 'completed')
-            .then((r) => r.data.map(WorkerJob.fromDto).toList())
-            .catchError((_) => <WorkerJob>[]),
-        _workerRepo
-            .getOpportunities(status: 'ACCEPTED')
-            .then((r) => r.data)
-            .catchError((_) => <OpportunityDto>[]),
-      ]);
-
-      final activeJobs = results[0] as List<WorkerJob>;
-      final upcomingJobs = results[1] as List<WorkerJob>;
-      final completedJobs = results[2] as List<WorkerJob>;
-      final acceptedOpps = results[3] as List<OpportunityDto>;
-
-      final assignedGigIds = {
-        ...activeJobs.map((j) => j.gigId ?? j.id),
-        ...upcomingJobs.map((j) => j.gigId ?? j.id),
-        ...completedJobs.map((j) => j.gigId ?? j.id),
-      };
-
-      final awaitingJobs = <WorkerJob>[];
-      for (final dto in acceptedOpps) {
-        final gId = dto.gigId;
-        if (!assignedGigIds.contains(gId)) {
-          awaitingJobs.add(WorkerJob.fromOpportunity(
-            WorkerOpportunity.fromDto(dto),
-            status: WorkerJobStatus.awaitingSelection,
-          ));
-        }
-      }
-
-      final allActive = [...upcomingJobs, ...activeJobs, ...awaitingJobs];
-
-      if (!mounted) return;
-      setState(() {
-        _activeAndScheduled = allActive;
-        _completedJobs = completedJobs;
-        _isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-    }
+    await ref.read(workerJobsProvider.notifier).loadJobs(silent: false);
   }
 
   @override
   Widget build(BuildContext context) {
+    final jobsState = ref.watch(workerJobsProvider);
+    final activeAndScheduled = jobsState.allActiveAndScheduled;
+    final completedJobs = jobsState.completedJobs;
+    final isLoading = jobsState.isLoading;
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
@@ -120,8 +63,8 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
             labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.muted,
             tabs: [
-              Tab(text: 'Active & Upcoming (${_activeAndScheduled.length})'),
-              Tab(text: 'Completed (${_completedJobs.length})'),
+              Tab(text: 'Active & Upcoming (${activeAndScheduled.length})'),
+              Tab(text: 'Completed (${completedJobs.length})'),
             ],
           ),
         ),
@@ -190,7 +133,7 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
 
             // Tab Views
             Expanded(
-              child: _isLoading
+              child: isLoading
                   ? const Center(
                       child: Padding(
                         padding: EdgeInsets.all(32.0),
@@ -203,14 +146,14 @@ class _WorkerNavigation3ScreenState extends State<WorkerNavigation3Screen>
                         RefreshIndicator(
                           onRefresh: _loadJobs,
                           child: _buildJobList(
-                            _activeAndScheduled,
+                            activeAndScheduled,
                             isCompletedTab: false,
                           ),
                         ),
                         RefreshIndicator(
                           onRefresh: _loadJobs,
                           child: _buildJobList(
-                            _completedJobs,
+                            completedJobs,
                             isCompletedTab: true,
                           ),
                         ),

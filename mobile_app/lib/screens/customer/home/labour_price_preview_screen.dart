@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/api/api_models.dart';
 import '../../../models/api/api_response.dart';
 import '../../../models/gig_draft.dart';
+import '../../../providers/customer_gigs_provider.dart';
 import '../../../repositories/catalogue_repository.dart';
 import '../../../repositories/gig_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 
-class LabourPricePreviewScreen extends StatefulWidget {
+class LabourPricePreviewScreen extends ConsumerStatefulWidget {
   const LabourPricePreviewScreen({super.key, required this.draft});
 
   final GigDraft draft;
 
   @override
-  State<LabourPricePreviewScreen> createState() =>
+  ConsumerState<LabourPricePreviewScreen> createState() =>
       _LabourPricePreviewScreenState();
 }
 
-class _LabourPricePreviewScreenState extends State<LabourPricePreviewScreen> {
+class _LabourPricePreviewScreenState extends ConsumerState<LabourPricePreviewScreen> {
   final _catalogueRepo = CatalogueRepository();
   final _gigRepo = GigRepository();
 
@@ -103,10 +105,15 @@ class _LabourPricePreviewScreenState extends State<LabourPricePreviewScreen> {
               ? widget.draft.instructions
               : null,
           address: widget.draft.location,
+          latitude: widget.draft.latitude,
+          longitude: widget.draft.longitude,
+          googleMapsLink: widget.draft.googleMapsLink,
           isEmergency: widget.draft.isEmergency,
           materialProcurementMode: widget.draft.customerBuysMaterials
               ? 'CUSTOMER_PURCHASES'
               : 'WORKER_PURCHASES',
+          scheduledDate: widget.draft.scheduledDateFormatted,
+          scheduledStartTime: widget.draft.scheduledStartTimeFormatted,
         ),
       );
 
@@ -114,6 +121,9 @@ class _LabourPricePreviewScreenState extends State<LabourPricePreviewScreen> {
       await _gigRepo.postGig(gig.id);
 
       if (!mounted) return;
+
+      // Refresh customer gigs in Riverpod so dashboard updates immediately
+      ref.read(customerGigsProvider.notifier).loadGigs(silent: false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

@@ -19,6 +19,7 @@ class OpportunityGigResponse(BaseModel):
     address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    google_maps_link: Optional[str] = None
     scheduled_date: Optional[date] = None
     scheduled_start_time: Optional[time] = None
     scheduled_end_time: Optional[time] = None

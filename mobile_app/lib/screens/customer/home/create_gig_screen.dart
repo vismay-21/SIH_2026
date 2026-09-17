@@ -4,6 +4,7 @@ import '../../../models/api/api_models.dart';
 import '../../../models/gig_draft.dart';
 import '../../../repositories/catalogue_repository.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/common/location_picker_dialog.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import 'material_procurement_screen.dart';
 
@@ -33,6 +34,11 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
   bool _isTasksExpanded = true;
   String _taskSearchQuery = '';
   int _photoCount = 0;
+  double? _latitude;
+  double? _longitude;
+  String? _googleMapsLink;
+
+  final ScrollController _taskListScrollController = ScrollController();
 
   @override
   void initState() {
@@ -42,6 +48,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
 
   @override
   void dispose() {
+    _taskListScrollController.dispose();
     _descriptionController.dispose();
     _locationController.dispose();
     _taskSearchController.dispose();
@@ -138,6 +145,11 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                     .join(', ')
                 : '${_selectedCategory!.name} service'));
 
+    final effectiveDate = _date ?? DateTime.now();
+    final effectiveTime = _time ?? const TimeOfDay(hour: 10, minute: 0);
+    final dateStr = '${effectiveDate.year}-${effectiveDate.month.toString().padLeft(2, '0')}-${effectiveDate.day.toString().padLeft(2, '0')}';
+    final timeStr = '${effectiveTime.hour.toString().padLeft(2, '0')}:${effectiveTime.minute.toString().padLeft(2, '0')}:00';
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => MaterialProcurementScreen(
@@ -149,18 +161,40 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                 : (_tasks.isNotEmpty ? [_tasks.first.id] : []),
             description: effectiveDescription,
             location: _locationController.text.trim(),
-            date: _date,
-            time: _time?.format(context),
+            date: effectiveDate,
+            time: effectiveTime.format(context),
             duration: 'Around 2 hours',
             isEmergency: _isEmergency,
             photoCount: _photoCount,
             instructions: enteredNotes,
             customerBuysMaterials: true,
             requiresVisitation: _requiresVisitation,
+            latitude: _latitude,
+            longitude: _longitude,
+            googleMapsLink: _googleMapsLink,
+            scheduledDateFormatted: dateStr,
+            scheduledStartTimeFormatted: timeStr,
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _openMapPicker() async {
+    final picked = await LocationPickerDialog.show(
+      context,
+      initialAddress: _locationController.text.trim(),
+      initialLat: _latitude,
+      initialLng: _longitude,
+    );
+    if (picked != null) {
+      setState(() {
+        _locationController.text = picked.address;
+        _latitude = picked.latitude;
+        _longitude = picked.longitude;
+        _googleMapsLink = picked.googleMapsLink;
+      });
+    }
   }
 
   @override
@@ -479,7 +513,9 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                                   ),
                                 )
                               : Scrollbar(
+                                  controller: _taskListScrollController,
                                   child: ListView.separated(
+                                    controller: _taskListScrollController,
                                     shrinkWrap: true,
                                     padding: EdgeInsets.zero,
                                     itemCount: filteredTasks.length,
@@ -571,13 +607,81 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
             ),
             const SizedBox(height: 14),
 
-            // 5. Location Field
-            TextField(
-              controller: _locationController,
-              decoration: const InputDecoration(
-                labelText: 'Location',
-                hintText: 'Area, landmark, or address',
-                prefixIcon: Icon(Icons.location_on_outlined),
+            // 5. Enhanced Location Field with Google Maps Pin Drop
+            SurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.location_on_outlined, color: AppColors.primary, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Service Location',
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      TextButton.icon(
+                        onPressed: _openMapPicker,
+                        icon: const Icon(Icons.map_outlined, size: 16),
+                        label: Text(
+                          _latitude != null ? 'Change Pin' : 'Pin on Map',
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _locationController,
+                    decoration: InputDecoration(
+                      hintText: 'Area, landmark, building or address...',
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ),
+                  if (_latitude != null && _longitude != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 16),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Google Maps Pin: ${_latitude!.toStringAsFixed(4)}°, ${_longitude!.toStringAsFixed(4)}°',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.open_in_new_rounded, size: 13, color: AppColors.muted),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(height: 16),

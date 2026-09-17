@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/customer_gig_workflow.dart';
+import '../../../providers/customer_gigs_provider.dart';
+import '../../../providers/worker_jobs_provider.dart';
+import '../../../repositories/gig_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 
-class CancelGigScreen extends StatefulWidget {
+class CancelGigScreen extends ConsumerStatefulWidget {
   const CancelGigScreen({super.key, required this.gig});
 
   final CustomerGig gig;
 
   @override
-  State<CancelGigScreen> createState() => _CancelGigScreenState();
+  ConsumerState<CancelGigScreen> createState() => _CancelGigScreenState();
 }
 
-class _CancelGigScreenState extends State<CancelGigScreen> {
+class _CancelGigScreenState extends ConsumerState<CancelGigScreen> {
+  final _gigRepo = GigRepository();
   int _selectedReasonIndex = 0;
+  bool _isSubmitting = false;
+
   final _reasons = const [
     'My plans changed',
     'Issue resolved independently',
@@ -41,12 +48,45 @@ class _CancelGigScreenState extends State<CancelGigScreen> {
               backgroundColor: AppColors.danger,
               foregroundColor: Colors.white,
             ),
-            onPressed: () {
+            onPressed: () async {
+              final gigId = widget.gig.id;
+              if (gigId == null || gigId.isEmpty) {
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Cannot cancel gig: Missing ID.')),
+                );
+                return;
+              }
+
               Navigator.of(dialogContext).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Gig cancelled successfully.')),
-              );
-              Navigator.of(context).pop();
+              setState(() => _isSubmitting = true);
+
+              try {
+                await _gigRepo.cancelGig(
+                  gigId: gigId,
+                  reason: _reasons[_selectedReasonIndex],
+                );
+
+                // Invalidate/refresh riverpod providers for both customer and worker
+                ref.read(customerGigsProvider.notifier).loadGigs(silent: true);
+                ref.read(workerJobsProvider.notifier).loadJobs(silent: true);
+                ref.read(workerOpportunitiesProvider.notifier).loadOpportunities(silent: true);
+
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Gig "${widget.gig.title}" cancelled successfully.')),
+                );
+                Navigator.of(context).pop(true);
+              } catch (e) {
+                if (!mounted) return;
+                setState(() => _isSubmitting = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to cancel gig: ${e.toString()}'),
+                    backgroundColor: AppColors.danger,
+                  ),
+                );
+              }
             },
             child: const Text('Confirm Cancel'),
           ),
@@ -89,7 +129,9 @@ class _CancelGigScreenState extends State<CancelGigScreen> {
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: InkWell(
-                onTap: () => setState(() => _selectedReasonIndex = index),
+                onTap: _isSubmitting
+                    ? null
+                    : () => setState(() => _selectedReasonIndex = index),
                 borderRadius: BorderRadius.circular(10),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -147,7 +189,7 @@ class _CancelGigScreenState extends State<CancelGigScreen> {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Cancellations made more than 2 hours before scheduled time incur ₹0 fee. Frequent cancellations may affect matching priority.',
+                        'Cancellations before worker confirmation incur ₹0 fee. After worker selection, a ₹50 cancellation fee applies.',
                         style: TextStyle(color: AppColors.muted, fontSize: 12),
                       ),
                     ],
@@ -164,9 +206,18 @@ class _CancelGigScreenState extends State<CancelGigScreen> {
                 backgroundColor: AppColors.danger,
                 foregroundColor: Colors.white,
               ),
-              onPressed: _confirmCancellation,
-              icon: const Icon(Icons.cancel_outlined),
-              label: const Text('Cancel this gig'),
+              onPressed: _isSubmitting ? null : _confirmCancellation,
+              icon: _isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.cancel_outlined),
+              label: Text(_isSubmitting ? 'Cancelling...' : 'Cancel this gig'),
             ),
           ),
         ],

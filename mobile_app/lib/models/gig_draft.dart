@@ -13,6 +13,11 @@ class GigDraft {
     required this.instructions,
     required this.customerBuysMaterials,
     this.requiresVisitation = false,
+    this.latitude,
+    this.longitude,
+    this.googleMapsLink,
+    this.scheduledDateFormatted,
+    this.scheduledStartTimeFormatted,
   });
 
   final String category;
@@ -20,6 +25,9 @@ class GigDraft {
   final List<String> taskIds;
   final String description;
   final String location;
+  final double? latitude;
+  final double? longitude;
+  final String? googleMapsLink;
   final DateTime? date;
   final String? time;
   final String duration;
@@ -28,4 +36,7 @@ class GigDraft {
   final String instructions;
   final bool customerBuysMaterials;
   final bool requiresVisitation;
+  final String? scheduledDateFormatted;
+  final String? scheduledStartTimeFormatted;
 }
+

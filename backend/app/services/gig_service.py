@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, datetime
+from datetime import date, time, datetime, timezone
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -495,4 +495,55 @@ class GigService:
         except Exception:
             db.rollback()
             raise
+
+    @staticmethod
+    def update_gig_schedule(
+        customer_user: User,
+        gig_id: uuid.UUID,
+        scheduled_date: date,
+        scheduled_start_time: Optional[time] = None,
+        scheduled_end_time: Optional[time] = None,
+        db: Session = None,
+    ) -> Gig:
+        """Directly update gig scheduled date and time before worker selection."""
+        try:
+            gig = db.query(Gig).filter(Gig.id == gig_id).with_for_update().first()
+            if not gig:
+                raise NotFoundException(f"Gig {gig_id} not found", code="GIG_NOT_FOUND")
+            if gig.customer_id != customer_user.id:
+                raise ForbiddenException("Only the gig customer can update the schedule", code="FORBIDDEN")
+            if gig.status not in (GigStatus.DRAFT, GigStatus.POSTED, GigStatus.ACCEPTANCE_OPEN):
+                raise ConflictException(
+                    f"Direct schedule update is only permitted before worker assignment (current status: '{gig.status.value}')",
+                    code="INVALID_GIG_STATE",
+                )
+            now_date = datetime.now(timezone.utc).date()
+            if scheduled_date < now_date:
+                raise BadRequestException("Scheduled date cannot be in the past", code="INVALID_DATE")
+
+            gig.scheduled_date = scheduled_date
+            if scheduled_start_time is not None:
+                gig.scheduled_start_time = scheduled_start_time
+            if scheduled_end_time is not None:
+                gig.scheduled_end_time = scheduled_end_time
+
+            db.add(
+                GigEvent(
+                    gig_id=gig.id,
+                    actor_id=customer_user.id,
+                    event_type="GIG_SCHEDULE_UPDATED",
+                    metadata_json={
+                        "scheduled_date": scheduled_date.isoformat(),
+                        "scheduled_start_time": scheduled_start_time.isoformat() if scheduled_start_time else None,
+                        "scheduled_end_time": scheduled_end_time.isoformat() if scheduled_end_time else None,
+                    },
+                )
+            )
+            db.commit()
+            db.refresh(gig)
+            return gig
+        except Exception:
+            db.rollback()
+            raise
+
 
