@@ -5,7 +5,6 @@ import '../../../models/worker_job_workflow.dart';
 import '../../../providers/worker_jobs_provider.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
-import 'rookie_progression_screen.dart';
 import 'worker_active_job_screen.dart';
 
 class WorkerNavigation3Screen extends ConsumerStatefulWidget {
@@ -68,100 +67,32 @@ class _WorkerNavigation3ScreenState extends ConsumerState<WorkerNavigation3Scree
             ],
           ),
         ),
-        body: Column(
-          children: [
-            // Rookie Badges Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: Theme.of(context).colorScheme.surface,
-              child: Row(
+        body: isLoading
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            : TabBarView(
+                controller: _tabController,
                 children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const RookieProgressionScreen(),
-                          ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppColors.accent.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(
-                              Icons.school_rounded,
-                              size: 18,
-                              color: AppColors.primaryDark,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Cooperative Artisan Growth & Rookie Track',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primaryDark,
-                                ),
-                              ),
-                            ),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              size: 18,
-                              color: AppColors.primaryDark,
-                            ),
-                          ],
-                        ),
-                      ),
+                  RefreshIndicator(
+                    onRefresh: _loadJobs,
+                    child: _buildJobList(
+                      activeAndScheduled,
+                      isCompletedTab: false,
+                    ),
+                  ),
+                  RefreshIndicator(
+                    onRefresh: _loadJobs,
+                    child: _buildJobList(
+                      completedJobs,
+                      isCompletedTab: true,
                     ),
                   ),
                 ],
               ),
-            ),
-            const Divider(height: 1),
-
-            // Tab Views
-            Expanded(
-              child: isLoading
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32.0),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  : TabBarView(
-                      controller: _tabController,
-                      children: [
-                        RefreshIndicator(
-                          onRefresh: _loadJobs,
-                          child: _buildJobList(
-                            activeAndScheduled,
-                            isCompletedTab: false,
-                          ),
-                        ),
-                        RefreshIndicator(
-                          onRefresh: _loadJobs,
-                          child: _buildJobList(
-                            completedJobs,
-                            isCompletedTab: true,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -259,19 +190,24 @@ class _WorkerNavigation3ScreenState extends ConsumerState<WorkerNavigation3Scree
                 Row(
                   children: [
                     const Icon(
-                      Icons.access_time_rounded,
-                      size: 15,
-                      color: AppColors.muted,
+                      Icons.event_available_rounded,
+                      size: 16,
+                      color: AppColors.primary,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      job.when,
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 12,
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        job.when,
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Text(
                       job.wage,
                       style: TextStyle(

@@ -4,6 +4,7 @@ import '../../../models/worker_job_workflow.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import '../../../widgets/common/location_picker_dialog.dart';
+import '../../../widgets/common/app_photo_view.dart';
 import '../my_jobs/worker_active_job_screen.dart';
 import 'conflict_warning_dialog.dart';
 
@@ -23,6 +24,7 @@ class _OpportunityDetailsScreenState extends State<OpportunityDetailsScreen> {
   final _workerRepo = WorkerRepository();
   late WorkerOpportunity _opp = widget.opportunity;
   bool _isRefreshing = false;
+  bool _isAccepting = false;
 
   WorkerOpportunity get opportunity => _opp;
 
@@ -49,6 +51,8 @@ class _OpportunityDetailsScreenState extends State<OpportunityDetailsScreen> {
   }
 
   Future<void> _handleAccept(BuildContext context) async {
+    if (_isAccepting) return;
+    setState(() => _isAccepting = true);
     final workerRepo = _workerRepo;
 
     try {
@@ -74,7 +78,22 @@ class _OpportunityDetailsScreenState extends State<OpportunityDetailsScreen> {
       );
     } on ApiError catch (e) {
       if (!context.mounted) return;
-      if (e.code == 'SCHEDULE_CONFLICT') {
+      if (e.code == 'ALREADY_ACCEPTED') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Opportunity already accepted. Waiting for customer selection.'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        final newJob = WorkerJob.fromOpportunity(opportunity);
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => WorkerActiveJobScreen(job: newJob),
+          ),
+        );
+        return;
+      } else if (e.code == 'SCHEDULE_CONFLICT') {
         final proceed = await showConflictWarningDialog(
           context,
           conflictDetails: e.message,
@@ -109,6 +128,10 @@ class _OpportunityDetailsScreenState extends State<OpportunityDetailsScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isAccepting = false);
+      }
     }
   }
 
@@ -355,7 +378,7 @@ class _OpportunityDetailsScreenState extends State<OpportunityDetailsScreen> {
 
           const SizedBox(height: 20),
 
-          // Exact Wage Display (SRS: No worker bidding)
+          // Exact Wage Display (No worker bidding)
           SurfaceCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -611,6 +634,75 @@ class _OpportunityDetailsScreenState extends State<OpportunityDetailsScreen> {
 
           const SizedBox(height: 16),
 
+          // Customer Issue Photos (Zoomable Lightbox)
+          if (opportunity.photos.isNotEmpty) ...[
+            SurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.photo_library_outlined,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Customer Issue Photos',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${opportunity.photos.length} photo${opportunity.photos.length > 1 ? "s" : ""}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Photos uploaded by the customer. Tap any thumbnail to zoom & inspect before accepting.',
+                    style: TextStyle(fontSize: 12, color: AppColors.muted),
+                  ),
+                  const SizedBox(height: 12),
+                  AppPhotoGallery(
+                    photos: opportunity.photos,
+                    thumbnailSize: 84,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Materials Responsibility
           SurfaceCard(
             child: Row(
@@ -750,7 +842,7 @@ class _OpportunityDetailsScreenState extends State<OpportunityDetailsScreen> {
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: () => _handleDecline(context),
+            onPressed: _isAccepting ? null : () => _handleDecline(context),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(50),
             ),
@@ -761,11 +853,20 @@ class _OpportunityDetailsScreenState extends State<OpportunityDetailsScreen> {
         Expanded(
           flex: 2,
           child: FilledButton.icon(
-            onPressed: () => _handleAccept(context),
-            icon: const Icon(Icons.check_circle_outline_rounded),
-            label: const Text(
-              'Accept Gig',
-              style: TextStyle(
+            onPressed: _isAccepting ? null : () => _handleAccept(context),
+            icon: _isAccepting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.check_circle_outline_rounded),
+            label: Text(
+              _isAccepting ? 'Accepting...' : 'Accept Gig',
+              style: const TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 15,
               ),

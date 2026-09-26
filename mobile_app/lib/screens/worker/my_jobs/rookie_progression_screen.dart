@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 
-/// SRS 15.2: Rookie Learning Progression & Co-Worker Credit Screen
+/// Rookie Learning Progression & Co-Worker Credit Screen
 /// Tracks apprentice / rookie milestone progress (0.5 credit per shadowed gig)
 /// towards independent certified worker status.
 class RookieProgressionScreen extends StatelessWidget {
@@ -118,7 +118,7 @@ class RookieProgressionScreen extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          // Policy Explanation Card (SRS 15.2)
+          // Policy Explanation Card
           SurfaceCard(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,7 +134,7 @@ class RookieProgressionScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
                       Text(
-                        'How Rookie Progression Works (SRS 15.2)',
+                        'How Rookie Progression Works',
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 13,

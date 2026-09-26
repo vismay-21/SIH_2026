@@ -58,6 +58,7 @@ class WorkerOpportunity {
     this.scheduledDate,
     this.scheduledStartTime,
     this.scheduledEndTime,
+    this.photos = const [],
   });
 
   final String id;
@@ -83,6 +84,7 @@ class WorkerOpportunity {
   final String? scheduledDate;
   final String? scheduledStartTime;
   final String? scheduledEndTime;
+  final List<String> photos;
 
   static String formatDateTimeDisplay(String? dateStr, String? timeStr) {
     if (dateStr == null || dateStr.isEmpty) {
@@ -124,17 +126,21 @@ class WorkerOpportunity {
 
     String formattedTime = timeStr;
     try {
-      final parts = timeStr.split(':');
-      if (parts.length >= 2) {
-        int hour = int.parse(parts[0]);
-        final minute = parts[1].padLeft(2, '0');
-        final ampm = hour >= 12 ? 'PM' : 'AM';
-        if (hour == 0) {
-          hour = 12;
-        } else if (hour > 12) {
-          hour -= 12;
+      if (timeStr.toUpperCase().contains('AM') || timeStr.toUpperCase().contains('PM')) {
+        formattedTime = timeStr;
+      } else {
+        final parts = timeStr.split(':');
+        if (parts.length >= 2) {
+          int hour = int.parse(parts[0]);
+          final minute = parts[1].padLeft(2, '0');
+          final ampm = hour >= 12 ? 'PM' : 'AM';
+          if (hour == 0) {
+            hour = 12;
+          } else if (hour > 12) {
+            hour -= 12;
+          }
+          formattedTime = '$hour:$minute $ampm';
         }
-        formattedTime = '$hour:$minute $ampm';
       }
     } catch (_) {}
 
@@ -175,6 +181,7 @@ class WorkerOpportunity {
       scheduledDate: gig.scheduledDate,
       scheduledStartTime: gig.scheduledStartTime,
       scheduledEndTime: gig.scheduledEndTime,
+      photos: gig.photos,
     );
   }
 }
@@ -204,6 +211,10 @@ class WorkerJob {
     this.categoryId,
     this.gigType = 'STANDARD',
     this.customerPhone = '+91 98765 43211',
+    this.photos = const [],
+    this.scheduledDate,
+    this.scheduledStartTime,
+    this.scheduledEndTime,
   });
 
   final String id;
@@ -229,6 +240,77 @@ class WorkerJob {
   final double? longitude;
   final String? categoryId;
   final String gigType;
+  final List<String> photos;
+  final String? scheduledDate;
+  final String? scheduledStartTime;
+  final String? scheduledEndTime;
+
+  String get scheduleDisplay =>
+      WorkerOpportunity.formatDateTimeDisplay(scheduledDate, scheduledStartTime);
+
+  bool get workerBringsMaterials =>
+      materials.toLowerCase().contains('worker') ||
+      materials.toLowerCase().contains('procure');
+
+  WorkerJob copyWith({
+    String? id,
+    String? gigId,
+    String? customerId,
+    String? title,
+    String? category,
+    String? description,
+    String? wage,
+    String? when,
+    String? location,
+    String? duration,
+    WorkerJobStatus? status,
+    String? customerName,
+    String? customerPhone,
+    String? materials,
+    String? instructions,
+    bool? isEmergency,
+    bool? isRookieParticipation,
+    String? additionalWorkerName,
+    String? googleMapsLink,
+    double? latitude,
+    double? longitude,
+    String? categoryId,
+    String? gigType,
+    List<String>? photos,
+    String? scheduledDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+  }) {
+    return WorkerJob(
+      id: id ?? this.id,
+      gigId: gigId ?? this.gigId,
+      customerId: customerId ?? this.customerId,
+      title: title ?? this.title,
+      category: category ?? this.category,
+      description: description ?? this.description,
+      wage: wage ?? this.wage,
+      when: when ?? this.when,
+      location: location ?? this.location,
+      duration: duration ?? this.duration,
+      status: status ?? this.status,
+      customerName: customerName ?? this.customerName,
+      customerPhone: customerPhone ?? this.customerPhone,
+      materials: materials ?? this.materials,
+      instructions: instructions ?? this.instructions,
+      isEmergency: isEmergency ?? this.isEmergency,
+      isRookieParticipation: isRookieParticipation ?? this.isRookieParticipation,
+      additionalWorkerName: additionalWorkerName ?? this.additionalWorkerName,
+      googleMapsLink: googleMapsLink ?? this.googleMapsLink,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      categoryId: categoryId ?? this.categoryId,
+      gigType: gigType ?? this.gigType,
+      photos: photos ?? this.photos,
+      scheduledDate: scheduledDate ?? this.scheduledDate,
+      scheduledStartTime: scheduledStartTime ?? this.scheduledStartTime,
+      scheduledEndTime: scheduledEndTime ?? this.scheduledEndTime,
+    );
+  }
 
   factory WorkerJob.fromDto(WorkerGigListItemDto dto) {
     final status = switch (dto.status.toUpperCase()) {
@@ -244,6 +326,11 @@ class WorkerJob {
       _ => WorkerJobStatus.accepted,
     };
 
+    final formattedWhen = WorkerOpportunity.formatDateTimeDisplay(
+      dto.scheduledDate,
+      dto.scheduledStartTime,
+    );
+
     return WorkerJob(
       id: dto.id,
       gigId: dto.id,
@@ -252,7 +339,7 @@ class WorkerJob {
       category: dto.categoryName,
       description: 'Cooperative service gig',
       wage: '₹${dto.exactWage.toInt()}',
-      when: dto.scheduledDate ?? 'Today',
+      when: formattedWhen,
       location: dto.address ?? 'Assigned location',
       duration: dto.expectedDurationMinutes != null
           ? '${dto.expectedDurationMinutes} min'
@@ -261,7 +348,9 @@ class WorkerJob {
       customerName: (dto.customerName != null && dto.customerName!.isNotEmpty)
           ? dto.customerName!
           : 'Customer',
-      materials: 'Cooperative verified',
+      materials: dto.materialProcurementMode == 'WORKER_PURCHASES'
+          ? 'Worker purchases'
+          : 'Customer purchases',
       instructions: '',
       isEmergency: dto.isEmergency,
       googleMapsLink: dto.googleMapsLink,
@@ -269,6 +358,8 @@ class WorkerJob {
       longitude: dto.longitude,
       categoryId: dto.categoryId,
       gigType: dto.gigType,
+      scheduledDate: dto.scheduledDate,
+      scheduledStartTime: dto.scheduledStartTime,
     );
   }
 
@@ -296,6 +387,10 @@ class WorkerJob {
       longitude: opp.longitude,
       categoryId: opp.categoryId,
       gigType: opp.gigType,
+      photos: opp.photos,
+      scheduledDate: opp.scheduledDate,
+      scheduledStartTime: opp.scheduledStartTime,
+      scheduledEndTime: opp.scheduledEndTime,
     );
   }
 }

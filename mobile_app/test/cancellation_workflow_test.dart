@@ -122,6 +122,25 @@ void main() {
       expect(job.status, WorkerJobStatus.cancelled);
     });
 
+    test('WorkerJob.fromDto formats scheduledDate and scheduledStartTime into clear date and time display', () {
+      const workerGigDto = WorkerGigListItemDto(
+        id: 'gig-w-2',
+        customerId: 'cust-1',
+        categoryId: 'cat-1',
+        categoryName: 'Plumbing',
+        gigType: 'STANDARD',
+        status: 'IN_PROGRESS',
+        exactWage: 500.0,
+        scheduledDate: '2026-09-30',
+        scheduledStartTime: '16:00:00',
+      );
+
+      final job = WorkerJob.fromDto(workerGigDto);
+      expect(job.when, equals('30 Sep 2026 at 4:00 PM'));
+      expect(job.scheduledDate, equals('2026-09-30'));
+      expect(job.scheduledStartTime, equals('16:00:00'));
+    });
+
     test('WorkerJobsState filters out cancelled jobs from active and current', () {
       const activeJob = WorkerJob(
         id: 'job-1',

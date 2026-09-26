@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/customer_gig_workflow.dart';
+import '../../providers/customer_notifications_provider.dart';
 import 'home/customer_home_screen.dart';
 import 'my_jobs/customer_navigation_2_screen.dart';
 import 'alerts/customer_navigation_3_screen.dart';
 import 'profile/customer_navigation_4_screen.dart';
 
-class CustomerMainScreen extends StatefulWidget {
+class CustomerMainScreen extends ConsumerStatefulWidget {
   const CustomerMainScreen({super.key, this.initialIndex = 0, this.initialGig});
 
   final int initialIndex;
@@ -27,10 +29,10 @@ class CustomerMainScreen extends StatefulWidget {
   }
 
   @override
-  State<CustomerMainScreen> createState() => _CustomerMainScreenState();
+  ConsumerState<CustomerMainScreen> createState() => _CustomerMainScreenState();
 }
 
-class _CustomerMainScreenState extends State<CustomerMainScreen> {
+class _CustomerMainScreenState extends ConsumerState<CustomerMainScreen> {
   late int _selectedIndex = widget.initialIndex;
   int _homeRevision = 0;
   int _myJobsRevision = 0;
@@ -78,6 +80,8 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final unreadNotifs = ref.watch(customerNotificationsProvider).unreadCount;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -127,23 +131,33 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
               _onTabChanged(index);
             }
           },
-          destinations: const [
-            NavigationDestination(
+          destinations: [
+            const NavigationDestination(
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.home_rounded),
               label: 'Home',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.work_outline_rounded),
               selectedIcon: Icon(Icons.work_rounded),
               label: 'My jobs',
             ),
             NavigationDestination(
-              icon: Icon(Icons.notifications_none_rounded),
-              selectedIcon: Icon(Icons.notifications_rounded),
+              icon: unreadNotifs > 0
+                  ? Badge.count(
+                      count: unreadNotifs,
+                      child: const Icon(Icons.notifications_none_rounded),
+                    )
+                  : const Icon(Icons.notifications_none_rounded),
+              selectedIcon: unreadNotifs > 0
+                  ? Badge.count(
+                      count: unreadNotifs,
+                      child: const Icon(Icons.notifications_rounded),
+                    )
+                  : const Icon(Icons.notifications_rounded),
               label: 'Alerts',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               selectedIcon: Icon(Icons.person_rounded),
               label: 'Profile',

@@ -118,8 +118,8 @@ class _MultiWorkerInviteScreenState extends State<MultiWorkerInviteScreen> {
 
           const SizedBox(height: 20),
 
-          // Role Classification (SRS 16.2)
-          const SectionTitle('Select Collaboration Type (SRS 16.2)'),
+          // Role Classification
+          const SectionTitle('Select Collaboration Type'),
           const SizedBox(height: 8),
 
           InkWell(

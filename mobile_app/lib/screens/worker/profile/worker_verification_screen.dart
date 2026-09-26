@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 
-/// SRS 22: Multi-Tier Worker Verification Status
+/// Multi-Tier Worker Verification Status
 /// Displays audit trails for Identity, Skill guild, Cooperative membership,
 /// and police background clearance.
 class WorkerVerificationScreen extends StatelessWidget {
@@ -64,7 +64,7 @@ class WorkerVerificationScreen extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          const SectionTitle('Verification Tiers (SRS 22)'),
+          const SectionTitle('Verification Tiers'),
           const SizedBox(height: 10),
 
           // Tier 1

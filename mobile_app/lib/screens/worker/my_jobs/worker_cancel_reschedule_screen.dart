@@ -254,7 +254,7 @@ class _WorkerCancelRescheduleScreenState
 
           const SizedBox(height: 16),
 
-          // Policy Note (SRS 21)
+          // Policy Note
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -281,7 +281,7 @@ class _WorkerCancelRescheduleScreenState
                   child: Text(
                     _isReschedule
                         ? 'Rescheduling requires customer acceptance. If declined, the job can be safely reassigned through cooperative dispatch.'
-                        : 'Per SRS 21: Excessive short-notice cancellations without verified emergency may reduce algorithm dispatch priority.',
+                        : 'Excessive short-notice cancellations without verified emergency may reduce algorithm dispatch priority.',
                     style: TextStyle(
                       fontSize: 12,
                       color: _isReschedule ? AppColors.text : AppColors.danger,

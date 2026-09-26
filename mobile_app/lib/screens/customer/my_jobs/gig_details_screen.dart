@@ -8,6 +8,7 @@ import '../../../theme/app_theme.dart';
 import '../../../utils/phone_dialer_helper.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import '../../../widgets/common/sos_dialog.dart';
+import '../../../widgets/common/app_photo_view.dart';
 import '../../common/chat_screen.dart';
 import 'accepted_candidates_screen.dart';
 import 'cancel_gig_screen.dart';
@@ -30,6 +31,7 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
   final _gigRepo = GigRepository();
   late CustomerGig _gig;
   bool _isRefreshing = false;
+  bool _isFetchingGig = false;
   Timer? _statusPollingTimer;
   VisitationResponseDto? _visitationDetails;
 
@@ -49,9 +51,9 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
 
   void _startStatusPollingIfNeeded() {
     _statusPollingTimer?.cancel();
-    // While gig is active (seeking workers, in progress, awaiting evidence/payment), poll every 3.5s so screen auto-updates
+    // While gig is active (seeking workers, in progress, awaiting evidence/payment), poll every 6s so screen auto-updates
     if (_gig.stage != GigStage.completed) {
-      _statusPollingTimer = Timer.periodic(const Duration(milliseconds: 3500), (_) async {
+      _statusPollingTimer = Timer.periodic(const Duration(seconds: 6), (_) async {
         if (!mounted) return;
         await _refreshGig();
         if (_gig.stage == GigStage.completed) {
@@ -63,7 +65,8 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
 
   Future<void> _refreshGig() async {
     final gigId = _gig.id;
-    if (gigId == null) return;
+    if (gigId == null || _isFetchingGig) return;
+    _isFetchingGig = true;
 
     setState(() => _isRefreshing = true);
     try {
@@ -96,6 +99,8 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isRefreshing = false);
+    } finally {
+      _isFetchingGig = false;
     }
   }
 
@@ -155,6 +160,12 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
             // Dynamic Context Card (Candidates alert / Assigned Worker / Seeking status)
             _buildContextCard(context),
             const SizedBox(height: 12),
+
+            // Prominent Work Evidence Review card when evidence is submitted
+            if (_gig.stage == GigStage.completionRequested) ...[
+              _buildEvidenceNoticeCard(context),
+              const SizedBox(height: 12),
+            ],
 
             // Incoming Visitation Proposal Card if any
             if (_visitationDetails?.activeProposal != null &&
@@ -301,6 +312,26 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
               ),
             ],
           ),
+          if (_gig.photos.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Attached Issue Photos',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                Text(
+                  '${_gig.photos.length} photo(s)',
+                  style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            AppPhotoGallery(photos: _gig.photos),
+          ],
         ],
       ),
     );
@@ -318,8 +349,8 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
 
     return Row(
       children: [
-        // Card 1: Material Bill (only visible once worker is assigned)
-        if (hasWorker) ...[
+        // Card 1: Material Bill (only visible once worker is assigned AND worker brings materials)
+        if (hasWorker && _gig.workerBringsMaterials) ...[
           Expanded(
             child: _QuickCard(
               icon: Icons.receipt_long_rounded,
@@ -784,6 +815,73 @@ class _GigDetailsScreenState extends State<GigDetailsScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  /// Prominent card alerting customer to inspect work evidence submitted by artisan
+  Widget _buildEvidenceNoticeCard(BuildContext context) {
+    final workerName = _gig.selectedWorker?.name ?? 'Artisan';
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CompletionEvidenceReviewScreen(gig: _gig),
+        ),
+      ).then((_) => _refreshGig()),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.success.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.success,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.fact_check_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Work Completed by $workerName',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: AppColors.success,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Tap to inspect photo evidence before confirming and paying.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.success,
+            ),
+          ],
+        ),
       ),
     );
   }

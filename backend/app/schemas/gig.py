@@ -35,6 +35,7 @@ class GigCreateRequest(BaseModel):
     scheduled_end_time: Optional[time] = Field(default=None, description="Scheduled end time")
     expected_duration_minutes: Optional[int] = Field(default=None, ge=15, description="Expected duration")
     is_emergency: bool = Field(default=False, description="Emergency service flag")
+    photos: Optional[List[str]] = Field(default_factory=list, description="Customer attached photos")
     acceptance_deadline: Optional[datetime] = Field(default=None, description="Opportunity acceptance deadline")
     material_procurement_mode: MaterialProcurementMode = Field(
         default=MaterialProcurementMode.CUSTOMER_PURCHASES,
@@ -60,6 +61,7 @@ class GigResponse(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     google_maps_link: Optional[str] = None
+    photos: List[str] = Field(default_factory=list)
     scheduled_date: Optional[date] = None
     scheduled_start_time: Optional[time] = None
     scheduled_end_time: Optional[time] = None

@@ -31,7 +31,6 @@ class _ChatScreenState extends State<ChatScreen> {
   List<MessageDto> _messages = [];
   bool _isLoading = false;
   String? _errorMessage;
-  bool _isSending = false;
 
   @override
   void initState() {
@@ -109,7 +108,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
-    if (text.isEmpty || _isSending) return;
+    if (text.isEmpty) return;
 
     final gigId = widget.gigId;
     final isRealBackendGig = gigId != null && !gigId.startsWith('job-');
@@ -118,25 +117,29 @@ class _ChatScreenState extends State<ChatScreen> {
     final currentUserName = currentUser?.fullName ?? 'You';
     final currentUserRole = currentUser?.role ?? 'worker';
 
+    // Clear text field immediately for a fluid user experience
+    _controller.clear();
+
+    // Optimistically add message to screen right away
+    final tempId = 'temp-${DateTime.now().millisecondsSinceEpoch}';
+    final optimisticMsg = MessageDto(
+      id: tempId,
+      conversationId: gigId ?? 'demo',
+      senderId: currentUserId,
+      senderName: currentUserName,
+      senderRole: currentUserRole,
+      messageText: text,
+      isRead: true,
+      createdAt: DateTime.now(),
+    );
+
+    setState(() {
+      _messages.add(optimisticMsg);
+    });
+    _scrollToBottom();
+
     if (!isRealBackendGig) {
-      final demoMsg = MessageDto(
-        id: 'msg-${DateTime.now().millisecondsSinceEpoch}',
-        conversationId: gigId ?? 'demo',
-        senderId: currentUserId,
-        senderName: currentUserName,
-        senderRole: currentUserRole,
-        messageText: text,
-        isRead: true,
-        createdAt: DateTime.now(),
-      );
-
-      setState(() {
-        _messages.add(demoMsg);
-        _controller.clear();
-      });
-      _scrollToBottom();
-
-      Future.delayed(const Duration(milliseconds: 900), () {
+      Future.delayed(const Duration(milliseconds: 800), () {
         if (!mounted) return;
         final replyMsg = MessageDto(
           id: 'reply-${DateTime.now().millisecondsSinceEpoch}',
@@ -156,28 +159,25 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    setState(() => _isSending = true);
-
+    // Deliver to server in background without blocking UI
     try {
-      final msg = await _chatRepo.sendMessage(gigId, text);
+      final realMsg = await _chatRepo.sendMessage(gigId, text);
       if (!mounted) return;
       setState(() {
-        _messages.add(msg);
-        _controller.clear();
-        _isSending = false;
+        final index = _messages.indexWhere((m) => m.id == tempId);
+        if (index != -1) {
+          _messages[index] = realMsg;
+        }
       });
-      _scrollToBottom();
     } on ApiError catch (e) {
       if (!mounted) return;
-      setState(() => _isSending = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message), backgroundColor: Colors.red),
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isSending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to send: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Failed to deliver message: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -350,17 +350,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       onSubmitted: (_) => _sendMessage(),
                     ),
                   ),
-                  _isSending
-                      ? const SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : IconButton(
-                          icon: const Icon(Icons.send_rounded),
-                          color: AppColors.primary,
-                          onPressed: _sendMessage,
-                        ),
+                  IconButton(
+                    icon: const Icon(Icons.send_rounded),
+                    color: AppColors.primary,
+                    onPressed: _sendMessage,
+                  ),
                 ],
               ),
             ),

@@ -3,10 +3,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../theme/app_theme.dart';
+import 'shared_widgets.dart';
 
 class PickedLocation {
   final String address;
@@ -56,6 +58,117 @@ class LocationPickerDialog extends StatefulWidget {
     );
   }
 
+  /// Real device GPS with fallback to IP-based network location and Nominatim reverse geocoding
+  static Future<PickedLocation?> getCurrentLocation() async {
+    double? lat;
+    double? lng;
+
+    // 1. Try real GPS via Geolocator
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (serviceEnabled) {
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+        if (permission != LocationPermission.denied &&
+            permission != LocationPermission.deniedForever) {
+          try {
+            final pos = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.high,
+                timeLimit: Duration(seconds: 8),
+              ),
+            );
+            lat = pos.latitude;
+            lng = pos.longitude;
+          } catch (_) {
+            final last = await Geolocator.getLastKnownPosition();
+            if (last != null) {
+              lat = last.latitude;
+              lng = last.longitude;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fallback to IP-based location if GPS is unavailable / denied
+    if (lat == null || lng == null) {
+      try {
+        final dio = Dio(
+          BaseOptions(
+            connectTimeout: const Duration(seconds: 4),
+            receiveTimeout: const Duration(seconds: 4),
+          ),
+        );
+        final res = await dio.get<Map<String, dynamic>>('https://ipapi.co/json/');
+        if (res.statusCode == 200 && res.data != null) {
+          lat = (res.data!['latitude'] as num?)?.toDouble();
+          lng = (res.data!['longitude'] as num?)?.toDouble();
+        }
+      } catch (_) {
+        try {
+          final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 3)));
+          final res = await dio.get<Map<String, dynamic>>('http://ip-api.com/json/');
+          if (res.statusCode == 200 && res.data != null) {
+            lat = (res.data!['lat'] as num?)?.toDouble();
+            lng = (res.data!['lon'] as num?)?.toDouble();
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (lat == null || lng == null) {
+      return null;
+    }
+
+    // 3. Reverse-geocode coordinates to readable address
+    String formattedAddress = '';
+    try {
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 4),
+          receiveTimeout: const Duration(seconds: 4),
+          headers: {'User-Agent': 'SahakaarSevaApp/1.0 (info@sahakaar.coop)'},
+        ),
+      );
+      final url =
+          'https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat.toStringAsFixed(6)}&lon=${lng.toStringAsFixed(6)}&zoom=18&addressdetails=1';
+      final response = await dio.get<Map<String, dynamic>>(url);
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data!;
+        final addr = data['address'] as Map<String, dynamic>?;
+        if (addr != null) {
+          final road = addr['road'] ?? addr['suburb'] ?? addr['neighbourhood'];
+          final city = addr['city'] ?? addr['town'] ?? addr['state_district'] ?? addr['state'];
+          final postcode = addr['postcode'];
+          final parts = <String>[];
+          if (road != null && road.toString().isNotEmpty) parts.add(road.toString());
+          if (city != null && city.toString().isNotEmpty) parts.add(city.toString());
+          if (postcode != null && postcode.toString().isNotEmpty) parts.add(postcode.toString());
+          if (parts.isNotEmpty) {
+            formattedAddress = parts.join(', ');
+          }
+        }
+        if (formattedAddress.isEmpty) {
+          formattedAddress = (data['display_name'] as String?)?.split(',').take(3).join(',').trim() ?? '';
+        }
+      }
+    } catch (_) {}
+
+    if (formattedAddress.isEmpty) {
+      formattedAddress = 'Current Location (${lat.toStringAsFixed(4)}°, ${lng.toStringAsFixed(4)}°)';
+    }
+
+    return PickedLocation(
+      address: formattedAddress,
+      latitude: lat,
+      longitude: lng,
+      googleMapsLink: PickedLocation.generateGoogleMapsLink(lat, lng),
+    );
+  }
+
   @override
   State<LocationPickerDialog> createState() => _LocationPickerDialogState();
 }
@@ -67,60 +180,93 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
   double _currentZoom = 15.5;
   bool _isGeocoding = false;
   bool _isSearching = false;
+  bool _isLocating = false;
   Timer? _debounceTimer;
-
-  static const List<Map<String, dynamic>> _presets = [
-    {
-      'name': 'PDEU Campus, Gandhinagar',
-      'lat': 23.1557,
-      'lng': 72.6669,
-      'area': 'Knowledge Corridor, Raysan',
-    },
-    {
-      'name': 'Koramangala, Bengaluru',
-      'lat': 12.9352,
-      'lng': 77.6245,
-      'area': '5th Block, Sony World Signal',
-    },
-    {
-      'name': 'Indiranagar, Bengaluru',
-      'lat': 12.9719,
-      'lng': 77.6412,
-      'area': '100 Feet Road',
-    },
-    {
-      'name': 'HSR Layout, Bengaluru',
-      'lat': 12.9121,
-      'lng': 77.6446,
-      'area': 'Sector 1, 27th Main',
-    },
-    {
-      'name': 'Whitefield, Bengaluru',
-      'lat': 12.9698,
-      'lng': 77.7499,
-      'area': 'ITPL Main Road',
-    },
-    {
-      'name': 'Jayanagar, Bengaluru',
-      'lat': 12.9298,
-      'lng': 77.5833,
-      'area': '4th Block Complex',
-    },
-  ];
 
   @override
   void initState() {
     super.initState();
-    final lat = widget.initialLat ?? 23.1557;
-    final lng = widget.initialLng ?? 72.6669;
+    final lat = widget.initialLat ?? 20.5937;
+    final lng = widget.initialLng ?? 78.9629;
     _center = LatLng(lat, lng);
+    _currentZoom = widget.initialLat != null ? 15.5 : 5.0;
     _mapController = MapController();
 
     String initName = widget.initialAddress ?? '';
     if (initName.isEmpty) {
-      initName = 'PDEU Campus, Gandhinagar';
+      initName = widget.initialLat != null ? 'Selected Location' : '';
     }
     _addressController = TextEditingController(text: initName);
+
+    // Auto-detect current location if not previously pinned
+    if (widget.initialLat == null || widget.initialLng == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _detectCurrentLocation(showFeedback: false);
+      });
+    }
+  }
+
+  Future<void> _detectCurrentLocation({bool showFeedback = true}) async {
+    if (_isLocating) return;
+    setState(() => _isLocating = true);
+
+    try {
+      final loc = await LocationPickerDialog.getCurrentLocation();
+      if (!mounted) return;
+
+      if (loc != null) {
+        final target = LatLng(loc.latitude, loc.longitude);
+        setState(() {
+          _center = target;
+          _addressController.text = loc.address;
+          _isLocating = false;
+        });
+        _mapController.move(target, 16.5);
+
+        if (showFeedback) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.my_location_rounded, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Centered to current location: ${loc.address}'),
+                  ),
+                ],
+              ),
+              backgroundColor: AppColors.primary,
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        setState(() => _isLocating = false);
+        if (showFeedback) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not access current location. Please ensure device location / GPS is turned on, or drag the map pin.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLocating = false);
+      if (showFeedback) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Location error: $e'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -241,24 +387,11 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
       setState(() => _isSearching = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Could not find location. Try choosing from the quick area presets below.'),
+          content: Text('Could not find location. Try dragging or zooming the map to pin your location.'),
           duration: Duration(seconds: 2),
         ),
       );
     }
-  }
-
-  void _selectPreset(Map<String, dynamic> preset) {
-    final lat = preset['lat'] as double;
-    final lng = preset['lng'] as double;
-    final target = LatLng(lat, lng);
-
-    setState(() {
-      _center = target;
-      _addressController.text = preset['name'] as String;
-    });
-
-    _mapController.move(target, 16.0);
   }
 
   void _confirmSelection() {
@@ -377,38 +510,7 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
             ),
           ),
 
-          // Presets horizontal scroll chips (Zomato-style quick areas)
-          SizedBox(
-            height: 38,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _presets.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, idx) {
-                final p = _presets[idx];
-                final isSelected =
-                    (_center.latitude - (p['lat'] as double)).abs() < 0.003 &&
-                    (_center.longitude - (p['lng'] as double)).abs() < 0.003;
-                return ChoiceChip(
-                  label: Text(
-                    p['name'] as String,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
-                      color: isSelected ? Colors.white : AppColors.text,
-                    ),
-                  ),
-                  selected: isSelected,
-                  selectedColor: AppColors.primary,
-                  backgroundColor: AppColors.surface,
-                  onSelected: (_) => _selectPreset(p),
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
 
           // Real Interactive Map Container
           Expanded(
@@ -539,9 +641,18 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         elevation: 3,
-                        tooltip: 'Recenter to PDEU',
-                        onPressed: () => _selectPreset(_presets[0]),
-                        child: const Icon(Icons.my_location_rounded),
+                        tooltip: 'Current location',
+                        onPressed: _isLocating ? null : () => _detectCurrentLocation(showFeedback: true),
+                        child: _isLocating
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Icon(Icons.my_location_rounded),
                       ),
                     ],
                   ),
@@ -623,20 +734,10 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    height: 48,
-                    child: FilledButton.icon(
+                    child: PrimaryAction(
+                      label: 'Confirm Location & Proceed',
+                      icon: Icons.check_circle_rounded,
                       onPressed: _confirmSelection,
-                      icon: const Icon(Icons.check_circle_rounded),
-                      label: const Text(
-                        'Confirm Location & Proceed',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
                     ),
                   ),
                 ],

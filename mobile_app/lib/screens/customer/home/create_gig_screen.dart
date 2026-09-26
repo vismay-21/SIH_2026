@@ -6,6 +6,8 @@ import '../../../repositories/catalogue_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/location_picker_dialog.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../../widgets/common/app_photo_view.dart';
+import '../../../widgets/common/skeleton_loaders.dart';
 import 'material_procurement_screen.dart';
 
 class CreateGigScreen extends StatefulWidget {
@@ -27,13 +29,14 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
   final Set<String> _selectedTaskIds = {};
 
   bool _isLoadingCategories = true;
+  bool _isLoadingTasks = false;
   DateTime? _date;
   TimeOfDay? _time;
   bool _isEmergency = false;
   bool _requiresVisitation = false;
   bool _isTasksExpanded = true;
   String _taskSearchQuery = '';
-  int _photoCount = 0;
+  final List<String> _photos = [];
   double? _latitude;
   double? _longitude;
   String? _googleMapsLink;
@@ -76,6 +79,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
     setState(() {
       _selectedCategory = category;
       _selectedTaskIds.clear();
+      _isLoadingTasks = true;
       _tasks = [];
       _taskSearchController.clear();
       _taskSearchQuery = '';
@@ -85,12 +89,12 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
       if (!mounted) return;
       setState(() {
         _tasks = tasks;
-        if (tasks.isNotEmpty) {
-          _selectedTaskIds.add(tasks.first.id);
-        }
+        _isLoadingTasks = false;
+        // Do not pre-select any task by default. The customer chooses their required tasks freely.
       });
     } catch (_) {
-      // Fallback
+      if (!mounted) return;
+      setState(() => _isLoadingTasks = false);
     }
   }
 
@@ -122,13 +126,40 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
       return;
     }
 
-    // Tasks are optional when visitation is enabled (worker will propose tasks)
-    if (!_requiresVisitation && _selectedTaskIds.isEmpty && _tasks.isNotEmpty) {
+    if (_isLoadingTasks) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select at least one task for this category.'),
+          content: Text('Loading tasks, please wait a moment...'),
         ),
       );
+      return;
+    }
+
+    // Ensure all selected task IDs strictly belong to the currently selected category
+    final currentCategoryTaskIds = _tasks.map((t) => t.id).toSet();
+    _selectedTaskIds.removeWhere((id) => !currentCategoryTaskIds.contains(id));
+
+    // Tasks are required when visitation is not enabled
+    if (!_requiresVisitation && _selectedTaskIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Please select at least one task for ${_selectedCategory?.name ?? 'this service'}.',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      setState(() => _isTasksExpanded = true);
       return;
     }
 
@@ -156,16 +187,15 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
           draft: GigDraft(
             category: _selectedCategory!.name,
             categoryId: _selectedCategory!.id,
-            taskIds: _selectedTaskIds.isNotEmpty
-                ? _selectedTaskIds.toList()
-                : (_tasks.isNotEmpty ? [_tasks.first.id] : []),
+            taskIds: _selectedTaskIds.toList(),
             description: effectiveDescription,
             location: _locationController.text.trim(),
             date: effectiveDate,
             time: effectiveTime.format(context),
             duration: 'Around 2 hours',
             isEmergency: _isEmergency,
-            photoCount: _photoCount,
+            photos: List<String>.from(_photos),
+            photoCount: _photos.length,
             instructions: enteredNotes,
             customerBuysMaterials: true,
             requiresVisitation: _requiresVisitation,
@@ -179,6 +209,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
       ),
     );
   }
+
 
   Future<void> _openMapPicker() async {
     final picked = await LocationPickerDialog.show(
@@ -333,8 +364,8 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                 ),
               ),
 
-              // 3. Collapsible Tasks Section with Search (when site visit is not active)
-              if (_tasks.isNotEmpty && !_requiresVisitation) ...[
+              // 3. Collapsible Tasks Section with Search & Skeleton Loader (when site visit is not active)
+              if (!_requiresVisitation && _selectedCategory != null) ...[
                 const SizedBox(height: 14),
                 Container(
                   decoration: BoxDecoration(
@@ -371,7 +402,44 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                                 ),
                               ),
                               const Spacer(),
-                              if (_selectedTaskIds.isNotEmpty)
+                              if (_isLoadingTasks)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const SizedBox(
+                                        width: 10,
+                                        height: 10,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 1.5,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Loading tasks...',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.8,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else if (_selectedTaskIds.isNotEmpty)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -391,6 +459,27 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                                       color: AppColors.primary,
                                     ),
                                   ),
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.muted.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    '0 selected',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.muted,
+                                    ),
+                                  ),
                                 ),
                               const SizedBox(width: 6),
                               Icon(
@@ -404,180 +493,314 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                         ),
                       ),
 
-                      // Collapsed Preview (Compact chip summary)
-                      if (!_isTasksExpanded && _selectedTaskIds.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: _tasks
-                                  .where((t) => _selectedTaskIds.contains(t.id))
-                                  .map(
-                                    (t) => Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surface,
-                                        border: Border.all(
-                                          color: AppColors.primary.withValues(
-                                            alpha: 0.5,
-                                          ),
-                                        ),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        t.name,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppColors.primary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
+                      // Collapsed Preview (Compact chip summary or skeleton)
+                      if (!_isTasksExpanded) ...[
+                        if (_isLoadingTasks)
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(14, 0, 14, 12),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: ShimmerEffect(
+                                child: Row(
+                                  children: [
+                                    SkeletonBox(
+                                      width: 80,
+                                      height: 22,
+                                      borderRadius: 8,
                                     ),
-                                  )
-                                  .toList(),
-                            ),
-                          ),
-                        ),
-
-                      // Expanded Content (Search bar + Scrollable List)
-                      if (_isTasksExpanded) ...[
-                        const Divider(height: 1),
-                        // Search bar inside the tasks card
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-                          child: TextField(
-                            controller: _taskSearchController,
-                            onChanged: (val) => setState(
-                              () => _taskSearchQuery = val.trim().toLowerCase(),
-                            ),
-                            decoration: InputDecoration(
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              hintText: 'Search tasks (e.g. tap, pipe, leak)...',
-                              hintStyle: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.muted,
-                              ),
-                              prefixIcon: const Icon(
-                                Icons.search_rounded,
-                                size: 18,
-                                color: AppColors.muted,
-                              ),
-                              suffixIcon: _taskSearchQuery.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(
-                                        Icons.clear_rounded,
-                                        size: 16,
-                                      ),
-                                      onPressed: () {
-                                        _taskSearchController.clear();
-                                        setState(() => _taskSearchQuery = '');
-                                      },
-                                    )
-                                  : null,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(
-                                  color: AppColors.border.withValues(
-                                    alpha: 0.8,
-                                  ),
+                                    SizedBox(width: 6),
+                                    SkeletonBox(
+                                      width: 110,
+                                      height: 22,
+                                      borderRadius: 8,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-
-                        // Constrained scrollable task list (prevents huge page scrolling)
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 250),
-                          child: filteredTasks.isEmpty
-                              ? const Padding(
-                                  padding: EdgeInsets.all(16.0),
-                                  child: Center(
-                                    child: Text(
-                                      'No tasks match your search.',
-                                      style: TextStyle(
-                                        color: AppColors.muted,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : Scrollbar(
-                                  controller: _taskListScrollController,
-                                  child: ListView.separated(
-                                    controller: _taskListScrollController,
-                                    shrinkWrap: true,
-                                    padding: EdgeInsets.zero,
-                                    itemCount: filteredTasks.length,
-                                    separatorBuilder: (context, index) => Divider(
-                                      height: 1,
-                                      color: AppColors.border.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                    ),
-                                    itemBuilder: (context, index) {
-                                      final task = filteredTasks[index];
-                                      final isSelected = _selectedTaskIds.contains(
-                                        task.id,
-                                      );
-                                      return InkWell(
-                                        onTap: () {
-                                          setState(() {
-                                            if (isSelected) {
-                                              if (_selectedTaskIds.length > 1) {
-                                                _selectedTaskIds.remove(task.id);
-                                              }
-                                            } else {
-                                              _selectedTaskIds.add(task.id);
-                                            }
-                                          });
-                                        },
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 10,
+                          )
+                        else if (_selectedTaskIds.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: _tasks
+                                    .where((t) => _selectedTaskIds.contains(t.id))
+                                    .map(
+                                      (t) => Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surface,
+                                          border: Border.all(
+                                            color: AppColors.primary.withValues(
+                                              alpha: 0.5,
+                                            ),
                                           ),
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                isSelected
-                                                    ? Icons.check_circle_rounded
-                                                    : Icons.circle_outlined,
-                                                color: isSelected
-                                                    ? AppColors.primary
-                                                    : AppColors.muted,
-                                                size: 20,
-                                              ),
-                                              const SizedBox(width: 10),
-                                              Expanded(
-                                                child: Text(
-                                                  task.name,
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: isSelected
-                                                        ? FontWeight.w600
-                                                        : FontWeight.w400,
-                                                    color: isSelected
-                                                        ? AppColors.text
-                                                        : AppColors.muted,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          t.name,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                      );
-                                    },
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            ),
+                          ),
+                      ],
+
+                      // Expanded Content (Search bar + Scrollable List or Skeleton)
+                      if (_isTasksExpanded) ...[
+                        const Divider(height: 1),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          child: _isLoadingTasks
+                              ? KeyedSubtree(
+                                  key: const ValueKey('tasks_skeleton'),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Search placeholder skeleton
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+                                        child: ShimmerEffect(
+                                          child: Container(
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color: AppColors.border.withValues(alpha: 0.6),
+                                              ),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                                            child: const Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.search_rounded,
+                                                  size: 18,
+                                                  color: AppColors.muted,
+                                                ),
+                                                SizedBox(width: 8),
+                                                SkeletonBox(
+                                                  width: 140,
+                                                  height: 14,
+                                                  borderRadius: 4,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      // Tasks list shimmer skeleton
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(maxHeight: 250),
+                                        child: const SingleChildScrollView(
+                                          physics: NeverScrollableScrollPhysics(),
+                                          child: TasksListSkeleton(itemCount: 5),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                    ],
+                                  ),
+                                )
+                              : KeyedSubtree(
+                                  key: ValueKey(
+                                    'tasks_content_${_selectedCategory?.id}',
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Search bar inside the tasks card
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          12,
+                                          10,
+                                          12,
+                                          6,
+                                        ),
+                                        child: TextField(
+                                          controller: _taskSearchController,
+                                          onChanged: (val) => setState(
+                                            () => _taskSearchQuery =
+                                                val.trim().toLowerCase(),
+                                          ),
+                                          decoration: InputDecoration(
+                                            isDense: true,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                            hintText:
+                                                'Search tasks (e.g. tap, pipe, leak)...',
+                                            hintStyle: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppColors.muted,
+                                            ),
+                                            prefixIcon: const Icon(
+                                              Icons.search_rounded,
+                                              size: 18,
+                                              color: AppColors.muted,
+                                            ),
+                                            suffixIcon:
+                                                _taskSearchQuery.isNotEmpty
+                                                    ? IconButton(
+                                                        icon: const Icon(
+                                                          Icons.clear_rounded,
+                                                          size: 16,
+                                                        ),
+                                                        onPressed: () {
+                                                          _taskSearchController
+                                                              .clear();
+                                                          setState(
+                                                            () =>
+                                                                _taskSearchQuery =
+                                                                    '',
+                                                          );
+                                                        },
+                                                      )
+                                                    : null,
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              borderSide: BorderSide(
+                                                color: AppColors.border
+                                                    .withValues(
+                                                  alpha: 0.8,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                      // Constrained scrollable task list (prevents huge page scrolling)
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxHeight: 250,
+                                        ),
+                                        child: filteredTasks.isEmpty
+                                            ? Padding(
+                                                padding: const EdgeInsets.all(
+                                                  16.0,
+                                                ),
+                                                child: Center(
+                                                  child: Text(
+                                                    _tasks.isEmpty
+                                                        ? 'No tasks found for this category.'
+                                                        : 'No tasks match your search.',
+                                                    style: const TextStyle(
+                                                      color: AppColors.muted,
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            : Scrollbar(
+                                                controller:
+                                                    _taskListScrollController,
+                                                child: ListView.separated(
+                                                  controller:
+                                                      _taskListScrollController,
+                                                  shrinkWrap: true,
+                                                  padding: EdgeInsets.zero,
+                                                  itemCount:
+                                                      filteredTasks.length,
+                                                  separatorBuilder: (
+                                                    context,
+                                                    index,
+                                                  ) => Divider(
+                                                    height: 1,
+                                                    color: AppColors.border
+                                                        .withValues(
+                                                      alpha: 0.5,
+                                                    ),
+                                                  ),
+                                                  itemBuilder: (
+                                                    context,
+                                                    index,
+                                                  ) {
+                                                    final task =
+                                                        filteredTasks[index];
+                                                    final isSelected =
+                                                        _selectedTaskIds
+                                                            .contains(task.id);
+                                                    return InkWell(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          if (isSelected) {
+                                                            _selectedTaskIds.remove(task.id);
+                                                          } else {
+                                                            _selectedTaskIds.add(task.id);
+                                                          }
+                                                        });
+                                                      },
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                          horizontal: 14,
+                                                          vertical: 10,
+                                                        ),
+                                                        child: Row(
+                                                          children: [
+                                                            Icon(
+                                                              isSelected
+                                                                  ? Icons
+                                                                      .check_circle_rounded
+                                                                  : Icons
+                                                                      .circle_outlined,
+                                                              color: isSelected
+                                                                  ? AppColors
+                                                                      .primary
+                                                                  : AppColors
+                                                                      .muted,
+                                                              size: 20,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 10,
+                                                            ),
+                                                            Expanded(
+                                                              child: Text(
+                                                                task.name,
+                                                                style:
+                                                                    TextStyle(
+                                                                  fontSize: 13,
+                                                                  fontWeight:
+                                                                      isSelected
+                                                                          ? FontWeight
+                                                                              .w600
+                                                                          : FontWeight
+                                                                              .w400,
+                                                                  color:
+                                                                      isSelected
+                                                                          ? AppColors
+                                                                              .text
+                                                                          : AppColors
+                                                                              .muted,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                         ),
@@ -724,15 +947,121 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
             ),
             const SizedBox(height: 8),
 
-            // 8. Photos
-            OutlinedButton.icon(
-              onPressed: () =>
-                  setState(() => _photoCount = (_photoCount + 1).clamp(0, 3)),
-              icon: const Icon(Icons.add_photo_alternate_outlined),
-              label: Text(
-                _photoCount == 0
-                    ? 'Add photos (optional)'
-                    : 'Photos added: $_photoCount/3',
+            // 8. Photos Section
+            SurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.add_a_photo_outlined,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Issue Photos (Optional)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_photos.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${_photos.length}/5 photos',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Photos help nearby workers inspect the defect and bring the correct tools.',
+                    style: TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_photos.isEmpty)
+                    InkWell(
+                      onTap: () => showPhotoSourcePicker(
+                        context,
+                        onPhotoSelected: (photo) {
+                          if (_photos.length < 5) {
+                            setState(() => _photos.add(photo));
+                          }
+                        },
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AppColors.border,
+                            style: BorderStyle.solid,
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.camera_alt_outlined,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Add Photos (Camera, Gallery or Demo Preset)',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    AppPhotoGallery(
+                      photos: _photos,
+                      onDelete: (idx) => setState(() => _photos.removeAt(idx)),
+                      onAddMore: () => showPhotoSourcePicker(
+                        context,
+                        onPhotoSelected: (photo) {
+                          if (_photos.length < 5) {
+                            setState(() => _photos.add(photo));
+                          }
+                        },
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 24),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/app_theme.dart';
 
-/// SRS 10.3: Conflict Detection Warning Dialog
+/// Conflict Detection Warning Dialog
 /// Warns workers when an opportunity overlaps with an existing scheduled job
 /// or configured off-duty availability window.
 Future<bool?> showConflictWarningDialog(
@@ -76,7 +76,7 @@ Future<bool?> showConflictWarningDialog(
           ),
           const SizedBox(height: 12),
           const Text(
-            'Per cooperative guidelines (SRS 10.3), accepting overlapping gigs may affect your reliability score if delayed.',
+            'Per cooperative guidelines, accepting overlapping gigs may affect your reliability score if delayed.',
             style: TextStyle(fontSize: 12, color: AppColors.muted),
           ),
         ],

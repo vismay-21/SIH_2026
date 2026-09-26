@@ -20,7 +20,7 @@ class CustomerNavigation2Screen extends ConsumerStatefulWidget {
       _CustomerNavigation2ScreenState();
 }
 
-enum _GigFilter { active, upcoming, completed }
+enum _GigFilter { activeUpcoming, completed }
 
 class _CustomerNavigation2ScreenState extends ConsumerState<CustomerNavigation2Screen>
     with SingleTickerProviderStateMixin {
@@ -31,7 +31,7 @@ class _CustomerNavigation2ScreenState extends ConsumerState<CustomerNavigation2S
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
         ref.read(customerGigsProvider.notifier).loadGigs(silent: true);
@@ -68,7 +68,7 @@ class _CustomerNavigation2ScreenState extends ConsumerState<CustomerNavigation2S
 
   void _startPeriodicPolling() {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       if (!mounted) return;
       final gigsState = ref.read(customerGigsProvider);
       final hasActiveTransition = gigsState.allGigs.any((g) =>
@@ -84,8 +84,7 @@ class _CustomerNavigation2ScreenState extends ConsumerState<CustomerNavigation2S
 
   List<CustomerGig> _getFilteredGigs(CustomerGigsState state, _GigFilter filter) {
     return switch (filter) {
-      _GigFilter.active => state.activeNow,
-      _GigFilter.upcoming => state.upcoming,
+      _GigFilter.activeUpcoming => state.activeGigs,
       _GigFilter.completed => state.completedGigs,
     };
   }
@@ -145,9 +144,7 @@ class _CustomerNavigation2ScreenState extends ConsumerState<CustomerNavigation2S
               child: Text(
                 filter == _GigFilter.completed
                     ? 'No completed gigs yet.'
-                    : (filter == _GigFilter.upcoming
-                        ? 'No upcoming scheduled gigs.'
-                        : 'No active gigs currently.'),
+                    : 'No active or upcoming gigs currently.',
                 style: const TextStyle(color: AppColors.muted),
               ),
             ),
@@ -181,11 +178,22 @@ class _CustomerNavigation2ScreenState extends ConsumerState<CustomerNavigation2S
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
-            child: Text(
-              'My gigs',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'My gigs',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: () =>
+                      ref.read(customerGigsProvider.notifier).loadGigs(),
+                  tooltip: 'Refresh gigs',
+                ),
+              ],
             ),
           ),
           const Padding(
@@ -198,18 +206,19 @@ class _CustomerNavigation2ScreenState extends ConsumerState<CustomerNavigation2S
           const SizedBox(height: 18),
           TabBar(
             controller: _tabController,
-            tabs: const [
-              Tab(text: 'Active'),
-              Tab(text: 'Upcoming'),
-              Tab(text: 'Completed'),
+            indicatorColor: AppColors.primary,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.muted,
+            tabs: [
+              Tab(text: 'ACTIVE/UPCOMING (${gigsState.activeGigs.length})'),
+              Tab(text: 'Completed (${gigsState.completedGigs.length})'),
             ],
           ),
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildTabContent(gigsState, _GigFilter.active),
-                _buildTabContent(gigsState, _GigFilter.upcoming),
+                _buildTabContent(gigsState, _GigFilter.activeUpcoming),
                 _buildTabContent(gigsState, _GigFilter.completed),
               ],
             ),

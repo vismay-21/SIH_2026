@@ -23,6 +23,7 @@ class WorkerGigListItem(BaseModel):
     longitude: Optional[float] = None
     google_maps_link: Optional[str] = None
     emergency: bool = False
+    material_procurement_mode: Optional[str] = "CUSTOMER_PURCHASES"
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

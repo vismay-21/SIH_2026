@@ -62,6 +62,7 @@ class WorkerJobsState {
 
 class WorkerJobsNotifier extends Notifier<WorkerJobsState> {
   final WorkerRepository _workerRepo = WorkerRepository();
+  bool _isFetching = false;
 
   @override
   WorkerJobsState build() {
@@ -71,6 +72,9 @@ class WorkerJobsNotifier extends Notifier<WorkerJobsState> {
   }
 
   Future<void> loadJobs({bool silent = false}) async {
+    if (_isFetching) return;
+    _isFetching = true;
+
     if (!silent) {
       state = state.copyWith(isLoading: true, errorMessage: null);
     }
@@ -135,10 +139,16 @@ class WorkerJobsNotifier extends Notifier<WorkerJobsState> {
         errorMessage: null,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      );
+      if (!silent) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: e.toString(),
+        );
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+    } finally {
+      _isFetching = false;
     }
   }
 
@@ -183,6 +193,7 @@ class WorkerOpportunitiesState {
 
 class WorkerOpportunitiesNotifier extends Notifier<WorkerOpportunitiesState> {
   final WorkerRepository _workerRepo = WorkerRepository();
+  bool _isFetching = false;
 
   @override
   WorkerOpportunitiesState build() {
@@ -191,6 +202,9 @@ class WorkerOpportunitiesNotifier extends Notifier<WorkerOpportunitiesState> {
   }
 
   Future<void> loadOpportunities({bool silent = false}) async {
+    if (_isFetching) return;
+    _isFetching = true;
+
     if (!silent) {
       state = state.copyWith(isLoading: true, errorMessage: null);
     }
@@ -229,10 +243,16 @@ class WorkerOpportunitiesNotifier extends Notifier<WorkerOpportunitiesState> {
         errorMessage: null,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      );
+      if (!silent) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: e.toString(),
+        );
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+    } finally {
+      _isFetching = false;
     }
   }
 

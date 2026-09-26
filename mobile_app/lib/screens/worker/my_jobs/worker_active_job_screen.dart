@@ -367,8 +367,35 @@ class _WorkerActiveJobScreenState extends ConsumerState<WorkerActiveJobScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${widget.job.category} · ${widget.job.when}',
+                  '${widget.job.category} · Customer: ${widget.job.customerName}',
                   style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.event_available_rounded, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Scheduled Work Time: ${widget.job.when}',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const Divider(height: 20),
                 Row(
@@ -414,66 +441,96 @@ class _WorkerActiveJobScreenState extends ConsumerState<WorkerActiveJobScreen> {
 
           const SizedBox(height: 16),
 
-          // Quick Operations Row (SRS 16 & SRS 7.2 & SRS 21) - Only when selected
+          // Quick Operations Row - Only when selected
           if (_status != WorkerJobStatus.awaitingSelection) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: _buildOperationButton(
-                    icon: Icons.group_add_rounded,
-                    label: 'Invite Co-Worker',
-                    onTap: () async {
-                      final invited = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              MultiWorkerInviteScreen(job: widget.job),
-                        ),
-                      );
-                      if (invited == true) {
-                        setState(
-                          () => _invitedCoWorker = 'Suresh Kumar (Rookie)',
-                        );
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildOperationButton(
-                    icon: Icons.receipt_long_rounded,
-                    label: 'Material Bill',
-                    onTap: () async {
-                      final claim = await Navigator.of(context).push<int>(
-                        MaterialPageRoute(
-                          builder: (_) => MaterialBillUploadScreen(
-                            jobTitle: widget.job.title,
-                          ),
-                        ),
-                      );
-                      if (claim != null) {
-                        setState(() => _materialClaim = claim);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildOperationButton(
-                    icon: Icons.schedule_send_rounded,
-                    label: 'Reschedule',
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              WorkerCancelRescheduleScreen(job: widget.job),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+            Builder(
+              builder: (context) {
+                final canInviteCoworker = _status == WorkerJobStatus.accepted || _status == WorkerJobStatus.scheduled;
+                final canSubmitMaterialBill = widget.job.workerBringsMaterials;
+                final canReschedule = _status != WorkerJobStatus.completed && _status != WorkerJobStatus.cancelled;
+
+                final buttons = <Widget>[];
+
+                if (canInviteCoworker) {
+                  buttons.add(
+                    Expanded(
+                      child: _buildOperationButton(
+                        icon: Icons.group_add_rounded,
+                        label: 'Invite Co-Worker',
+                        onTap: () async {
+                          final invited = await Navigator.of(context).push<bool>(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  MultiWorkerInviteScreen(job: widget.job),
+                            ),
+                          );
+                          if (invited == true) {
+                            setState(
+                              () => _invitedCoWorker = 'Suresh Kumar (Rookie)',
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  );
+                }
+
+                if (canSubmitMaterialBill) {
+                  buttons.add(
+                    Expanded(
+                      child: _buildOperationButton(
+                        icon: Icons.receipt_long_rounded,
+                        label: 'Material Bill',
+                        onTap: () async {
+                          final claim = await Navigator.of(context).push<int>(
+                            MaterialPageRoute(
+                              builder: (_) => MaterialBillUploadScreen(
+                                jobTitle: widget.job.title,
+                              ),
+                            ),
+                          );
+                          if (claim != null) {
+                            setState(() => _materialClaim = claim);
+                          }
+                        },
+                      ),
+                    ),
+                  );
+                }
+
+                if (canReschedule) {
+                  buttons.add(
+                    Expanded(
+                      child: _buildOperationButton(
+                        icon: Icons.schedule_send_rounded,
+                        label: 'Reschedule',
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  WorkerCancelRescheduleScreen(job: widget.job),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                }
+
+                if (buttons.isEmpty) return const SizedBox.shrink();
+
+                final spacedChildren = <Widget>[];
+                for (var i = 0; i < buttons.length; i++) {
+                  if (i > 0) spacedChildren.add(const SizedBox(width: 10));
+                  spacedChildren.add(buttons[i]);
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Row(children: spacedChildren),
+                );
+              },
             ),
-            const SizedBox(height: 16),
           ],
 
           // Collaborating Co-Worker Banner if any
@@ -548,12 +605,16 @@ class _WorkerActiveJobScreenState extends ConsumerState<WorkerActiveJobScreen> {
                               fontSize: 15,
                             ),
                           ),
-                          const Text(
-                            'Verified Customer · Koramangala',
-                            style: TextStyle(
+                          Text(
+                            widget.job.location.isNotEmpty
+                                ? 'Verified Customer · ${widget.job.location}'
+                                : 'Verified Customer',
+                            style: const TextStyle(
                               color: AppColors.muted,
                               fontSize: 12,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),

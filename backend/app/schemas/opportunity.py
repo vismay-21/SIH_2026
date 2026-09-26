@@ -25,6 +25,7 @@ class OpportunityGigResponse(BaseModel):
     scheduled_end_time: Optional[time] = None
     expected_duration_minutes: Optional[int] = None
     is_emergency: bool = False
+    photos: List[str] = Field(default_factory=list)
     material_procurement_mode: MaterialProcurementMode
     acceptance_deadline: Optional[datetime] = None
     tasks: List[GigTaskItemResponse] = Field(default_factory=list)

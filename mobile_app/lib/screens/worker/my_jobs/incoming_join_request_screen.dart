@@ -98,7 +98,7 @@ class IncomingJoinRequestScreen extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // Role Classification Banner (SRS 16.1 & 16.2)
+          // Role Classification Banner
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(

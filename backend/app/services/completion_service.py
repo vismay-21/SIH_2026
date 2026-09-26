@@ -111,6 +111,7 @@ class CompletionService:
                     longitude=float(g.longitude) if g.longitude is not None else None,
                     google_maps_link=g.google_maps_link,
                     emergency=g.is_emergency,
+                    material_procurement_mode=g.material_procurement_mode.value if g.material_procurement_mode else "CUSTOMER_PURCHASES",
                     created_at=g.created_at,
                 )
             )

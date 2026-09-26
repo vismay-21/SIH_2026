@@ -9,7 +9,8 @@ class GigDraft {
     required this.time,
     required this.duration,
     required this.isEmergency,
-    required this.photoCount,
+    this.photos = const [],
+    int? photoCount,
     required this.instructions,
     required this.customerBuysMaterials,
     this.requiresVisitation = false,
@@ -18,7 +19,7 @@ class GigDraft {
     this.googleMapsLink,
     this.scheduledDateFormatted,
     this.scheduledStartTimeFormatted,
-  });
+  }) : photoCount = photoCount ?? photos.length;
 
   final String category;
   final String? categoryId;
@@ -32,6 +33,7 @@ class GigDraft {
   final String? time;
   final String duration;
   final bool isEmergency;
+  final List<String> photos;
   final int photoCount;
   final String instructions;
   final bool customerBuysMaterials;
@@ -39,4 +41,5 @@ class GigDraft {
   final String? scheduledDateFormatted;
   final String? scheduledStartTimeFormatted;
 }
+
 

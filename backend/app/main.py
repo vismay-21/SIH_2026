@@ -28,18 +28,36 @@ async def lifespan(app: FastAPI):
         from app.db.base import Base
         import app.db.models as _models  # noqa: F401
         from app.db.session import engine, SessionLocal
+        from sqlalchemy import text
         Base.metadata.create_all(bind=engine)
+
+        # Ensure schema migrations on existing tables
+        try:
+            with engine.begin() as conn:
+                if engine.dialect.name == "postgresql":
+                    conn.execute(text("ALTER TABLE gigs ADD COLUMN IF NOT EXISTS photos JSON DEFAULT '[]'::json;"))
+                elif engine.dialect.name == "sqlite":
+                    cols = [c[1] for c in conn.execute(text("PRAGMA table_info(gigs);")).fetchall()]
+                    if cols and "photos" not in cols:
+                        conn.execute(text("ALTER TABLE gigs ADD COLUMN photos JSON DEFAULT '[]';"))
+        except Exception as mig_err:
+            logger.warning(f"Schema migration warning for gigs.photos: {mig_err}")
 
         from app.services.catalogue_service import CatalogueService
         from app.services.review_service import ReviewService
         with SessionLocal() as db:
             CatalogueService.seed_catalogue_if_empty(db)
             ReviewService.seed_review_questions_if_empty(db)
-        logger.info("Database tables, service catalogue, and review questions verified/seeded.")
+        logger.info("Database tables, schema migrations, service catalogue, and review questions verified/seeded.")
     except Exception as e:
         logger.warning(f"Startup database initialization or seeding warning: {e}")
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
+    try:
+        from app.db.session import engine
+        engine.dispose()
+    except Exception:
+        pass
 
 
 def create_application() -> FastAPI:

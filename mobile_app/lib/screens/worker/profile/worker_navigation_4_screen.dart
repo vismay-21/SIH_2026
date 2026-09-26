@@ -58,7 +58,7 @@ class WorkerNavigation4Screen extends StatelessWidget {
           '• Standard Plumbing: ₹250/hr base + difficulty tier\n'
           '• Emergency Surcharge: +₹150 guaranteed floor\n'
           '• Platform Commission: 0% deduction\n'
-          '• Worker Bidding: Prohibited per SRS anti-exploitation guidelines.',
+          '• Worker Bidding: Prohibited per anti-exploitation guidelines.',
           style: TextStyle(fontSize: 13, height: 1.4),
         ),
         actions: [

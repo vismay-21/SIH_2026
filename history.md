@@ -1192,5 +1192,134 @@ Completed **Full-Stack UI Riverpod State Management Unification**:
 - **Test Suite Results**: All 36 tests passed (`36 passed in 6.2s`) across unit, integration hardening, and widget test suites.
 - **Static Analysis**: `flutter analyze` passed with 0 issues found (`No issues found!`).
 
+## 2026-09-26 17:00:00 +05:30 — Vismay & Antigravity
+
+Completed **Completion Evidence Photo Upload & Customer Review, Date/Time Scheduling Polish, Complete SRS Purge, Waiting Confirmation Screen Polish, and My Jobs UI Streamlining**:
+
+### 1. Work Completion Evidence Photo Upload & Customer Evidence Review
+- **Worker Photo Upload (`completion_evidence_upload_screen.dart`)**:
+  - Implemented multi-source image selection supporting native camera capture, photo gallery picking via `image_picker`, and quick curated demonstration samples (`sample_photos.dart`).
+  - Added thumbnail image grid with tap-to-expand preview and removal capabilities.
+  - Linked completion evidence submission to `WorkerRepository.submitCompletion` transmitting photo items to backend (`POST /api/v1/gigs/{gig_id}/completion`).
+- **Customer Photo Review (`customer_workflow_screens.dart`)**:
+  - Enhanced customer evidence verification screen (`CompletionConfirmationScreen`) to render uploaded proof photos in a scrollable horizontal carousel with tap-to-zoom full-screen viewer (`AppPhotoView`).
+  - Guarantees customer inspects visual proof before approving completion and initiating payment.
+
+### 2. Explicit Date & Time Scheduling Display
+- **Worker & Customer Synchronization**:
+  - Updated scheduled gig models (`WorkerJob`, `WorkerOpportunity`, `CustomerGig`) to format and display both date and start time prominently (`scheduleDisplay`, e.g., "30 Sep 2026, 2:00 PM" or "Today, 10:30 AM") across opportunity feeds, active job workspaces, customer gig details, and schedule summary cards.
+
+### 3. Complete Purge of SRS Mentions Across the Application
+- **Purged Specification Jargon**:
+  - Scanned and purged all technical "SRS" labels (e.g. `(SRS 10.1)`, `(SRS 22)`, `(SRS 15.2)`, `Per SRS 19:`, `Per SRS 21:`) from all user-facing UI screens and FAQ dialogs across the app:
+    - `worker_verification_screen.dart`: Changed title to `"Verification Tiers"`.
+    - `worker_navigation_4_screen.dart`: Replaced `"Prohibited per SRS anti-exploitation guidelines."` with `"Prohibited per anti-exploitation guidelines."`.
+    - `worker_availability_screen.dart`: Removed `(SRS 10.1)` from schedule instructions.
+    - `conflict_warning_dialog.dart`: Removed `(SRS 10.3)` from schedule conflict notice.
+    - `worker_cancel_reschedule_screen.dart`: Removed `Per SRS 21:` from cancellation policy text.
+    - `rookie_progression_screen.dart`: Removed `(SRS 15.2)` from card title and header.
+    - `multi_worker_invite_screen.dart`: Removed `(SRS 16.2)` from section title.
+    - `material_bill_upload_screen.dart`: Removed `Per SRS 7.2:` from itemized bill notice.
+    - `completion_evidence_upload_screen.dart`: Removed `Per SRS 19:` from evidence banner.
+    - `worker_home_screen.dart`: Cleaned availability status card subtitle.
+    - `about_help_screen.dart`: Cleaned FAQ titles for rookie track and emergency tipping.
+
+### 4. Waiting for Customer Approval & Payment State Polish
+- **Waiting Confirmation Screen (`waiting_confirmation_screen.dart`)**:
+  - Converted screen into a reactive `StatefulWidget` with periodic polling (every 3 seconds) and pull-to-refresh (`RefreshIndicator`) querying `GigRepository.getGig` and `PaymentRepository.getGigPayment`.
+  - **Awaiting Approval State**: While customer approval is pending (`COMPLETION_SUBMITTED`), the bottom button is visibly faded (`opacity: 0.45`), completely disabled (`onPressed: null`), and labeled `Awaiting Customer Approval`.
+  - **Customer Approved State**: Once customer confirms completion and prepares payment (`CUSTOMER_CONFIRMED`, `PAYMENT_PENDING`, or `PAYMENT_CUSTOMER_PAID`), the status card transitions to verified green, and the bottom button activates with vibrant primary styling, labeled `Confirm Payment Received`.
+  - Tapping navigates to `WorkerPaymentConfirmationScreen` for the worker to confirm receipt of Cash or UPI payment.
+
+### 5. My Jobs UI Streamlining
+- **Removed Duplicate Rookie Banner (`worker_navigation_3_screen.dart`)**:
+  - Removed the `Cooperative Artisan Growth & Rookie Track` banner from the top of the My Jobs list, keeping the screen clean and focused on active/upcoming and completed gigs. The Rookie Progression track remains accessible from the worker's Profile.
+
+### 6. Automated Testing & Verification
+- **New Automated Test Suite (`waiting_confirmation_test.dart`)**:
+  - Validates disabled/faded state of bottom button during awaiting approval.
+  - Validates enabled `Confirm Payment Received` button upon customer approval.
+  - Validates absence of Rookie banner on `WorkerNavigation3Screen`.
+- **Test Suite Results**: All 54 tests passing (`flutter test`).
+- **Static Analysis**: `flutter analyze` passing with 0 issues found.
+
+---
+
+## 2026-09-26: Mobile Device Location Access, Preset Purge & Map UI Polish
+
+### 1. Android Native Location & Internet Permissions (`AndroidManifest.xml`)
+- Added missing permissions in `mobile_app/android/app/src/main/AndroidManifest.xml`:
+  - `<uses-permission android:name="android.permission.INTERNET" />`
+  - `<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />`
+  - `<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />`
+- Enables the Android OS to display the native runtime permission dialog and grants `geolocator` access to physical GPS hardware and network location providers on Android devices (e.g. Motorola Edge 40).
+- Enhanced `LocationPickerDialog.getCurrentLocation()` with `LocationAccuracy.high` and an instant fallback to `Geolocator.getLastKnownPosition()`.
+
+### 2. Complete Purge of Predefined Location Presets
+- Completely removed hardcoded preset locations (`PDEU Campus, Gandhinagar`, `Koramangala`, `Indiranagar`, `HSR Layout`, `Whitefield`, `Jayanagar`) from `location_picker_dialog.dart`.
+- Removed `_presets` list and `_selectPreset` callback.
+- Replaced hardcoded fallback initial coordinates with India geographic center (`20.5937, 78.9629`) and auto-detection of device coordinates on map open.
+- Removed the horizontal preset chip bar above the map, freeing up screen real estate for the interactive OpenStreetMap layer.
+- Dynamically bound customer subtitle in `worker_active_job_screen.dart` to `widget.job.location` instead of hardcoded `'Koramangala'`.
+
+### 3. Streamlined "Create a Gig" Screen (`create_gig_screen.dart`)
+- Removed duplicate `Current` text button from the `Service Location` header card.
+- Retained only the clean, dedicated `Pin on Map` / `Change Pin` action button.
+- Purged redundant `_detectCurrentLocation()` and `_isDetectingLocation` state from the create gig form, keeping current location detection exclusively inside the map viewport.
+
+### 4. Interactive Map Dialog Floating Recenter Button
+- Map centering to user's real GPS position is triggered exclusively via the bottom-right floating action button (`heroTag: 'map_recenter'`, `Icons.my_location_rounded`).
+- No extraneous "Current" or preset buttons cluttering the map view.
+
+### 5. Signature Design System for Map Confirmation Button
+- Replaced custom `FilledButton.styleFrom(backgroundColor: AppColors.primary)` (which caused black text on dark green) with `PrimaryAction`.
+- "Confirm Location & Proceed" button now perfectly conforms to the app's signature design system (white surface, 1px black border, 3px black offset shadow, black text and checkmark icon).
+
+### 6. Validation
+- **Static Analysis**: `flutter analyze` passed with 0 issues found across all files.
+- **Automated Tests**: `flutter test` executed successfully with 54 passing tests.
+
+---
+
+## 2026-09-26: Workflow Streamlining, Optimistic Chat & Worker Availability Redesign
+
+### 1. Completion Evidence Upload Proof Initialization (`completion_evidence_upload_screen.dart`)
+- Removed automatic preselection of demo evidence photo in `initState`. The upload screen now starts completely empty (`_photos = []`), requiring workers to capture live photos or select real evidence items before submitting.
+
+### 2. Optimistic Real-Time Chat (`chat_screen.dart`)
+- **Zero-Latency Messaging**: Transformed `_sendMessage()` to immediately clear the input text box and optimistically append the message to the local list with a temporary ID.
+- **Asynchronous Background Delivery**: Messages are dispatched to `ChatRepository.sendMessage` in the background. The temporary ID is seamlessly updated once the server responds with authoritative timestamp and message ID.
+- **Removed Blocking UI Loader**: Eliminated the 3-second `CircularProgressIndicator` on the send button, keeping the send button interactive and fluid like modern messaging apps.
+
+### 3. Worker Job Operations Gating (`worker_active_job_screen.dart`)
+- **Invite Co-Worker Gating**: "Invite Co-Worker" button is strictly restricted to pre-start stages (`_status == WorkerJobStatus.accepted || _status == WorkerJobStatus.scheduled`). Once work is marked in progress (`active`) or complete, the invite option is removed.
+- **Material Bill Procurement Gating**: "Material Bill" button now strictly checks `widget.job.workerBringsMaterials`. If the customer is bringing materials, the material bill button is automatically hidden.
+- Mirrored procurement condition in customer-side `gig_details_screen.dart` and `customer_workflow_screens.dart` to prevent displaying material bill actions when customer purchases materials.
+- Backend updated with `material_procurement_mode` in `WorkerGigListItem` schema and `completion_service.py`.
+
+### 4. Direct Job Tracking Navigation
+- **Customer Home Dashboard (`customer_home_screen.dart`)**: Tapping the "Track job" button on active gig cards now pushes `GigDetailsScreen(gig: gig)` directly instead of switching to the generic active/upcoming jobs tab list.
+- **Worker Home Dashboard (`worker_home_screen.dart`)**: Added a dedicated "Track job" button to the current job card, opening `WorkerActiveJobScreen(job: currentJob)` directly.
+
+### 5. Unified Post-Payment Customer Review Flow (`customer_workflow_screens.dart`)
+- Replaced the ad-hoc inline star rating and compliment chips on `PaymentScreen` with immediate navigation (`pushReplacement`) to `ReviewWorkerScreen`.
+- Customers directly encounter the authentic 3-question evaluation criteria (punctuality, quality, etiquette) with 1..5 star ratings immediately after payment is recorded.
+
+### 6. Modernized Worker Weekly Availability Screen (`worker_availability_screen.dart`)
+- Redesigned `WorkerAvailabilityScreen` to strictly adhere to the app's design system:
+  - **Overview Banner**: `SurfaceCard` displaying active schedule status and dynamic badge (`x / 7 days active`).
+  - **Custom Preset Pills**: Interactive `_PresetButton` widgets for "Mon–Fri (9–6)", "All 7 Days", and "Weekends Only".
+  - **Day Cards**: Day abbreviation badges (e.g. `MON`, `TUE`), clean status subtitles, and modern switch controls.
+  - **Inline Time Selectors**: Sleek time pills with start-to-end arrow indicator triggering Material 3 time pickers.
+  - **Signature Save Action**: Docked bottom bar with `PrimaryAction` (white surface, 1px black border, 3px black offset shadow).
+
+### 7. Verification & Automated Testing
+- **Static Analysis**: `flutter analyze` passing with 0 issues.
+- **Mobile Unit & Widget Tests**: All 54 tests passing (`flutter test`).
+- **Backend Test Suite**: All 198 tests passing in 6m 19s (`pytest app/tests`).
+
+
+
+
 
 

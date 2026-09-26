@@ -24,7 +24,7 @@ class _WorkerNavigation2ScreenState extends ConsumerState<WorkerNavigation2Scree
   @override
   void initState() {
     super.initState();
-    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       if (mounted) {
         ref.read(workerOpportunitiesProvider.notifier).loadOpportunities(silent: true);
       }

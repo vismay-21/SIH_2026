@@ -24,8 +24,8 @@ final activeGigSyncProvider =
     }
   }).catchError((_) {});
 
-  // Periodic polling every 3.5s
-  final timer = Timer.periodic(const Duration(milliseconds: 3500), (_) async {
+  // Periodic polling every 6s
+  final timer = Timer.periodic(const Duration(seconds: 6), (_) async {
     try {
       final gig = await gigRepo.getGig(gigId);
       if (!controller.isClosed && gig.status != lastStatus) {

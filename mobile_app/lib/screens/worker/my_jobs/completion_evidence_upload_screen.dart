@@ -4,6 +4,8 @@ import '../../../models/api/api_models.dart';
 import '../../../models/worker_job_workflow.dart';
 import '../../../repositories/worker_repository.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/common/app_photo_view.dart';
+import '../../../widgets/common/sample_photos.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import 'waiting_confirmation_screen.dart';
 
@@ -19,8 +21,7 @@ class CompletionEvidenceUploadScreen extends StatefulWidget {
 
 class _CompletionEvidenceUploadScreenState
     extends State<CompletionEvidenceUploadScreen> {
-  bool _photo1Uploaded = true;
-  bool _photo2Uploaded = true;
+  final List<String> _photos = [];
   bool _isSubmitting = false;
   final TextEditingController _notesController = TextEditingController(
     text:
@@ -28,13 +29,36 @@ class _CompletionEvidenceUploadScreenState
   );
 
   @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
   void dispose() {
     _notesController.dispose();
     super.dispose();
   }
 
+  Future<void> _addPhoto() async {
+    await showPhotoSourcePicker(
+      context,
+      title: 'Attach Work Evidence Photo',
+      subtitle:
+          'Take a live photo, pick from gallery, or select a demo proof preset.',
+      presetsTitle: 'Work Completion Presets (Demo)',
+      presetsSubtitle: 'Choose sample verified repair photo',
+      dialogTitle: 'Select Work Evidence Sample',
+      customPresets: SampleCompletionPhotos.presets,
+      onPhotoSelected: (photoData) {
+        setState(() {
+          _photos.add(photoData);
+        });
+      },
+    );
+  }
+
   Future<void> _handleSubmit() async {
-    if (!_photo1Uploaded && !_photo2Uploaded) {
+    if (_photos.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -51,15 +75,17 @@ class _CompletionEvidenceUploadScreenState
     final gigId = widget.job.gigId;
     if (gigId != null && !gigId.startsWith('job-')) {
       try {
+        final evidenceItems = _photos.map((photo) {
+          return CompletionEvidenceCreateDto(
+            fileUrl: photo,
+            fileType: 'image/jpeg',
+          );
+        }).toList();
+
         await WorkerRepository().submitCompletion(
           gigId: gigId,
           description: _notesController.text.trim(),
-          evidenceItems: const [
-            CompletionEvidenceCreateDto(
-              fileUrl: 'https://storage.sahakaarseva.coop/evidence/completion_1.jpg',
-              fileType: 'image/jpeg',
-            ),
-          ],
+          evidenceItems: evidenceItems,
         );
       } catch (e) {
         if (!mounted) return;
@@ -137,7 +163,7 @@ class _CompletionEvidenceUploadScreenState
 
           const SizedBox(height: 16),
 
-          // SRS 19 Explanation Banner
+          // Explanation Banner
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -154,7 +180,7 @@ class _CompletionEvidenceUploadScreenState
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Per SRS 19: Photo evidence protects both cooperative workers and customers, creating an immutable audit trail before payment release.',
+                    'Photo evidence protects both cooperative workers and customers, creating an immutable audit trail before payment release.',
                     style: TextStyle(fontSize: 12, height: 1.3),
                   ),
                 ),
@@ -163,29 +189,60 @@ class _CompletionEvidenceUploadScreenState
           ),
 
           const SizedBox(height: 20),
-          const SectionTitle('Proof Photos of Completed Work'),
-          const SizedBox(height: 8),
-
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: _buildPhotoUploadCard(
-                  title: 'Photo 1: Finished Work',
-                  uploaded: _photo1Uploaded,
-                  onToggle: () =>
-                      setState(() => _photo1Uploaded = !_photo1Uploaded),
+              const SectionTitle('Proof Photos of Completed Work'),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _photos.isNotEmpty
+                      ? AppColors.primary.withValues(alpha: 0.1)
+                      : Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildPhotoUploadCard(
-                  title: 'Photo 2: Area Cleaned',
-                  uploaded: _photo2Uploaded,
-                  onToggle: () =>
-                      setState(() => _photo2Uploaded = !_photo2Uploaded),
+                child: Text(
+                  '${_photos.length} photo${_photos.length == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    color: _photos.isNotEmpty ? AppColors.primary : Colors.orange,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+
+          // Photo Upload Grid
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.05,
+            ),
+            itemCount: _photos.length + 1,
+            itemBuilder: (context, index) {
+              if (index < _photos.length) {
+                final photo = _photos[index];
+                return _buildPhotoCard(
+                  photo: photo,
+                  index: index,
+                  onDelete: () => setState(() => _photos.removeAt(index)),
+                  onTap: () => PhotoViewerDialog.show(
+                    context,
+                    photos: _photos,
+                    initialIndex: index,
+                  ),
+                );
+              } else {
+                // Add Photo Button Card
+                return _buildAddPhotoButton();
+              }
+            },
           ),
 
           const SizedBox(height: 20),
@@ -218,7 +275,7 @@ class _CompletionEvidenceUploadScreenState
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Upon submission, the customer will be notified to review evidence and release payment.',
+                    'Upon submission, the customer will see your evidence photos and will be prompted to confirm completion and release payment.',
                     style: TextStyle(fontSize: 12, color: AppColors.muted),
                   ),
                 ),
@@ -257,7 +314,7 @@ class _CompletionEvidenceUploadScreenState
             label: Text(
               _isSubmitting
                   ? 'Submitting Evidence...'
-                  : 'Submit Evidence to Customer',
+                  : 'Submit Evidence to Customer (${_photos.length})',
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
             ),
           ),
@@ -266,46 +323,147 @@ class _CompletionEvidenceUploadScreenState
     );
   }
 
-  Widget _buildPhotoUploadCard({
-    required String title,
-    required bool uploaded,
-    required VoidCallback onToggle,
+  Widget _buildPhotoCard({
+    required String photo,
+    required int index,
+    required VoidCallback onDelete,
+    required VoidCallback onTap,
   }) {
+    final label = index == 0
+        ? 'Finished Work'
+        : index == 1
+            ? 'Area Cleaned'
+            : 'Evidence #${index + 1}';
+
+    return Stack(
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(11),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  AppImageWidget(
+                    photo: photo,
+                    fit: BoxFit.cover,
+                  ),
+                  // Dark bottom gradient for legible label
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.75),
+                          ],
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.zoom_in_rounded,
+                              color: Colors.white70, size: 12),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              label,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // Delete button
+        Positioned(
+          top: 6,
+          right: 6,
+          child: Material(
+            color: Colors.black.withValues(alpha: 0.65),
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: onDelete,
+              customBorder: const CircleBorder(),
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.close_rounded, color: Colors.white, size: 16),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddPhotoButton() {
     return InkWell(
-      onTap: onToggle,
+      onTap: _addPhoto,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        height: 130,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: uploaded ? AppColors.primary : AppColors.border,
-            width: uploaded ? 2 : 1,
+            color: AppColors.primary.withValues(alpha: 0.35),
+            width: 1.5,
+            style: BorderStyle.solid,
           ),
         ),
         padding: const EdgeInsets.all(12),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              uploaded ? Icons.check_circle_rounded : Icons.camera_alt_outlined,
-              color: uploaded ? AppColors.primary : AppColors.muted,
-              size: 32,
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.add_a_photo_rounded,
+                color: AppColors.primary,
+                size: 26,
+              ),
             ),
             const SizedBox(height: 8),
-            Text(
-              title,
+            const Text(
+              'Add Photo',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
             ),
-            const SizedBox(height: 4),
-            Text(
-              uploaded ? 'Attached (Tap to change)' : 'Tap to capture',
+            const SizedBox(height: 2),
+            const Text(
+              'Camera, Gallery, Sample',
+              textAlign: TextAlign.center,
               style: TextStyle(
-                color: uploaded ? AppColors.success : AppColors.muted,
+                color: AppColors.muted,
                 fontSize: 10,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],

@@ -16,6 +16,7 @@ from sqlalchemy import (
     Index,
     func,
     Uuid,
+    JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -82,6 +83,7 @@ class Gig(BaseModel):
     latitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 7), nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Numeric(10, 7), nullable=True)
     google_maps_link: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    photos: Mapped[Optional[List[str]]] = mapped_column(JSON, default=list, nullable=True)
 
     scheduled_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True, index=True)
     scheduled_start_time: Mapped[Optional[time]] = mapped_column(Time, nullable=True)

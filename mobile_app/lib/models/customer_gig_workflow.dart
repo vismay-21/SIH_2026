@@ -123,6 +123,7 @@ class CustomerGig {
     this.scheduledDate,
     this.scheduledStartTime,
     this.scheduledEndTime,
+    this.photos = const [],
   });
 
   final String? id;
@@ -150,6 +151,11 @@ class CustomerGig {
   final String? scheduledDate;
   final String? scheduledStartTime;
   final String? scheduledEndTime;
+  final List<String> photos;
+
+  bool get workerBringsMaterials =>
+      materials.toLowerCase().contains('worker') ||
+      materials.toLowerCase().contains('procure');
 
   static String formatDateTimeDisplay(String? dateStr, String? timeStr) {
     if (dateStr == null || dateStr.isEmpty) {
@@ -191,17 +197,21 @@ class CustomerGig {
 
     String formattedTime = timeStr;
     try {
-      final parts = timeStr.split(':');
-      if (parts.length >= 2) {
-        int hour = int.parse(parts[0]);
-        final minute = parts[1].padLeft(2, '0');
-        final ampm = hour >= 12 ? 'PM' : 'AM';
-        if (hour == 0) {
-          hour = 12;
-        } else if (hour > 12) {
-          hour -= 12;
+      if (timeStr.toUpperCase().contains('AM') || timeStr.toUpperCase().contains('PM')) {
+        formattedTime = timeStr;
+      } else {
+        final parts = timeStr.split(':');
+        if (parts.length >= 2) {
+          int hour = int.parse(parts[0]);
+          final minute = parts[1].padLeft(2, '0');
+          final ampm = hour >= 12 ? 'PM' : 'AM';
+          if (hour == 0) {
+            hour = 12;
+          } else if (hour > 12) {
+            hour -= 12;
+          }
+          formattedTime = '$hour:$minute $ampm';
         }
-        formattedTime = '$hour:$minute $ampm';
       }
     } catch (_) {}
 
@@ -358,6 +368,7 @@ class CustomerGig {
       scheduledDate: scheduledDate,
       scheduledStartTime: scheduledStartTime,
       scheduledEndTime: scheduledEndTime,
+      photos: dto.photos,
     );
   }
 
@@ -375,6 +386,7 @@ class CustomerGig {
     String? googleMapsLink,
     double? latitude,
     double? longitude,
+    List<String>? photos,
   }) =>
       CustomerGig(
         id: id ?? this.id,
@@ -399,5 +411,9 @@ class CustomerGig {
         googleMapsLink: googleMapsLink ?? this.googleMapsLink,
         latitude: latitude ?? this.latitude,
         longitude: longitude ?? this.longitude,
+        scheduledDate: scheduledDate,
+        scheduledStartTime: scheduledStartTime,
+        scheduledEndTime: scheduledEndTime,
+        photos: photos ?? this.photos,
       );
 }

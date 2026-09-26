@@ -318,6 +318,7 @@ class GigCreateRequestDto {
   final int? expectedDurationMinutes;
   final bool isEmergency;
   final String materialProcurementMode; // 'CUSTOMER_PURCHASES' or 'WORKER_PURCHASES'
+  final List<String> photos;
 
   const GigCreateRequestDto({
     required this.categoryId,
@@ -335,6 +336,7 @@ class GigCreateRequestDto {
     this.expectedDurationMinutes,
     this.isEmergency = false,
     this.materialProcurementMode = 'CUSTOMER_PURCHASES',
+    this.photos = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -354,6 +356,7 @@ class GigCreateRequestDto {
       'expected_duration_minutes': expectedDurationMinutes,
     'is_emergency': isEmergency,
     'material_procurement_mode': materialProcurementMode,
+    if (photos.isNotEmpty) 'photos': photos,
   };
 }
 
@@ -404,6 +407,7 @@ class GigDto {
   final double? estimatedMinPrice;
   final double? estimatedMaxPrice;
   final List<GigTaskItemDto> tasks;
+  final List<String> photos;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -436,6 +440,7 @@ class GigDto {
     this.estimatedMinPrice,
     this.estimatedMaxPrice,
     required this.tasks,
+    this.photos = const [],
     required this.createdAt,
     required this.updatedAt,
   });
@@ -475,6 +480,9 @@ class GigDto {
       estimatedMaxPrice: (json['estimated_max_price'] as num?)?.toDouble(),
       tasks: (json['tasks'] as List<dynamic>? ?? [])
           .map((item) => GigTaskItemDto.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      photos: (json['photos'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
           .toList(),
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.now(),
@@ -577,6 +585,7 @@ class OpportunityGigDto {
   final String materialProcurementMode;
   final String? acceptanceDeadline;
   final List<GigTaskItemDto> tasks;
+  final List<String> photos;
 
   const OpportunityGigDto({
     required this.id,
@@ -597,6 +606,7 @@ class OpportunityGigDto {
     required this.materialProcurementMode,
     this.acceptanceDeadline,
     required this.tasks,
+    this.photos = const [],
   });
 
   factory OpportunityGigDto.fromJson(Map<String, dynamic> json) {
@@ -629,6 +639,9 @@ class OpportunityGigDto {
       acceptanceDeadline: json['acceptance_deadline'] as String?,
       tasks: (json['tasks'] as List<dynamic>? ?? [])
           .map((item) => GigTaskItemDto.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      photos: (json['photos'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
           .toList(),
     );
   }
@@ -700,6 +713,7 @@ class WorkerGigListItemDto {
   final String? scheduledStartTime;
   final int? expectedDurationMinutes;
   final bool isEmergency;
+  final String materialProcurementMode;
   final double exactWage;
   final bool canStart;
   final bool canComplete;
@@ -720,6 +734,7 @@ class WorkerGigListItemDto {
     this.scheduledStartTime,
     this.expectedDurationMinutes,
     this.isEmergency = false,
+    this.materialProcurementMode = 'CUSTOMER_PURCHASES',
     required this.exactWage,
     this.canStart = false,
     this.canComplete = false,
@@ -750,6 +765,8 @@ class WorkerGigListItemDto {
       expectedDurationMinutes:
           (json['expected_duration_minutes'] as num?)?.toInt(),
       isEmergency: (json['emergency'] ?? json['is_emergency']) as bool? ?? false,
+      materialProcurementMode:
+          (json['material_procurement_mode'] as String?) ?? 'CUSTOMER_PURCHASES',
       exactWage: (json['exact_wage'] as num?)?.toDouble() ?? 0.0,
       canStart: (json['can_start'] as bool?) ?? false,
       canComplete: (json['can_complete'] as bool?) ?? false,

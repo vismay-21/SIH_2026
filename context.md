@@ -6,7 +6,7 @@ Sahakaar Seva is a comprehensive, production-grade cooperative household-service
 
 The system enforces strict cooperative principles: guaranteed algorithmic tariffs, zero worker bidding, zero platform commission on worker payouts, multi-tier guild verification, apprentice/rookie mentorship progression, structured objective two-way reviews with Bayesian scoring, authoritative cancellation state enforcement, itemized material receipt audits, and job-scoped real-time chat with mutual status tracking.
 
-Latest documented implementation: 2026-09-15, contributors Vismay & Antigravity.
+Latest documented implementation: 2026-09-26, contributors Vismay & Antigravity.
 
 ## Design System
 
@@ -64,9 +64,14 @@ Customer Home Dashboard
 ```
 
 - **Site Visit First Option (Fixed ₹100 Charge)**: Positioned directly below category selection in `CreateGigScreen`, enabling customers to request an on-site scope inspection by a verified worker before committing, creating a `VISITATION` gig with a ₹100 line item.
+- **Streamlined Service Location & Interactive Map**:
+  - `CreateGigScreen` provides a single, prominent `[Pin on Map]` / `[Change Pin]` action button (removing the redundant "Current" button from the form).
+  - Current location detection is handled exclusively inside the interactive map viewport via real Android device GPS permissions (`ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`) and the bottom-right floating action button (`Icons.my_location_rounded`).
+  - Predefined location presets (PDEU Campus, Bengaluru areas) have been completely purged from the application.
+  - The map dialog's "Confirm Location & Proceed" button strictly conforms to the cooperative design system (`PrimaryAction` with white surface, black border, black font, and 3px offset shadow).
 - **Collapsible Task Search**: Searchable task catalog with instant query filtering, clean checkboxes showing only task names without raw rates, and compact summary chip display when collapsed.
 - **Dynamic Price Display**: Shows transparent price range before worker selection (`₹min – ₹max`), locking to the exact guaranteed wage once a worker is assigned.
-- **Emergency Tipping Fallback (SRS 18.1)**: When a posted gig awaits accepting workers, `GigDetailsScreen` displays a fallback banner allowing the customer to add a voluntary tip incentive (100% direct worker payout) and re-notify nearby workers.
+- **Emergency Tipping Fallback**: When a posted gig awaits accepting workers, `GigDetailsScreen` displays a fallback banner allowing the customer to add a voluntary tip incentive (100% direct worker payout) and re-notify nearby workers.
 - **Customer Gig Details (`GigDetailsScreen`)**: Single-viewport hub featuring a horizontal 4-step progress tracker (`Accepted` | `In Progress` | `Evidence` | `Payment`), quick action buttons, live candidate count banner, assigned worker contact card, and location notes.
 - **Dynamic Quick Actions & Redundancy Removal**: 
   - Before a worker is assigned (`!hasWorker`), only two quick action buttons are shown: `[Reschedule]` and `[Cancel Gig]`. The `[Material Bill]` button is hidden until a worker has been selected/assigned.
@@ -79,7 +84,11 @@ Customer Home Dashboard
   - `OpportunityDetailsScreen` is a reactive stateful screen that fetches fresh gig information from the database upon entry, with pull-to-refresh and AppBar refresh support.
   - Workers always see the up-to-date customer-rescheduled date and time directly in the "Timing & Duration" card.
 - **SOS Emergency Dialing & Direct Calling**: In-progress gigs provide an SOS emergency dialog directly triggering native telephone dialer (`tel:112` / `tel:100` / guild dispatch). Both customer and worker profiles feature direct dialer launch buttons (`tel:...`) beside the message button.
-- **Mandatory Inline Review on Payment**: `PaymentScreen` embeds 5-star rating, compliment tags, and feedback note directly on the screen with a single `"Submit Review & Return Home"` button.
+- **Immediate Post-Payment Review Workflow**: Upon recording payment on `PaymentScreen`, the customer is immediately transitioned to `ReviewWorkerScreen`, completing the authentic 3-question evaluation criteria (punctuality, quality, etiquette) with 1..5 star ratings and submitting authoritative feedback to the guild Bayesian scoring engine.
+- **Material Bill Procurement Enforcement**: Both worker (`WorkerActiveJobScreen`) and customer (`GigDetailsScreen`) interfaces conditionally render the `Material Bill` button strictly when `workerBringsMaterials` is true (`material_procurement_mode == WORKER_PURCHASES`). If the customer purchases materials, the button is completely hidden.
+- **Worker Co-Worker Invitation Gating**: `WorkerActiveJobScreen` restricts the `Invite Co-Worker` action exclusively to pre-commencement stages (`ACCEPTED` or `SCHEDULED`). Once work begins (`IN_PROGRESS`), this option is removed.
+- **Optimistic Job Chat**: `ChatScreen` implements optimistic rendering with zero-latency input clearing, asynchronous background delivery, and interactive send button without blocking spinners.
+- **Worker Weekly Availability**: `WorkerAvailabilityScreen` features modern `SurfaceCard` styling, active status badges, quick preset selectors ("Mon–Fri", "All 7 Days", "Weekends Only"), and clean inline time range pickers with `PrimaryAction`.
 - **Full-Stack Gig Cancellation**: `CancelGigScreen` invokes `POST /api/v1/gigs/{gig_id}/cancel`, atomically transitioning the gig to `CANCELLED` and expiring opportunities on the backend while instantly dropping the gig from both customer and worker active views.
 
 ### Worker Opportunities & Acceptance Workflow
@@ -97,7 +106,7 @@ Worker Home / Opportunities Tab
 
 - **Guaranteed Wage & Real Schedule Visibility**: Exact cooperative wage and live database date/time displayed before acceptance; worker bidding is strictly prohibited to prevent predatory undercutting.
 - **Filterable Opportunities Feed**: `WorkerNavigation2Screen` filters by "All", "Emergency", and "Conflicts", automatically hiding already-responded or cancelled gigs.
-- **Schedule Conflict Detection (SRS 10.3)**: Overlapping commitments trigger `ConflictWarningDialog` informing the worker of conflicts prior to acceptance.
+- **Schedule Conflict Detection**: Overlapping commitments trigger `ConflictWarningDialog` informing the worker of conflicts prior to acceptance.
 - **True Cooperative Acceptance Lifecycle**: Accepting an opportunity places the worker in `WorkerJobStatus.awaitingSelection`. Physical work execution is locked until the customer confirms the assignment.
 
 ### Worker Active Job Execution & Audit Chain
@@ -110,17 +119,17 @@ Worker Active Job Workspace [worker_active_job_screen.dart]
   ├── WorkerCancelRescheduleScreen [Cancellation or reschedule negotiation]
   └── Job Progression Lifecycle:
         [Accepted / Scheduled] -> "Arrived & Start Work"
-        -> [In Progress] -> "Complete Work & Submit Evidence" (SRS 19)
+        -> [In Progress] -> "Complete Work & Submit Evidence"
         -> CompletionEvidenceUploadScreen [Work completion photo proof + notes]
-        -> WaitingConfirmationScreen [Awaiting customer review & payment approval]
+        -> WaitingConfirmationScreen [Faded/disabled button until customer approval, live polling, and active "Confirm Payment Received" button once customer approves]
         -> WorkerPaymentConfirmationScreen [UPI Direct / Cash in Hand confirmation]
         -> ReviewCustomerScreen [Structured 3–4 MCQ review for customer]
         -> WorkerMainScreen.switchTab(context, 2) [Clean return to "My Jobs" with completed status]
 ```
 
-- **Multi-Worker Collaboration (SRS 16)**: Lead technicians can invite verified colleagues as either "Equal Sharing" (50/50 split) or "Rookie Mentorship" (0.5 apprentice credits).
-- **Rookie Progression Tracker (SRS 15.2)**: Apprentices monitor shadowed gig credits and mentor evaluations towards full guild certification on `RookieProgressionScreen`.
-- **Completion Evidence (SRS 19)**: Mandatory photo evidence of finished work and cleaned work areas before payment settlement.
+- **Multi-Worker Collaboration**: Lead technicians can invite verified colleagues as either "Equal Sharing" (50/50 split) or "Rookie Mentorship" (0.5 apprentice credits).
+- **Rookie Progression Tracker**: Apprentices monitor shadowed gig credits and mentor evaluations towards full guild certification on `RookieProgressionScreen` (accessible from Worker Profile).
+- **Completion Evidence**: Mandatory photo evidence of finished work and cleaned work areas before payment settlement, reviewed visually by the customer.
 - **Review Submission Stack Resolution**: Submitting a customer evaluation smoothly transitions back to the "My Jobs" tab (`WorkerMainScreen.switchTab(context, 2)`) with zero backstack leaks.
 
 ### Shared Common Screens
@@ -383,26 +392,30 @@ SIH_2026/ [Project Root: Cooperative household-services platform]
     │           │   ├── opportunity_details_screen.dart [Guaranteed wage, distance, conflict warning check, accept/decline actions]
     │           │   └── worker_navigation_2_screen.dart [Worker Opportunities tab: filterable feed (Emergency, Conflicts, All)]
     │           ├── my_jobs/ [Worker My Jobs Tab]
-    │           │   ├── completion_evidence_upload_screen.dart [Work completion photo proof upload and handover notes]
+    │           │   ├── completion_evidence_upload_screen.dart [Work completion photo proof upload, camera/gallery picker, and handover notes]
     │           │   ├── incoming_join_request_screen.dart [Inspect incoming collaboration invites from lead technicians]
     │           │   ├── material_bill_upload_screen.dart [Itemized material cost claims and photo receipt audit uploads]
     │           │   ├── multi_worker_invite_screen.dart [Invite verified colleague as Equal Sharing (50/50) or Rookie Mentorship (0.5 credit)]
     │           │   ├── review_customer_screen.dart [Worker structured 3–4 MCQ review for customer, resetting to My Jobs]
     │           │   ├── rookie_progression_screen.dart [Apprentice progression tracker towards full trade guild certification]
     │           │   ├── visitation_proposal_dialog.dart [Fixed ₹100 on-site visitation scope assessment and quotation modal]
-    │           │   ├── waiting_confirmation_screen.dart [Live awaiting customer review and payment approval screen]
+    │           │   ├── waiting_confirmation_screen.dart [Live polling screen: disabled faded button while awaiting customer approval, active Confirm Payment Received upon approval]
     │           │   ├── worker_active_job_screen.dart [Central job execution workspace: status stepper, contact actions, co-worker invite]
     │           │   ├── worker_cancel_reschedule_screen.dart [Worker gig cancellation or reschedule request with policy checks]
-    │           │   ├── worker_navigation_3_screen.dart [Worker My Jobs tab: Active/Upcoming and Completed lists, invitations, rookie track]
+    │           │   ├── worker_navigation_3_screen.dart [Worker My Jobs tab: Clean tabbed view of Active/Upcoming and Completed lists with pull-to-refresh]
     │           │   └── worker_payment_confirmation_screen.dart [Reconciliation confirmation (UPI Direct / Cash) with zero deductions]
     │           └── profile/ [Worker Profile Tab]
     │               ├── worker_availability_screen.dart [Weekly recurring availability schedule editor (Mon–Sun toggles & time pickers)]
     │               ├── worker_earnings_screen.dart [Worker transparent earnings breakdown, gig payouts, zero-commission ledger]
-    │               ├── worker_navigation_4_screen.dart [Worker Profile tab: credentials, guild tariff guidelines, earnings, settings]
+    │               ├── worker_navigation_4_screen.dart [Worker Profile tab: credentials, guild tariff guidelines, earnings, settings, rookie track]
     │               └── worker_verification_screen.dart [Multi-tier verification viewer: KYC, Guild Trade, Shareholder, Police Antecedents]
-    └── test/ [Flutter Automated Tests (35 tests passing)]
+    └── test/ [Flutter Automated Tests (54 tests passing)]
         ├── cancellation_workflow_test.dart [5 comprehensive unit & workflow tests for gig cancellation and status consistency]
+        ├── customer_alerts_test.dart [8 tests validating candidate acceptance notifications and alert cards]
+        ├── gig_photos_test.dart [6 tests for completion evidence photo selection and carousel viewer]
         ├── integration_hardening_test.dart [23 comprehensive integration hardening tests covering API models, serialization, and repositories]
+        ├── tasks_skeleton_test.dart [2 tests for task skeleton shimmer loaders]
+        ├── waiting_confirmation_test.dart [3 tests for button disable/enable states and banner removal]
         └── widget_test.dart [7 comprehensive widget tests covering Customer/Worker flows, navigation shells, and authentication layouts]
 ```
 
@@ -455,7 +468,7 @@ The entire stack has been verified and passes all tests:
 ```text
 # Frontend Validation
 flutter analyze -> 0 issues found!
-flutter test -> All 35 tests passed! (5 cancellation tests + 23 integration tests + 7 widget tests)
+flutter test -> All 54 tests passed! (5 cancellation tests + 23 integration tests + 7 widget tests + 8 alert tests + 6 photo tests + 2 skeleton tests + 3 waiting confirmation tests)
 
 # Backend Validation
 pytest app/tests/ -> 198 passed in 14.8s

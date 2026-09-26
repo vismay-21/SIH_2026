@@ -35,7 +35,7 @@ class _WorkerHomeScreenState extends ConsumerState<WorkerHomeScreen> {
         _loadData();
       }
     });
-    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       if (mounted) {
         ref.read(workerOpportunitiesProvider.notifier).loadOpportunities(silent: true);
         ref.read(workerJobsProvider.notifier).loadJobs(silent: true);
@@ -114,7 +114,7 @@ class _WorkerHomeScreenState extends ConsumerState<WorkerHomeScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Availability Status Card (SRS 10.1)
+            // Availability Status Card
             InkWell(
               onTap: () {
                 Navigator.of(context).push(
@@ -161,7 +161,7 @@ class _WorkerHomeScreenState extends ConsumerState<WorkerHomeScreen> {
                           const SizedBox(height: 4),
                           Text(
                             _isAvailable
-                                ? 'Tap to manage weekly hours (SRS 10.1)'
+                                ? 'Tap to manage weekly hours'
                                 : 'Toggle on to receive eligible opportunities',
                             style: const TextStyle(
                               color: AppColors.muted,
@@ -390,34 +390,80 @@ class _WorkerHomeScreenState extends ConsumerState<WorkerHomeScreen> {
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: SurfaceCard(
-                  child: Row(
+                  child: Column(
                     children: [
-                      const CircleAvatar(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        child: Icon(Icons.handyman_outlined),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              currentJob.title,
-                              style: const TextStyle(fontWeight: FontWeight.w800),
+                      Row(
+                        children: [
+                          const CircleAvatar(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            child: Icon(Icons.handyman_outlined),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  currentJob.title,
+                                  style: const TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.event_available_rounded,
+                                      size: 14,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        currentJob.when,
+                                        style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '· ${currentJob.wage}',
+                                      style: const TextStyle(
+                                        color: AppColors.text,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${currentJob.when} · ${currentJob.wage}',
-                              style: const TextStyle(
-                                color: AppColors.muted,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                          StatusPill(currentJob.status.label),
+                        ],
                       ),
-                      StatusPill(currentJob.status.label),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => WorkerActiveJobScreen(job: currentJob),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.timeline_rounded, size: 16),
+                              label: const Text('Track job'),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),

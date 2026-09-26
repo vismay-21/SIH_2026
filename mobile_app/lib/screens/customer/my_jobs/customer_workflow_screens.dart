@@ -10,6 +10,8 @@ import '../../../repositories/payment_repository.dart';
 import '../../../repositories/review_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../utils/phone_dialer_helper.dart';
+import '../../../widgets/common/app_photo_view.dart';
+import '../../../widgets/common/sample_photos.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import '../../../widgets/common/sos_dialog.dart';
 import '../../common/chat_screen.dart';
@@ -1003,30 +1005,32 @@ class ActiveJobScreen extends StatelessWidget {
           // 3. Quick Actions: Material Bill & Reschedule
           Row(
             children: [
-              Expanded(
-                child: Card(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const MaterialBillViewerScreen(),
+              if (gig.workerBringsMaterials) ...[
+                Expanded(
+                  child: Card(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const MaterialBillViewerScreen(),
+                        ),
                       ),
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.receipt_long_rounded, color: AppColors.primary, size: 22),
-                          SizedBox(height: 6),
-                          Text('Material Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        ],
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.receipt_long_rounded, color: AppColors.primary, size: 22),
+                            SizedBox(height: 6),
+                            Text('Material Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
+                const SizedBox(width: 10),
+              ],
               Expanded(
                 child: Card(
                   child: InkWell(
@@ -1252,6 +1256,11 @@ class CompletionEvidenceReviewScreen extends StatefulWidget {
 class _CompletionEvidenceReviewScreenState
     extends State<CompletionEvidenceReviewScreen> {
   GigCompletionDetailDto? _completion;
+  bool _isLoading = true;
+  int _selectedPhotoIndex = 0;
+  bool _checkPhysicalWork = true;
+  bool _checkCleanliness = true;
+  bool _checkTestedDefects = true;
 
   @override
   void initState() {
@@ -1260,20 +1269,111 @@ class _CompletionEvidenceReviewScreenState
   }
 
   Future<void> _fetchEvidence() async {
-    if (widget.gig.id == null) return;
+    if (widget.gig.id == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+    setState(() => _isLoading = true);
     try {
       final comp = await GigRepository().getCompletion(widget.gig.id!);
-      if (mounted) setState(() => _completion = comp);
+      if (mounted) {
+        setState(() {
+          _completion = comp;
+          _isLoading = false;
+        });
+      }
     } catch (_) {
-      // Keep existing default display
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _openChat(BuildContext context) {
+    final worker = widget.gig.selectedWorker;
+    final workerName = worker?.name ?? 'Artisan';
+    if (widget.gig.id != null) {
+      Navigator.of(context, rootNavigator: true).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ChatScreen(
+            title: workerName,
+            subtitle: widget.gig.title,
+            gigId: widget.gig.id,
+          ),
+        ),
+      );
+    }
+  }
+
+  void _callWorker(BuildContext context) {
+    final phone = widget.gig.selectedWorker?.phoneNumber ?? '+91 98765 43210';
+    PhoneDialerHelper.launchDialer(context, phone);
+  }
+
+  Widget _buildCheckTile({
+    required String title,
+    required bool value,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        borderRadius: BorderRadius.circular(6),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Checkbox(
+                value: value,
+                onChanged: onChanged,
+                activeColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return _WorkflowScaffold(
+        title: 'Completion Evidence',
+        subtitle: 'Fetching verified work evidence...',
+        child: const SurfaceCard(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+            child: Center(
+              child: Column(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 14),
+                  Text(
+                    'Loading work evidence photos...',
+                    style: TextStyle(color: AppColors.muted, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     if (widget.gig.stage != GigStage.completionRequested && _completion == null) {
       return _WorkflowScaffold(
-        title: 'Completion evidence',
+        title: 'Completion Evidence',
         subtitle: 'Evidence has not been submitted yet.',
         child: Column(
           children: [
@@ -1318,50 +1418,366 @@ class _CompletionEvidenceReviewScreenState
       );
     }
 
-    final photoCount = _completion?.submission?.evidenceFiles.length ?? 2;
-    final notes = _completion?.submission?.description ??
-        'Before and after photos from the selected worker are ready to review.';
+    final submission = _completion?.submission;
+    final evidenceFiles = submission?.evidenceFiles ?? [];
+    List<String> photos = evidenceFiles
+        .map((e) => e.fileUrl)
+        .where((u) => u.trim().isNotEmpty)
+        .toList();
+
+    if (photos.isEmpty && widget.gig.photos.isNotEmpty) {
+      photos = List.from(widget.gig.photos);
+    }
+    if (photos.isEmpty) {
+      photos = [
+        SampleCompletionPhotos.repairedPlumbingJoint,
+        SampleCompletionPhotos.rewiredCircuitSocket,
+      ];
+    }
+
+    final activeIndex = _selectedPhotoIndex.clamp(0, photos.isEmpty ? 0 : photos.length - 1);
+    final worker = widget.gig.selectedWorker;
 
     return _WorkflowScaffold(
-      title: 'Completion evidence',
-      subtitle: 'Review the worker evidence before confirming the work.',
+      title: 'Review Work Evidence',
+      subtitle: 'Inspect the artisan\'s completed work photos before confirming completion and releasing payment.',
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 1. Status Banner
           SurfaceCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            color: AppColors.success.withValues(alpha: 0.08),
+            padding: const EdgeInsets.all(14),
+            child: Row(
               children: [
-                const Icon(
-                  Icons.photo_library_outlined,
-                  color: AppColors.primary,
-                  size: 38,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  '$photoCount completion photo(s) uploaded',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  notes,
-                  style: const TextStyle(color: AppColors.muted, height: 1.3),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Evidence viewer opened.')),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
                   ),
-                  icon: const Icon(Icons.open_in_new_rounded),
-                  label: const Text('View evidence'),
+                  child: const Icon(Icons.verified_rounded, color: AppColors.success, size: 22),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Work Completed by Artisan',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.success),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Review uploaded evidence photos below. Your payment remains secure until you approve.',
+                        style: TextStyle(fontSize: 12, color: AppColors.muted, height: 1.3),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
+
+          // 2. Photo Gallery & Hero Viewer Card
+          SurfaceCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.photo_library_rounded, color: AppColors.primary, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Work Evidence (${photos.length})',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                        ),
+                      ],
+                    ),
+                    GestureDetector(
+                      onTap: () => PhotoViewerDialog.show(
+                        context,
+                        photos: photos,
+                        initialIndex: activeIndex,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.fullscreen_rounded, size: 16, color: AppColors.primary),
+                            SizedBox(width: 4),
+                            Text(
+                              'Zoom In',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Hero Preview
+                GestureDetector(
+                  onTap: () => PhotoViewerDialog.show(
+                    context,
+                    photos: photos,
+                    initialIndex: activeIndex,
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    height: 230,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(11),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          AppImageWidget(
+                            photo: photos[activeIndex],
+                            fit: BoxFit.cover,
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.75),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Photo ${activeIndex + 1} of ${photos.length}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Tap to zoom',
+                                        style: TextStyle(color: Colors.white, fontSize: 11),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Thumbnail row when there are multiple photos
+                if (photos.length > 1) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 64,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: photos.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 10),
+                      itemBuilder: (context, idx) {
+                        final isSel = idx == activeIndex;
+                        return GestureDetector(
+                          onTap: () => setState(() => _selectedPhotoIndex = idx),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSel ? AppColors.primary : AppColors.border,
+                                width: isSel ? 2.5 : 1,
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(6.5),
+                              child: AppImageWidget(
+                                photo: photos[idx],
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 3. Artisan Notes & Contact Card
+          SurfaceCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      child: Text(
+                        worker?.initials ?? 'A',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            worker?.name ?? 'Assigned Artisan',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                          ),
+                          Text(
+                            '${worker?.skill ?? widget.gig.category} · ★ ${worker?.rating ?? "4.8"}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton.filledTonal(
+                      icon: const Icon(Icons.phone_rounded, size: 18),
+                      tooltip: 'Call Artisan',
+                      onPressed: () => _callWorker(context),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton.filledTonal(
+                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                      tooltip: 'Chat with Artisan',
+                      onPressed: () => _openChat(context),
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+                const Text(
+                  'Artisan Handover Notes:',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Text(
+                    submission?.description?.trim().isNotEmpty == true
+                        ? submission!.description!
+                        : 'Work completed per agreed specifications. Verified functioning and cleared the work area.',
+                    style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF2C3E50)),
+                  ),
+                ),
+                if (submission?.submittedAt != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Submitted at: ${submission!.submittedAt.hour.toString().padLeft(2, '0')}:${submission.submittedAt.minute.toString().padLeft(2, '0')}',
+                    style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 4. Verification Checklist Card
+          SurfaceCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.checklist_rounded, color: AppColors.primary, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Customer Handover Checklist',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Verify before releasing payment to ensure complete satisfaction.',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+                ),
+                const SizedBox(height: 8),
+                _buildCheckTile(
+                  title: 'Physical work inspected & verified',
+                  value: _checkPhysicalWork,
+                  onChanged: (val) => setState(() => _checkPhysicalWork = val ?? true),
+                ),
+                _buildCheckTile(
+                  title: 'Work area cleaned up & debris cleared',
+                  value: _checkCleanliness,
+                  onChanged: (val) => setState(() => _checkCleanliness = val ?? true),
+                ),
+                _buildCheckTile(
+                  title: 'Tested operation with no leaks or defects',
+                  value: _checkTestedDefects,
+                  onChanged: (val) => setState(() => _checkTestedDefects = val ?? true),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 5. Action Buttons
           SizedBox(
             width: double.infinity,
             child: PrimaryAction(
-              label: 'Confirm completion',
+              label: 'Approve Work & Proceed to Payment',
               icon: Icons.check_circle_outline_rounded,
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -1370,13 +1786,13 @@ class _CompletionEvidenceReviewScreenState
               ),
             ),
           ),
-          TextButton(
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('You can contact the worker before confirming.'),
-              ),
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton.icon(
+              onPressed: () => _openChat(context),
+              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+              label: const Text('Questions? Chat with Artisan'),
             ),
-            child: const Text('Contact worker about the work'),
           ),
         ],
       ),
@@ -1580,16 +1996,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
           paymentMethod: _method,
         );
         if (mounted) {
-          setState(() {
-            _paid = true;
-          });
-          _startPaymentPolling();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
                 _method == 'UPI'
-                    ? 'UPI payment initiated (₹${amount.toStringAsFixed(0)} to yugshah5253@oksbi). Worker confirmation is pending.'
-                    : 'Payment recorded. Worker confirmation is pending.',
+                    ? 'UPI payment initiated (₹${amount.toStringAsFixed(0)} to yugshah5253@oksbi).'
+                    : 'Payment recorded.',
+              ),
+              backgroundColor: AppColors.success,
+            ),
+          );
+
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute<void>(
+              builder: (_) => ReviewWorkerScreen(
+                workerName: widget.gig.selectedWorker?.name ?? 'Artisan',
+                gigTitle: widget.gig.title,
+                gigId: widget.gig.id,
+                workerId: widget.gig.selectedWorker?.workerId,
               ),
             ),
           );
@@ -1605,13 +2029,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
       }
     } else {
       if (!mounted) return;
-      setState(() => _paid = true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             _method == 'UPI'
                 ? 'UPI payment initiated (₹${amount.toStringAsFixed(0)} to yugshah5253@oksbi).'
-                : 'Payment recorded. Worker confirmation is pending.',
+                : 'Payment recorded.',
+          ),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => ReviewWorkerScreen(
+            workerName: widget.gig.selectedWorker?.name ?? 'Artisan',
+            gigTitle: widget.gig.title,
+            gigId: widget.gig.id,
+            workerId: widget.gig.selectedWorker?.workerId,
           ),
         ),
       );

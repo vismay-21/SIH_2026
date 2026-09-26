@@ -119,7 +119,7 @@ class _MaterialBillUploadScreenState extends State<MaterialBillUploadScreen> {
 
           const SizedBox(height: 20),
 
-          // Policy notice (SRS 7.2)
+          // Policy notice
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -139,7 +139,7 @@ class _MaterialBillUploadScreenState extends State<MaterialBillUploadScreen> {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Per SRS 7.2: Itemized receipts ensure zero hidden markups. Material costs are audited and added to the customer payout.',
+                    'Itemized receipts ensure zero hidden markups. Material costs are audited and added to the customer payout.',
                     style: TextStyle(fontSize: 12, height: 1.3),
                   ),
                 ),

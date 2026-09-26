@@ -52,6 +52,7 @@ class OpportunityService:
             scheduled_end_time=gig.scheduled_end_time,
             expected_duration_minutes=gig.expected_duration_minutes,
             is_emergency=gig.is_emergency,
+            photos=gig.photos or [],
             material_procurement_mode=gig.material_procurement_mode,
             acceptance_deadline=gig.acceptance_deadline,
             tasks=tasks,
@@ -601,8 +602,8 @@ class OpportunityService:
                     recipient_id=gig.customer_id,
                     gig_id=gig.id,
                     type="WORKER_ACCEPTED",
-                    title="Worker Accepted Opportunity",
-                    body=f"{worker_display} has accepted the opportunity for gig #{gig.id}.",
+                    title=f"{worker_display} accepted your gig",
+                    body=f"{worker_display} has accepted the opportunity for gig #{gig.id}. Tap to review candidate profile and choose.",
                     action_url=f"/gigs/{gig.id}/candidates",
                 )
             )

@@ -92,13 +92,13 @@ class AboutHelpScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _buildFaqTile(
-            question: 'What is the Rookie Mentorship Track (SRS 15.2)?',
+            question: 'What is the Rookie Mentorship Track?',
             answer:
                 'New apprentices earn 0.5 verified cooperative job credits by shadowing experienced master technicians on complex jobs, gaining practical skills with zero customer commission deductions.',
           ),
           const SizedBox(height: 8),
           _buildFaqTile(
-            question: 'How does Emergency Tipping work (SRS 18.1)?',
+            question: 'How does Emergency Tipping work?',
             answer:
                 'If no nearby worker accepts an emergency post, the customer can voluntarily add an incentive tip. 100% of the tip amount goes directly to the responding technician.',
           ),

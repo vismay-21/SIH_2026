@@ -8,6 +8,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
 import '../../../widgets/common/skeleton_loaders.dart';
 import '../customer_main_screen.dart';
+import '../my_jobs/gig_details_screen.dart';
 import '../profile/customer_account_screens.dart';
 import 'create_gig_screen.dart';
 
@@ -285,10 +286,10 @@ class _GigCard extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () => CustomerMainScreen.switchTab(
-                    context,
-                    1,
-                    initialGig: gig,
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => GigDetailsScreen(gig: gig),
+                    ),
                   ),
                   icon: const Icon(Icons.timeline_rounded, size: 16),
                   label: const Text('Track job'),

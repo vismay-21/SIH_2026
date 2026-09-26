@@ -39,8 +39,9 @@ class _ShimmerEffectState extends State<ShimmerEffect>
 
   @override
   Widget build(BuildContext context) {
-    final base = widget.baseColor ?? const Color(0xFFE2E6E3);
-    final highlight = widget.highlightColor ?? const Color(0xFFF9FAF9);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = widget.baseColor ?? (isDark ? const Color(0xFF2A3632) : const Color(0xFFE2E6E3));
+    final highlight = widget.highlightColor ?? (isDark ? const Color(0xFF3B4A45) : const Color(0xFFF9FAF9));
 
     return AnimatedBuilder(
       animation: _controller,
@@ -97,11 +98,12 @@ class SkeletonBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: const Color(0xFFE2E6E3),
+        color: isDark ? const Color(0xFF2A3632) : const Color(0xFFE2E6E3),
         borderRadius: BorderRadius.circular(borderRadius),
       ),
     );
@@ -199,6 +201,55 @@ class OpportunityCardSkeleton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shimmering skeleton representing the tasks list inside the category task selector.
+class TasksListSkeleton extends StatelessWidget {
+  const TasksListSkeleton({super.key, this.itemCount = 5});
+
+  final int itemCount;
+
+  @override
+  Widget build(BuildContext context) {
+    const widths = [180.0, 240.0, 150.0, 210.0, 190.0, 160.0];
+
+    return ShimmerEffect(
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        itemCount: itemCount,
+        separatorBuilder: (context, index) => Divider(
+          height: 1,
+          color: AppColors.border.withValues(alpha: 0.5),
+        ),
+        itemBuilder: (context, index) {
+          final textWidth = widths[index % widths.length];
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 11,
+            ),
+            child: Row(
+              children: [
+                const SkeletonBox(
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                ),
+                const SizedBox(width: 10),
+                SkeletonBox(
+                  width: textWidth,
+                  height: 14,
+                  borderRadius: 4,
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

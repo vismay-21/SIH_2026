@@ -148,6 +148,22 @@ void main() {
         );
       }
 
+      if (path.contains('/notifications')) {
+        return Response<dynamic>(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'status': 'success',
+            'data': {
+              'items': [],
+              'unread_count': 0,
+              'limit': 50,
+              'offset': 0,
+            },
+          },
+        );
+      }
+
       if (path.contains('/gigs/')) {
         return Response<dynamic>(
           requestOptions: options,

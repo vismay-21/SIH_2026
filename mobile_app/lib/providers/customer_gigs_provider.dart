@@ -28,6 +28,10 @@ class CustomerGigsState {
   List<CustomerGig> get upcoming =>
       activeGigs.where((g) => g.stage == GigStage.scheduled).toList();
 
+  /// All active & scheduled gigs unified for My Gigs Tab 0 (matches worker side).
+  List<CustomerGig> get allActiveAndScheduled => activeGigs;
+  List<CustomerGig> get activeAndUpcoming => activeGigs;
+
   /// Total count of open/active gigs
   int get activeCount => activeGigs.length;
 
@@ -48,6 +52,7 @@ class CustomerGigsState {
 
 class CustomerGigsNotifier extends Notifier<CustomerGigsState> {
   final GigRepository _gigRepo = GigRepository();
+  bool _isFetching = false;
 
   @override
   CustomerGigsState build() {
@@ -56,16 +61,18 @@ class CustomerGigsNotifier extends Notifier<CustomerGigsState> {
   }
 
   Future<void> loadGigs({bool silent = false}) async {
+    if (_isFetching) return;
+    _isFetching = true;
+
     if (!silent) {
       state = state.copyWith(isLoading: true, errorMessage: null);
     }
 
     try {
       final gigsResp = await _gigRepo.getCustomerGigs(pageSize: 50);
-      final active = <CustomerGig>[];
-      final completed = <CustomerGig>[];
 
-      for (final dto in gigsResp.data) {
+      // Fetch candidates in parallel for gigs awaiting worker selection
+      final gigFutures = gigsResp.data.map((dto) async {
         final status = dto.status.toUpperCase();
         List<GigCandidateDto> candDtos = [];
         if (dto.selectedWorkerId == null &&
@@ -79,8 +86,16 @@ class CustomerGigsNotifier extends Notifier<CustomerGigsState> {
         final candidates = candDtos
             .map((c) => GigCandidate.fromDto(c, categoryName: dto.categoryName))
             .toList();
-        final gig = CustomerGig.fromDto(dto, candidates: candidates);
+        return CustomerGig.fromDto(dto, candidates: candidates);
+      });
 
+      final allGigs = await Future.wait(gigFutures);
+
+      final active = <CustomerGig>[];
+      final completed = <CustomerGig>[];
+
+      for (final gig in allGigs) {
+        final status = (gig.rawStatus ?? '').toUpperCase();
         final isCancelled =
             gig.stage == GigStage.cancelled || status == 'CANCELLED';
         final isCompleted = gig.stage == GigStage.completed ||
@@ -104,10 +119,16 @@ class CustomerGigsNotifier extends Notifier<CustomerGigsState> {
         errorMessage: null,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      );
+      if (!silent) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: e.toString(),
+        );
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+    } finally {
+      _isFetching = false;
     }
   }
 

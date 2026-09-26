@@ -9,6 +9,7 @@ import '../../../repositories/catalogue_repository.dart';
 import '../../../repositories/gig_repository.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/common/shared_widgets.dart';
+import '../../../widgets/common/app_photo_view.dart';
 
 class LabourPricePreviewScreen extends ConsumerStatefulWidget {
   const LabourPricePreviewScreen({super.key, required this.draft});
@@ -114,6 +115,7 @@ class _LabourPricePreviewScreenState extends ConsumerState<LabourPricePreviewScr
               : 'WORKER_PURCHASES',
           scheduledDate: widget.draft.scheduledDateFormatted,
           scheduledStartTime: widget.draft.scheduledStartTimeFormatted,
+          photos: widget.draft.photos,
         ),
       );
 
@@ -317,9 +319,20 @@ class _LabourPricePreviewScreenState extends ConsumerState<LabourPricePreviewScr
                       label: 'Site visit',
                       value: 'Requested (₹100)',
                     ),
+                  if (widget.draft.photos.isNotEmpty)
+                    _SummaryRow(
+                      label: 'Issue photos',
+                      value: '${widget.draft.photos.length} photo(s) attached',
+                    ),
                 ],
               ),
             ),
+            if (widget.draft.photos.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const SectionTitle('Attached issue photos'),
+              const SizedBox(height: 6),
+              AppPhotoGallery(photos: widget.draft.photos),
+            ],
             const SizedBox(height: 26),
             SizedBox(
               width: double.infinity,

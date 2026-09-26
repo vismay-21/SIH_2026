@@ -93,7 +93,7 @@ class _WorkerPaymentConfirmationScreenState
 
           const SizedBox(height: 20),
 
-          // Payout Breakdown (SRS 19.1)
+          // Payout Breakdown
           SurfaceCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
