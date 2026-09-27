@@ -424,6 +424,8 @@ SIH_2026/ [Project Root: Cooperative household-services platform]
 ## Important File Responsibilities
 
 ### Frontend (`mobile_app/`)
+- `android/app/src/main/AndroidManifest.xml`: Android application manifest configuring app label (`Sahakaar Seva`), permissions, and adaptive round/square launcher icon bindings.
+- `android/app/src/main/res/`: Native Android adaptive icon resources (`mipmap-anydpi-v26/`, `values/colors.xml`, `drawable/ic_launcher_background.xml`, and multi-density mipmaps `mdpi` through `xxxhdpi`) rendering full-bleed `#245B52` background and crisp centered white cooperative emblem.
 - `lib/main.dart`: App entry point; launches `SplashScreen` and configures Material 3 app theme.
 - `lib/theme/app_theme.dart`: Color tokens, Material 3 styling, component themes, and global square offset-shadow button styling.
 - `lib/services/api_client.dart`: Centralized Dio HTTP client wrapper with automatic base URL syncing, bearer token injection, structured error transformation (`ApiError`), and mock handler hook for unit tests.

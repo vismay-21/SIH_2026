@@ -53,8 +53,13 @@ class _WorkerLoginScreenState extends State<WorkerLoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
+    final isHindi = loginLanguageHindiNotifier.value;
     if (email.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Please enter both email and password.');
+      setState(
+        () => _errorMessage = isHindi
+            ? 'कृपया ईमेल और पासवर्ड दोनों दर्ज करें।'
+            : 'Please enter both email and password.',
+      );
       return;
     }
 
@@ -75,8 +80,9 @@ class _WorkerLoginScreenState extends State<WorkerLoginScreen> {
       if (response.user.role != 'worker') {
         setState(() {
           _isLoading = false;
-          _errorMessage =
-              'This account is registered as a ${response.user.role}. Please log in via the ${response.user.role} portal.';
+          _errorMessage = isHindi
+              ? 'यह खाता ${response.user.role == 'customer' ? 'ग्राहक' : response.user.role} के रूप में पंजीकृत है। कृपया संबंधित पोर्टल से लॉगिन करें।'
+              : 'This account is registered as a ${response.user.role}. Please log in via the ${response.user.role} portal.';
         });
         return;
       }
@@ -113,29 +119,37 @@ class _WorkerLoginScreenState extends State<WorkerLoginScreen> {
       isLoading: _isLoading,
       errorMessage: _errorMessage,
       extraContent: _demoUsers.isNotEmpty
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Quick Demo Accounts:',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  children: _demoUsers.map((u) {
-                    return ActionChip(
-                      label: Text(u.fullName.isNotEmpty ? u.fullName : u.email),
-                      onPressed: () {
-                        setState(() {
-                          _emailController.text = u.email;
-                          _passwordController.text = 'password123';
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-              ],
+          ? ValueListenableBuilder<bool>(
+              valueListenable: loginLanguageHindiNotifier,
+              builder: (context, isHindi, _) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isHindi ? 'त्वरित डेमो खाते:' : 'Quick Demo Accounts:',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    children: _demoUsers.map((u) {
+                      return ActionChip(
+                        label: Text(
+                          u.fullName.isNotEmpty ? u.fullName : u.email,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _emailController.text = u.email;
+                            _passwordController.text = 'password123';
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
             )
           : null,
       onLogin: _handleLogin,

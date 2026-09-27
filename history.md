@@ -1318,6 +1318,81 @@ Completed **Completion Evidence Photo Upload & Customer Review, Date/Time Schedu
 - **Mobile Unit & Widget Tests**: All 54 tests passing (`flutter test`).
 - **Backend Test Suite**: All 198 tests passing in 6m 19s (`pytest app/tests`).
 
+---
+
+## 2026-09-27: App Identity & Android Adaptive Launcher Icon Overhaul
+
+### 1. Brand Name & Spelling Correction
+- **Spelling Analysis**: User specified `saahkaaar seva`. Checked against Hindi/Sanskrit etymology (**सहकार सेवा** - Cooperative Service) and project design system. Correct spelling is **`Sahakaar Seva`** (or `Sahakar Seva`). The codebase consistently uses `Sahakaar Seva`.
+- **Android Launcher Label**:
+  - Modified [AndroidManifest.xml](file:///d:/Tech_Projects/10_SIH_2026/SIH_2026/mobile_app/android/app/src/main/AndroidManifest.xml) line 7 from `android:label="mobile_app"` to `android:label="Sahakaar Seva"`.
+  - Added `android:roundIcon="@mipmap/ic_launcher_round"` to `<application>`.
+- **Flutter App Title**: Verified [main.dart](file:///d:/Tech_Projects/10_SIH_2026/SIH_2026/mobile_app/lib/main.dart) line 20 maintains `title: 'Sahakaar Seva'`.
+
+### 2. Elimination of White Border & Zoomed-Out Flutter Icon Distortion
+- **Root Cause**: Flutter projects default to legacy raster icons without Android Adaptive Icons (`mipmap-anydpi-v26`). Modern Android launchers (Android 8.0+ up to Android 15 on Motorola Edge 40) force legacy icons into a small white circular disk container, resulting in an unsightly white border and shrinking/zooming out the icon.
+- **Android Adaptive Icon Configuration**:
+  - Created [colors.xml](file:///d:/Tech_Projects/10_SIH_2026/SIH_2026/mobile_app/android/app/src/main/res/values/colors.xml) defining `<color name="ic_launcher_background">#245B52</color>` (AppColors.primary).
+  - Created [ic_launcher_background.xml](file:///d:/Tech_Projects/10_SIH_2026/SIH_2026/mobile_app/android/app/src/main/res/drawable/ic_launcher_background.xml) color drawable.
+  - Created [ic_launcher.xml](file:///d:/Tech_Projects/10_SIH_2026/SIH_2026/mobile_app/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml) and [ic_launcher_round.xml](file:///d:/Tech_Projects/10_SIH_2026/SIH_2026/mobile_app/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml) targeting the background color and foreground drawable.
+- **Asset Generation (Pillow Supersampling & Optical Alignment)**:
+  - Extracted authentic Material `home_work_rounded` glyph (`0xf7f6`, matching in-app `BrandMark`) from Flutter font assets.
+  - Rendered supersampled 1728px foreground with subtle elevation shadow and crisp white silhouette.
+  - Sized emblem to fit inside the 72dp safe circle with natural optical centering, preventing clipping on circle, squircle, and rounded rectangle masks.
+  - Generated all 5 density buckets (`mipmap-mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) for:
+    - `ic_launcher_foreground.png` (transparent background, emblem in safe zone).
+    - `ic_launcher.png` (legacy squircle filled with `#245B52`).
+    - `ic_launcher_round.png` (legacy circle filled with `#245B52`).
+- **Validation**:
+  - `flutter analyze`: 0 issues found.
+  - `flutter test`: All 54 tests passing.
+
+---
+
+## 2026-09-27: Hindi Language Toggle on Login Screens (MVP)
+
+### 1. Scope
+Per MVP requirement: language switching is implemented **only on the Customer and Worker login pages**. No full i18n/l10n library; all translations are inline and self-contained.
+
+### 2. Global Language State (`shared_widgets.dart`)
+- Added `final loginLanguageHindiNotifier = ValueNotifier<bool>(false)` — a single global toggle shared between both login screens.
+- Toggling this notifier rebuilds the entire `AuthLoginLayout` via `ValueListenableBuilder<bool>`, ensuring instant, zero-lag UI updates.
+- State persists while the user is on the login flow but **resets on app restart** (intentional MVP behaviour).
+
+### 3. Language Toggle Button Design
+- Placed in the top app bar between the Back arrow and the BrandMark.
+- Pill-shaped container with `translate_rounded` icon + language label (`हिंदी` → switches to Hindi; `English` → switches back).
+- **Active state** (Hindi): brand primary `#245B52` fill, white text/icon.
+- **Inactive state** (English): white/dark-surface fill, primary-colored text/icon.
+- Adapts to light and dark theme via `Theme.of(context).brightness`.
+
+### 4. Translations Covered
+All visible strings on both login screens switch atomically:
+- Screen heading: `Customer Login` ↔ `ग्राहक लॉगिन` / `Worker Login` ↔ `कारीगर लॉगिन`
+- Card title: `Customer account` ↔ `ग्राहक खाता` / `Worker account` ↔ `कारीगर खाता`
+- Description paragraph (role-specific)
+- Email label: `Email or mobile number` ↔ `ईमेल या मोबाइल नंबर`
+- Password label: `Password` ↔ `पासवर्ड`
+- Forgot password link: `Forgot password?` ↔ `पासवर्ड भूल गए?`
+- Login button: `Login` ↔ `लॉगिन`
+- Register button: `Register` ↔ `पंजीकरण करें`
+- Privacy note at bottom
+- BrandMark tagline: `Cooperative household services` ↔ `सहकारी घरेलू सेवाएँ`
+- Demo accounts header: `Quick Demo Accounts:` ↔ `त्वरित डेमो खाते:`
+- Validation errors: empty-field and wrong-role error messages
+
+### 5. Files Changed
+- `lib/widgets/common/shared_widgets.dart`: `BrandMark` gains `isHindi` param; `AuthLoginLayout` fully refactored to `ValueListenableBuilder`.
+- `lib/screens/customer/customer_login_screen.dart`: Hindi-aware error messages and demo accounts widget.
+- `lib/screens/worker/worker_login_screen.dart`: Hindi-aware error messages and demo accounts widget.
+- `test/widget_test.dart`: New widget test (`login screens toggle language to Hindi and back to English`) verifying full EN→HI→EN and Customer→Worker toggle.
+
+### 6. Validation
+- `flutter analyze`: 0 issues found.
+- `flutter test`: All **55 tests** passing (54 previous + 1 new language toggle test).
+
+
+
 
 
 

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile_app/main.dart';
 import 'package:mobile_app/services/api_client.dart';
+import 'package:mobile_app/widgets/common/shared_widgets.dart';
 
 void main() {
   setUp(() {
@@ -425,5 +426,63 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Opportunities'), findsOneWidget);
+  });
+
+  testWidgets('login screens toggle language to Hindi and back to English', (
+    WidgetTester tester,
+  ) async {
+    loginLanguageHindiNotifier.value = false;
+    await tester.pumpWidget(const MyApp());
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Customer'));
+    await tester.pumpAndSettle();
+
+    // Verify English initial state
+    expect(find.text('Customer Login'), findsOneWidget);
+    expect(find.text('Customer account'), findsOneWidget);
+    expect(find.text('Forgot password?'), findsOneWidget);
+    expect(find.text('Login'), findsOneWidget);
+    expect(find.text('Register'), findsOneWidget);
+    expect(find.text('हिंदी'), findsOneWidget);
+
+    // Toggle to Hindi
+    await tester.tap(find.text('हिंदी'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ग्राहक लॉगिन'), findsOneWidget);
+    expect(find.text('ग्राहक खाता'), findsOneWidget);
+    expect(find.text('पासवर्ड भूल गए?'), findsOneWidget);
+    expect(find.text('लॉगिन'), findsOneWidget);
+    expect(find.text('पंजीकरण करें'), findsOneWidget);
+    expect(find.text('English'), findsOneWidget);
+
+    // Toggle back to English
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Customer Login'), findsOneWidget);
+    expect(find.text('Login'), findsOneWidget);
+
+    // Test Worker Login in Hindi
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Worker'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Worker Login'), findsOneWidget);
+    expect(find.text('Worker account'), findsOneWidget);
+
+    await tester.tap(find.text('हिंदी'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('कारीगर लॉगिन'), findsOneWidget);
+    expect(find.text('कारीगर खाता'), findsOneWidget);
+    expect(find.text('लॉगिन'), findsOneWidget);
+    expect(find.text('पंजीकरण करें'), findsOneWidget);
+
+    // Clean up state
+    loginLanguageHindiNotifier.value = false;
   });
 }
